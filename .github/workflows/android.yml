@@ -1,0 +1,133 @@
+name: Build Нефтяник APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: neftyanik-android-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-android:
+    name: Сборка Нефтяник Android
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Получить проект
+        uses: actions/checkout@v4
+
+      - name: Найти Flutter проект
+        id: project
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "Ищем pubspec.yaml..."
+
+          PROJECT_DIR="$(find "$GITHUB_WORKSPACE" \
+            -type f \
+            -name pubspec.yaml \
+            -not -path '*/.git/*' \
+            -print -quit | xargs -r dirname || true)"
+
+          if [ -z "$PROJECT_DIR" ]; then
+            echo "Flutter-проект не найден напрямую. Ищем ZIP..."
+            ZIP_FILE="$(find "$GITHUB_WORKSPACE" \
+              -type f \
+              -iname '*.zip' \
+              -not -path '*/.git/*' \
+              -printf '%s %p\n' | sort -nr | head -1 | cut -d' ' -f2- || true)"
+
+            if [ -n "$ZIP_FILE" ]; then
+              echo "Найден ZIP: $ZIP_FILE"
+              EXTRACT_DIR="$RUNNER_TEMP/neftyanik_project"
+              rm -rf "$EXTRACT_DIR"
+              mkdir -p "$EXTRACT_DIR"
+              unzip -q "$ZIP_FILE" -d "$EXTRACT_DIR"
+
+              PROJECT_DIR="$(find "$EXTRACT_DIR" \
+                -type f \
+                -name pubspec.yaml \
+                -print -quit | xargs -r dirname || true)"
+            fi
+          fi
+
+          if [ -z "$PROJECT_DIR" ] || [ ! -f "$PROJECT_DIR/pubspec.yaml" ]; then
+            echo "ОШИБКА: Flutter-проект не найден."
+            find "$GITHUB_WORKSPACE" -maxdepth 4 -type f | sort | head -300
+            exit 1
+          fi
+
+          PROJECT_DIR="$(cd "$PROJECT_DIR" && pwd)"
+          echo "Flutter project: $PROJECT_DIR"
+          echo "project_dir=$PROJECT_DIR" >> "$GITHUB_OUTPUT"
+
+      - name: Установить Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Показать версию Flutter
+        run: flutter --version
+
+      - name: Создать Android конфигурацию
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "${{ steps.project.outputs.project_dir }}"
+
+          echo "Удаляем старую Android-конфигурацию..."
+          rm -rf android
+
+          echo "Создаём Android-конфигурацию Flutter..."
+          flutter create \
+            --platforms=android \
+            --project-name neftyanik \
+            --org ru.oilman \
+            .
+
+          test -f android/settings.gradle.kts
+          test -f android/app/build.gradle.kts
+          test -f android/gradlew
+
+          chmod +x android/gradlew
+          echo "Android конфигурация создана."
+
+      - name: Установить зависимости
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "${{ steps.project.outputs.project_dir }}"
+          flutter clean
+          flutter pub get
+
+      - name: Собрать APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "${{ steps.project.outputs.project_dir }}"
+
+          echo "Собираем Нефтяник..."
+          flutter build apk --release
+
+          test -f build/app/outputs/flutter-apk/app-release.apk
+
+          mkdir -p "$GITHUB_WORKSPACE/artifacts"
+          cp build/app/outputs/flutter-apk/app-release.apk \
+            "$GITHUB_WORKSPACE/artifacts/neftyanik-v1.4-release.apk"
+
+          echo "APK успешно создан."
+
+      - name: Опубликовать APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: neftyanik-android
+          path: artifacts/neftyanik-v1.4-release.apk
+          if-no-files-found: error
+          retention-days: 30
