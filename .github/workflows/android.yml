@@ -1,0 +1,104 @@
+name: Build Android APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-android:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Получить файлы из GitHub
+        uses: actions/checkout@v4
+
+      - name: Найти или распаковать Flutter-проект
+        id: project
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # 1. Сначала ищем уже распакованный Flutter-проект.
+          PROJECT_DIR="$(find . -type f -name pubspec.yaml -not -path './.git/*' -print -quit | xargs -r dirname || true)"
+
+          # 2. Если pubspec.yaml нет, ищем ZIP с Flutter-проектом и распаковываем его.
+          if [ -z "$PROJECT_DIR" ]; then
+            ZIP_FILE="$(find . -type f \( -iname '*.zip' \) -not -path './.git/*' -print -quit || true)"
+            if [ -n "$ZIP_FILE" ]; then
+              echo "Найден ZIP: $ZIP_FILE"
+              rm -rf .build_project
+              mkdir -p .build_project
+              unzip -q "$ZIP_FILE" -d .build_project
+              PROJECT_DIR="$(find .build_project -type f -name pubspec.yaml -print -quit | xargs -r dirname || true)"
+            fi
+          fi
+
+          if [ -z "$PROJECT_DIR" ] || [ ! -f "$PROJECT_DIR/pubspec.yaml" ]; then
+            echo "ОШИБКА: не найден pubspec.yaml ни в распакованном проекте, ни внутри ZIP."
+            echo "Файлы в репозитории:"
+            find . -maxdepth 4 -type f | sort | head -300
+            exit 1
+          fi
+
+          PROJECT_DIR="$(cd "$PROJECT_DIR" && pwd)"
+          echo "Flutter project: $PROJECT_DIR"
+          echo "project_dir=$PROJECT_DIR" >> "$GITHUB_OUTPUT"
+
+      - name: Установить Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Подготовить Android
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "${{ steps.project.outputs.project_dir }}"
+
+          # Если Android-папка неполная, Flutter создаёт недостающие стандартные файлы.
+          if [ ! -f android/gradlew ] || [ ! -f android/gradle/wrapper/gradle-wrapper.properties ]; then
+            flutter create --platforms=android --project-name oilman_app --org ru.oilman .
+          fi
+
+          test -f pubspec.yaml
+          test -f android/app/build.gradle || test -f android/app/build.gradle.kts
+          test -f android/settings.gradle || test -f android/settings.gradle.kts
+          chmod +x android/gradlew || true
+
+      - name: Установить зависимости
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "${{ steps.project.outputs.project_dir }}"
+          flutter pub get
+
+      - name: Собрать APK
+        shell: bash
+        env:
+          OILMAN_API_URL: ${{ vars.OILMAN_API_URL || 'http://10.0.2.2:8000' }}
+        run: |
+          set -euo pipefail
+          cd "${{ steps.project.outputs.project_dir }}"
+          flutter clean
+          flutter pub get
+          flutter build apk --release --dart-define=OILMAN_API_URL="$OILMAN_API_URL"
+          mkdir -p "$GITHUB_WORKSPACE/artifacts"
+          cp build/app/outputs/flutter-apk/app-release.apk \
+             "$GITHUB_WORKSPACE/artifacts/oilman-app-v1.1-release.apk"
+
+      - name: Опубликовать APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: oilman-app-android
+          path: artifacts/oilman-app-v1.1-release.apk
+          if-no-files-found: error
+          retention-days: 30
