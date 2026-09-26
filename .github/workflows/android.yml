@@ -1,0 +1,140 @@
+name: Build Android APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-android:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Получить файлы из GitHub
+        uses: actions/checkout@v4
+
+      - name: Найти Flutter-проект или ZIP
+        id: project
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "=== Содержимое репозитория ==="
+          find . -maxdepth 4 -type f -not -path './.git/*' | sort | head -300
+
+          PROJECT_DIR=""
+
+          # Вариант 1: проект уже распакован.
+          DIRECT_PUBSPEC="$(find "$GITHUB_WORKSPACE" -type f -name pubspec.yaml -not -path '*/.git/*' -not -path '*/.build_project/*' -print -quit || true)"
+          if [ -n "$DIRECT_PUBSPEC" ]; then
+            PROJECT_DIR="$(dirname "$DIRECT_PUBSPEC")"
+            echo "Найден распакованный Flutter-проект: $PROJECT_DIR"
+          fi
+
+          # Вариант 2: проект находится внутри ZIP.
+          if [ -z "$PROJECT_DIR" ]; then
+            ZIP_FILE="$(find "$GITHUB_WORKSPACE" -type f -iname '*.zip' -not -path '*/.git/*' -printf '%s %p\n' | sort -nr | head -1 | cut -d' ' -f2- || true)"
+            if [ -n "$ZIP_FILE" ]; then
+              echo "Найден ZIP: $ZIP_FILE"
+              rm -rf "$RUNNER_TEMP/oilman_project"
+              mkdir -p "$RUNNER_TEMP/oilman_project"
+              unzip -q "$ZIP_FILE" -d "$RUNNER_TEMP/oilman_project"
+              PUBSPEC="$(find "$RUNNER_TEMP/oilman_project" -type f -name pubspec.yaml -print -quit || true)"
+              if [ -n "$PUBSPEC" ]; then
+                PROJECT_DIR="$(dirname "$PUBSPEC")"
+                echo "Flutter-проект внутри ZIP: $PROJECT_DIR"
+              fi
+            fi
+          fi
+
+          if [ -z "$PROJECT_DIR" ] || [ ! -f "$PROJECT_DIR/pubspec.yaml" ]; then
+            echo "ОШИБКА: Flutter-проект не найден. В проекте/ZIP должен быть pubspec.yaml."
+            exit 1
+          fi
+
+          PROJECT_DIR="$(cd "$PROJECT_DIR" && pwd)"
+          echo "project_dir=$PROJECT_DIR" >> "$GITHUB_OUTPUT"
+          echo "Итоговый проект: $PROJECT_DIR"
+
+      - name: Установить Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Пересоздать Android-конфигурацию
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "${{ steps.project.outputs.project_dir }}"
+
+          echo "Flutter version:"
+          flutter --version
+
+          echo "Удаляем старую Android-конфигурацию..."
+          rm -rf android
+
+          echo "Создаём чистую Android-конфигурацию Flutter..."
+          flutter create \
+            --platforms=android \
+            --project-name oilman_app \
+            --org ru.oilman \
+            .
+
+          test -f android/settings.gradle
+          test -f android/app/build.gradle
+          test -f android/gradlew
+          test -f android/gradle/wrapper/gradle-wrapper.properties
+          chmod +x android/gradlew
+
+          echo "Android-конфигурация успешно создана."
+          echo "=== settings.gradle ==="
+          sed -n '1,120p' android/settings.gradle
+
+      - name: Установить зависимости
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "${{ steps.project.outputs.project_dir }}"
+          flutter pub get
+
+      - name: Сгенерировать иконку
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "${{ steps.project.outputs.project_dir }}"
+          if [ -f assets/icon/app_icon.png ]; then
+            dart run flutter_launcher_icons
+          fi
+
+      - name: Собрать APK
+        shell: bash
+        env:
+          OILMAN_API_URL: ${{ vars.OILMAN_API_URL || 'http://10.0.2.2:8000' }}
+        run: |
+          set -euo pipefail
+          cd "${{ steps.project.outputs.project_dir }}"
+
+          flutter clean
+          flutter pub get
+          flutter build apk --release --dart-define=OILMAN_API_URL="$OILMAN_API_URL"
+
+          mkdir -p "$GITHUB_WORKSPACE/artifacts"
+          cp build/app/outputs/flutter-apk/app-release.apk \
+             "$GITHUB_WORKSPACE/artifacts/oilman-app-v1.1-release.apk"
+
+          ls -lh "$GITHUB_WORKSPACE/artifacts/oilman-app-v1.1-release.apk"
+
+      - name: Опубликовать APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: oilman-app-android
+          path: artifacts/oilman-app-v1.1-release.apk
+          if-no-files-found: error
+          retention-days: 30
