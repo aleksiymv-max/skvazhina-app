@@ -1,0 +1,132 @@
+name: Build Android APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-android:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Получить файлы из GitHub
+        uses: actions/checkout@v4
+
+      - name: Найти Flutter-проект
+        id: project
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          echo "=== Содержимое репозитория ==="
+          find . -maxdepth 4 -type f | sort | head -300 || true
+
+          PROJECT_DIR="$(find "$GITHUB_WORKSPACE" -type f -name pubspec.yaml -not -path '*/.git/*' -print -quit | xargs -r dirname || true)"
+
+          if [ -z "$PROJECT_DIR" ]; then
+            ZIP_FILE="$(find "$GITHUB_WORKSPACE" -type f \( -iname '*.zip' \) -not -path '*/.git/*' -printf '%s %p\n' | sort -nr | head -1 | cut -d' ' -f2- || true)"
+
+            if [ -n "$ZIP_FILE" ]; then
+              echo "Найден ZIP: $ZIP_FILE"
+              rm -rf "$RUNNER_TEMP/oilman_project"
+              mkdir -p "$RUNNER_TEMP/oilman_project"
+              unzip -q "$ZIP_FILE" -d "$RUNNER_TEMP/oilman_project"
+
+              PROJECT_DIR="$(find "$RUNNER_TEMP/oilman_project" -type f -name pubspec.yaml -print -quit | xargs -r dirname || true)"
+            fi
+          fi
+
+          if [ -z "$PROJECT_DIR" ] || [ ! -f "$PROJECT_DIR/pubspec.yaml" ]; then
+            echo "ОШИБКА: Flutter-проект не найден: отсутствует pubspec.yaml."
+            exit 1
+          fi
+
+          PROJECT_DIR="$(cd "$PROJECT_DIR" && pwd)"
+          echo "Найден Flutter-проект: $PROJECT_DIR"
+          echo "project_dir=$PROJECT_DIR" >> "$GITHUB_OUTPUT"
+
+      - name: Установить Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Показать версии
+        shell: bash
+        run: |
+          set -euo pipefail
+          flutter --version
+          java -version
+
+      - name: Создать чистую Android-конфигурацию
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "${{ steps.project.outputs.project_dir }}"
+
+          echo "Удаляем старую Android-конфигурацию..."
+          rm -rf android
+
+          echo "Создаём чистую Android-конфигурацию Flutter..."
+          flutter create \
+            --platforms=android \
+            --project-name oilman_app \
+            --org ru.oilman \
+            .
+
+          echo "Проверяем созданные файлы..."
+          test -f android/gradlew
+          test -f android/settings.gradle.kts
+          test -f android/app/build.gradle.kts
+          test -f android/build.gradle.kts
+          test -f pubspec.yaml
+
+          chmod +x android/gradlew
+
+          echo "Android-конфигурация успешно создана."
+
+      - name: Установить зависимости
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "${{ steps.project.outputs.project_dir }}"
+          flutter pub get
+
+      - name: Собрать APK
+        shell: bash
+        env:
+          OILMAN_API_URL: ${{ vars.OILMAN_API_URL || 'http://10.0.2.2:8000' }}
+        run: |
+          set -euo pipefail
+          cd "${{ steps.project.outputs.project_dir }}"
+
+          flutter clean
+          flutter pub get
+
+          echo "Собираем release APK..."
+          flutter build apk --release \
+            --dart-define=OILMAN_API_URL="$OILMAN_API_URL"
+
+          test -f build/app/outputs/flutter-apk/app-release.apk
+
+          mkdir -p "$GITHUB_WORKSPACE/artifacts"
+          cp build/app/outputs/flutter-apk/app-release.apk \
+             "$GITHUB_WORKSPACE/artifacts/oilman-app-v1.1-release.apk"
+
+          echo "APK успешно создан: $GITHUB_WORKSPACE/artifacts/oilman-app-v1.1-release.apk"
+
+      - name: Опубликовать APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: oilman-app-android
+          path: artifacts/oilman-app-v1.1-release.apk
+          if-no-files-found: error
+          retention-days: 30
