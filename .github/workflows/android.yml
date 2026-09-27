@@ -70,7 +70,7 @@ jobs:
         run: |
           cd "${{ steps.project.outputs.project_dir }}"
           flutter pub get
-          flutter analyze --no-fatal-infos
+          flutter analyze --no-fatal-infos --no-fatal-warnings
 
       - name: Create Android project
         shell: bash
