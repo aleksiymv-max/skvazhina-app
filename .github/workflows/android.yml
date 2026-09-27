@@ -22,46 +22,22 @@ jobs:
       - name: Получить проект
         uses: actions/checkout@v4
 
-      - name: Найти Flutter проект
+      - name: Распаковать текущую версию
         id: project
         shell: bash
         run: |
           set -euo pipefail
-          echo "Ищем pubspec.yaml..."
+          ZIP_FILE="$GITHUB_WORKSPACE/neftyanik_v1.24.1_stable_hotfix.zip"
+          test -f "$ZIP_FILE"
 
-          PROJECT_DIR="$(find "$GITHUB_WORKSPACE" \
-            -type f \
-            -name pubspec.yaml \
-            -not -path '*/.git/*' \
-            -print -quit | xargs -r dirname || true)"
+          EXTRACT_DIR="$RUNNER_TEMP/neftyanik_project"
+          rm -rf "$EXTRACT_DIR"
+          mkdir -p "$EXTRACT_DIR"
+          unzip -q "$ZIP_FILE" -d "$EXTRACT_DIR"
 
-          if [ -z "$PROJECT_DIR" ]; then
-            echo "Flutter-проект не найден напрямую. Ищем ZIP..."
-            ZIP_FILE="$(find "$GITHUB_WORKSPACE" \
-              -type f \
-              -iname '*.zip' \
-              -not -path '*/.git/*' \
-              -printf '%s %p\n' | sort -nr | head -1 | cut -d' ' -f2- || true)"
-
-            if [ -n "$ZIP_FILE" ]; then
-              echo "Найден ZIP: $ZIP_FILE"
-              EXTRACT_DIR="$RUNNER_TEMP/neftyanik_project"
-              rm -rf "$EXTRACT_DIR"
-              mkdir -p "$EXTRACT_DIR"
-              unzip -q "$ZIP_FILE" -d "$EXTRACT_DIR"
-
-              PROJECT_DIR="$(find "$EXTRACT_DIR" \
-                -type f \
-                -name pubspec.yaml \
-                -print -quit | xargs -r dirname || true)"
-            fi
-          fi
-
-          if [ -z "$PROJECT_DIR" ] || [ ! -f "$PROJECT_DIR/pubspec.yaml" ]; then
-            echo "ОШИБКА: Flutter-проект не найден."
-            find "$GITHUB_WORKSPACE" -maxdepth 4 -type f | sort | head -300
-            exit 1
-          fi
+          PROJECT_DIR="$(find "$EXTRACT_DIR" -type f -name pubspec.yaml -print -quit | xargs -r dirname)"
+          test -n "$PROJECT_DIR"
+          test -f "$PROJECT_DIR/pubspec.yaml"
 
           PROJECT_DIR="$(cd "$PROJECT_DIR" && pwd)"
           echo "Flutter project: $PROJECT_DIR"
@@ -76,28 +52,57 @@ jobs:
       - name: Показать версию Flutter
         run: flutter --version
 
-      - name: Создать Android конфигурацию
+      - name: Создать Android и установить launcher icon
         shell: bash
         run: |
           set -euo pipefail
           cd "${{ steps.project.outputs.project_dir }}"
 
-          echo "Удаляем старую Android-конфигурацию..."
+          ICON="assets/icon/app_icon.png"
+          test -f "$ICON"
+          file "$ICON"
+          echo "SHA256 исходной иконки:"
+          sha256sum "$ICON"
+
           rm -rf android
+          flutter create --platforms=android --project-name neftyanik --org ru.oilman .
 
-          echo "Создаём Android-конфигурацию Flutter..."
-          flutter create \
-            --platforms=android \
-            --project-name neftyanik \
-            --org ru.oilman \
-            .
+          # Flutter create генерирует стандартную иконку. Заменяем ее ПОСЛЕ flutter create.
+          rm -f android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml
+          rm -f android/app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml
 
-          test -f android/settings.gradle.kts
-          test -f android/app/build.gradle.kts
-          test -f android/gradlew
+          declare -A sizes=(
+            [mdpi]=48
+            [hdpi]=72
+            [xhdpi]=96
+            [xxhdpi]=144
+            [xxxhdpi]=192
+          )
 
-          chmod +x android/gradlew
-          echo "Android конфигурация создана."
+          for density in mdpi hdpi xhdpi xxhdpi xxxhdpi; do
+            dir="android/app/src/main/res/mipmap-$density"
+            mkdir -p "$dir"
+            if command -v convert >/dev/null 2>&1; then
+              convert "$ICON" -resize "${sizes[$density]}x${sizes[$density]}" "$dir/ic_launcher.png"
+              cp "$dir/ic_launcher.png" "$dir/ic_launcher_round.png"
+            else
+              cp "$ICON" "$dir/ic_launcher.png"
+              cp "$ICON" "$dir/ic_launcher_round.png"
+            fi
+          done
+
+          MANIFEST="android/app/src/main/AndroidManifest.xml"
+          test -f "$MANIFEST"
+          sed -i 's#android:icon="[^"]*"#android:icon="@mipmap/ic_launcher"#' "$MANIFEST"
+          if grep -q 'android:roundIcon=' "$MANIFEST"; then
+            sed -i 's#android:roundIcon="[^"]*"#android:roundIcon="@mipmap/ic_launcher_round"#' "$MANIFEST"
+          else
+            sed -i 's#<application#<application android:roundIcon="@mipmap/ic_launcher_round"#' "$MANIFEST"
+          fi
+
+          echo "Launcher resources:"
+          find android/app/src/main/res -type f \( -name 'ic_launcher.png' -o -name 'ic_launcher_round.png' \) -print -exec sha256sum {} \;
+          grep -n 'android:icon\|android:roundIcon' "$MANIFEST"
 
       - name: Установить зависимости
         shell: bash
@@ -113,21 +118,21 @@ jobs:
           set -euo pipefail
           cd "${{ steps.project.outputs.project_dir }}"
 
-          echo "Собираем Нефтяник..."
           flutter build apk --release
+          APK="build/app/outputs/flutter-apk/app-release.apk"
+          test -f "$APK"
 
-          test -f build/app/outputs/flutter-apk/app-release.apk
+          echo "Проверяем launcher icon внутри готового APK:"
+          unzip -l "$APK" | grep -E 'res/.*/ic_launcher|mipmap.*/ic_launcher' || true
 
           mkdir -p "$GITHUB_WORKSPACE/artifacts"
-          cp build/app/outputs/flutter-apk/app-release.apk \
-            "$GITHUB_WORKSPACE/artifacts/neftyanik-v1.4-release.apk"
-
-          echo "APK успешно создан."
+          cp "$APK" "$GITHUB_WORKSPACE/artifacts/neftyanik-v1.24.1-release.apk"
+          sha256sum "$GITHUB_WORKSPACE/artifacts/neftyanik-v1.24.1-release.apk"
 
       - name: Опубликовать APK
         uses: actions/upload-artifact@v4
         with:
-          name: neftyanik-android
-          path: artifacts/neftyanik-v1.4-release.apk
+          name: neftyanik-v1.24.1-android
+          path: artifacts/neftyanik-v1.24.1-release.apk
           if-no-files-found: error
           retention-days: 30
