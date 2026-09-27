@@ -1,10 +1,9 @@
-name: Build Промысел APK
+name: Build Promysel APK
 
 on:
   workflow_dispatch:
   push:
-    branches:
-      - main
+    branches: [main]
 
 permissions:
   contents: read
@@ -14,201 +13,98 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build-android:
-    name: Сборка Промысел Android
+  build:
+    name: Build Promysel Android
     runs-on: ubuntu-latest
-
     steps:
-      - name: Получить проект
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Распаковать текущую версию
+      - name: Extract base source
         id: project
         shell: bash
         run: |
           set -euo pipefail
-          ZIP_FILE="$GITHUB_WORKSPACE/neftyanik_v1.24.1_stable_hotfix.zip"
-          test -f "$ZIP_FILE"
+          SRC="$GITHUB_WORKSPACE/neftyanik_v1.24.1_stable_hotfix.zip"
+          DIR="$RUNNER_TEMP/promysel"
+          rm -rf "$DIR" && mkdir -p "$DIR"
+          unzip -q "$SRC" -d "$DIR"
+          PROJECT="$(dirname "$(find "$DIR" -name pubspec.yaml -print -quit)")"
+          echo "project_dir=$PROJECT" >> "$GITHUB_OUTPUT"
 
-          EXTRACT_DIR="$RUNNER_TEMP/neftyanik_project"
-          rm -rf "$EXTRACT_DIR"
-          mkdir -p "$EXTRACT_DIR"
-          unzip -q "$ZIP_FILE" -d "$EXTRACT_DIR"
-
-          PROJECT_DIR="$(find "$EXTRACT_DIR" -type f -name pubspec.yaml -print -quit | xargs -r dirname)"
-          test -n "$PROJECT_DIR"
-          test -f "$PROJECT_DIR/pubspec.yaml"
-
-          PROJECT_DIR="$(cd "$PROJECT_DIR" && pwd)"
-          echo "Flutter project: $PROJECT_DIR"
-          echo "project_dir=$PROJECT_DIR" >> "$GITHUB_OUTPUT"
-
-      - name: Подготовить Промысел v1.25.0
+      - name: Apply v1.25 changes
         shell: bash
         run: |
           set -euo pipefail
           cd "${{ steps.project.outputs.project_dir }}"
-          python3 - <<'PY'
-          from pathlib import Path
-          root=Path('.')
-          def edit(rel, fn):
-              p=root/rel; x=p.read_text(); p.write_text(fn(x))
-          edit('pubspec.yaml',lambda x:x.replace('version: 1.24.1+128','version: 1.25.0+129').replace('flutter:\n  uses-material-design: true','flutter:\n  uses-material-design: true\n  assets:\n    - assets/icon/app_icon.png'))
-          for rel in ['lib/app/app.dart','lib/features/home/home_screen.dart','lib/core/services/export_service.dart']:
-              edit(rel,lambda x:x.replace('Нефтяник','Промысел'))
-          edit('lib/core/models/work_task.dart',lambda x:x.replace("bool confirm(WorkTask t,{required String userId,required String userName}){if(t.status!=WorkTaskStatus.awaitingConfirmation)return false;final isAuthor=t.createdById!=null?t.createdById==userId:t.createdBy==userName;if(!isAuthor)return false;t.status=WorkTaskStatus.confirmed;","bool confirm(WorkTask t,{required String userId,required String userName,required bool isShopChief}){if(t.status!=WorkTaskStatus.awaitingConfirmation)return false;final isAuthor=t.createdById!=null?t.createdById==userId:t.createdBy==userName;if(!isAuthor&&!isShopChief)return false;t.status=WorkTaskStatus.confirmed;"))
-          def tasks(x):
-              x=x.replace("final issued=u.role==UserRole.shopChief||u.role==UserRole.admin?store.tasks:store.tasks.where((t)=>t.createdById==u.id||(t.createdById==null&&t.createdBy==u.name)).toList();","final issued=(u.role==UserRole.shopChief||u.role==UserRole.admin?store.tasks:store.tasks.where((t)=>t.createdById==u.id||(t.createdById==null&&t.createdBy==u.name))).where((t)=>t.status!=WorkTaskStatus.confirmed).toList();")
-              x=x.replace("t.status==WorkTaskStatus.awaitingConfirmation&&_isAuthor(t)","t.status==WorkTaskStatus.awaitingConfirmation&&(_isAuthor(t)||SessionService.instance.currentUser.role==UserRole.shopChief)")
-              x=x.replace("t.status==WorkTaskStatus.awaitingConfirmation&&!_isAuthor(t)","t.status==WorkTaskStatus.awaitingConfirmation&&!_isAuthor(t)&&SessionService.instance.currentUser.role!=UserRole.shopChief")
-              x=x.replace("store.confirm(t,userId:u.id,userName:u.name)","store.confirm(t,userId:u.id,userName:u.name,isShopChief:u.role==UserRole.shopChief)")
-              x=x.replace("'Подтвердить может только автор задания.'","'Подтвердить может автор задания или начальник цеха.'")
-              return x
-          edit('lib/features/tasks/tasks_screen.dart',tasks)
-          def repo(x):
-              x="import 'package:flutter/foundation.dart';\n"+x
-              x=x.replace('class MeasurementRepository {','class MeasurementRepository {\n  static final ValueNotifier<int> problemRevision=ValueNotifier<int>(0);')
-              x=x.replace('Future<void> resolveProblem(int measurementId, String userId, String userName) => _database.resolveProblem(measurementId, userId, userName);','Future<void> resolveProblem(int measurementId, String userId, String userName) async {await _database.resolveProblem(measurementId,userId,userName);problemRevision.value++;}')
-              return x
-          edit('lib/core/repositories/measurement_repository.dart',repo)
-          def hist(x):
-              x=x.replace('String? padId, wellId, selectedDate;','String? padId, wellId, selectedDate;\n  final taskSearch=TextEditingController(),problemSearch=TextEditingController();')
-              x=x.replace('@override void initState() { super.initState(); padId = demoPads.first.id; _setWell(); _load(); }',"@override void initState(){super.initState();padId=demoPads.first.id;_setWell();WorkTaskStore.instance.addListener(_refreshHistory);MeasurementRepository.problemRevision.addListener(_refreshHistory);_load();}\n  void _refreshHistory(){if(mounted)setState((){});}\n  @override void dispose(){WorkTaskStore.instance.removeListener(_refreshHistory);MeasurementRepository.problemRevision.removeListener(_refreshHistory);taskSearch.dispose();problemSearch.dispose();super.dispose();}")
-              a=x.index('  Widget _taskHistory()'); b=x.index('\n\n  Widget _dateCard',a)
-              new="""  Widget _taskHistory(){final q=taskSearch.text.trim().toLowerCase();final done=WorkTaskStore.instance.tasks.where((t)=>t.status==WorkTaskStatus.confirmed).where((t)=>q.isEmpty||[t.title,t.description,t.targetName,t.createdBy,t.completedBy??'',t.confirmedBy??''].join(' ').toLowerCase().contains(q)).toList();return ListView(padding:const EdgeInsets.all(16),children:[const Text('История выполнения заданий',style:TextStyle(fontSize:20,fontWeight:FontWeight.w900)),const SizedBox(height:12),TextField(controller:taskSearch,onChanged:(_)=>setState((){}),decoration:const InputDecoration(prefixIcon:Icon(Icons.search),hintText:'Задание, объект или сотрудник')),const SizedBox(height:12),if(done.isEmpty)const Card(child:Padding(padding:EdgeInsets.all(18),child:Text('Выполненных заданий не найдено.'))),...done.map((t)=>Card(child:ListTile(leading:const CircleAvatar(child:Icon(Icons.check)),title:Text(t.title,style:const TextStyle(fontWeight:FontWeight.w800)),subtitle:Text('${t.targetName}\\nВыдал: ${t.createdBy} · ${DateFormat('dd.MM.yyyy HH:mm').format(t.createdAt)}\\nВыполнил: ${t.completedBy??'—'} · ${t.completedAt==null?'—':DateFormat('dd.MM.yyyy HH:mm').format(t.completedAt!)}\\nПодтвердил: ${t.confirmedBy??'—'} · ${t.confirmedAt==null?'—':DateFormat('dd.MM.yyyy HH:mm').format(t.confirmedAt!)}'),isThreeLine:true)))]);}
-
-  Widget _problemHistory()=>FutureBuilder<List<Measurement>>(future:repo.resolvedProblems(),builder:(context,snap){final q=problemSearch.text.trim().toLowerCase();final rows=(snap.data??const <Measurement>[]).where((m){final p=demoPads.where((x)=>x.id==m.padId).firstOrNull;final a=p==null?null:areaForPad(p.id);return q.isEmpty||[m.wellNumber,m.problemNote??'',m.operatorName??'',m.problemResolvedBy??'',p?.name??'',a?.name??''].join(' ').toLowerCase().contains(q);}).toList();return ListView(padding:const EdgeInsets.all(16),children:[const Text('История решённых проблем',style:TextStyle(fontSize:20,fontWeight:FontWeight.w900)),const SizedBox(height:12),TextField(controller:problemSearch,onChanged:(_)=>setState((){}),decoration:const InputDecoration(prefixIcon:Icon(Icons.search),hintText:'Проблема, скважина, объект или сотрудник')),const SizedBox(height:12),if(snap.connectionState==ConnectionState.waiting)const Center(child:CircularProgressIndicator()),if(snap.connectionState!=ConnectionState.waiting&&rows.isEmpty)const Card(child:Padding(padding:EdgeInsets.all(18),child:Text('Решённых проблем не найдено.'))),...rows.map((m){final p=demoPads.where((x)=>x.id==m.padId).firstOrNull;final a=p==null?null:areaForPad(p.id);final info=[a?.name??'Участок не указан',p?.name??m.padId,m.problemNote??'Проблема','Зафиксировал: ${m.operatorName??'—'} · ${DateFormat('dd.MM.yyyy HH:mm').format(m.measuredAt)}','Решил: ${m.problemResolvedBy??'—'} · ${m.problemResolvedAt==null?'—':DateFormat('dd.MM.yyyy HH:mm').format(m.problemResolvedAt!)}'].join('\\n');return Card(child:ListTile(leading:const CircleAvatar(child:Icon(Icons.task_alt)),title:Text('Скважина ${m.wellNumber}',style:const TextStyle(fontWeight:FontWeight.w800)),subtitle:Text(info)));})]);});"""
-              return x[:a]+new+x[b:]
-          edit('lib/features/history/history_screen.dart',hist)
-          def login(x):
-              old="body: Column(children:[Container(width:double.infinity,padding:const EdgeInsets.fromLTRB(24,54,24,28),decoration:const BoxDecoration(color:Color(0xFF0757C9),borderRadius:BorderRadius.only(bottomLeft:Radius.circular(30),bottomRight:Radius.circular(30))),child:const Column(children:[Icon(Icons.oil_barrel_rounded,size:58,color:Colors.white),SizedBox(height:8),Text('Нефтяник',style:TextStyle(color:Colors.white,fontSize:30,fontWeight:FontWeight.w900)),Text('Производственный контроль',style:TextStyle(color:Colors.white70))]))"
-              new="body: Column(children:[Container(width:double.infinity,padding:const EdgeInsets.fromLTRB(24,48,24,24),decoration:BoxDecoration(color:Theme.of(context).brightness==Brightness.dark?const Color(0xFF0B1A29):const Color(0xFFF7FBFF),borderRadius:const BorderRadius.only(bottomLeft:Radius.circular(30),bottomRight:Radius.circular(30))),child:Column(children:[ClipRRect(borderRadius:BorderRadius.circular(24),child:Image.asset('assets/icon/app_icon.png',width:112,height:112,fit:BoxFit.cover)),const SizedBox(height:10),Text('Промысел',style:TextStyle(color:Theme.of(context).colorScheme.onSurface,fontSize:30,fontWeight:FontWeight.w900)),Text('Производственный контроль',style:TextStyle(color:Theme.of(context).colorScheme.onSurfaceVariant))]))"
-              if old not in x: raise SystemExit('login pattern not found')
-              return x.replace(old,new)
-          edit('lib/features/auth/login_screen.dart',login)
-          PY
-
-          # Эмблема №1: капля + фонтанная арматура, единый знак для launcher и приложения.
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_v125.py"
           cat > /tmp/promysel.svg <<'SVG'
           <svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
-            <rect width="1024" height="1024" rx="210" fill="#f8fbff"/>
-            <path d="M512 95C430 245 250 365 250 565c0 166 117 292 262 292s262-126 262-292C774 365 594 245 512 95z" fill="#0787ef"/>
-            <path d="M512 95c55 133 205 283 205 470 0 130-82 228-205 267V95z" fill="#111c2b"/>
-            <path d="M170 760c175-75 440-71 684 0-211 58-472 60-684 0z" fill="#0755a5"/>
-            <g stroke="#fff" stroke-width="28" stroke-linecap="round" stroke-linejoin="round" fill="none">
-              <path d="M512 350v335M405 475h214M405 475v115M619 475v115"/>
-              <circle cx="405" cy="475" r="55"/><circle cx="619" cy="475" r="55"/><circle cx="512" cy="370" r="44"/>
-              <path d="M455 685h114M470 590h84M470 685v-95M554 685v-95"/>
-            </g>
+          <rect width="1024" height="1024" rx="210" fill="#f8fbff"/>
+          <path d="M512 95C430 245 250 365 250 565c0 166 117 292 262 292s262-126 262-292C774 365 594 245 512 95z" fill="#0787ef"/>
+          <path d="M512 95c55 133 205 283 205 470 0 130-82 228-205 267V95z" fill="#111c2b"/>
+          <path d="M170 760c175-75 440-71 684 0-211 58-472 60-684 0z" fill="#0755a5"/>
+          <g stroke="#fff" stroke-width="28" stroke-linecap="round" stroke-linejoin="round" fill="none"><path d="M512 350v335M405 475h214M405 475v115M619 475v115"/><circle cx="405" cy="475" r="55"/><circle cx="619" cy="475" r="55"/><circle cx="512" cy="370" r="44"/><path d="M455 685h114M470 590h84M470 685v-95M554 685v-95"/></g>
           </svg>
           SVG
-          convert -background none /tmp/promysel.svg -resize 1024x1024 assets/icon/app_icon.png
+          convert /tmp/promysel.svg -resize 1024x1024 assets/icon/app_icon.png
           cp assets/icon/app_icon.png assets/icon/app_icon_foreground.png
-
           mkdir -p "$GITHUB_WORKSPACE/artifacts"
           zip -qr "$GITHUB_WORKSPACE/artifacts/promysel-v1.25.0-source.zip" . -x 'android/*' 'build/*' '.dart_tool/*'
           unzip -t "$GITHUB_WORKSPACE/artifacts/promysel-v1.25.0-source.zip" >/dev/null
-          sha256sum "$GITHUB_WORKSPACE/artifacts/promysel-v1.25.0-source.zip"
 
-      - name: Установить Flutter
+      - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
           channel: stable
           cache: true
 
-      - name: Показать версию Flutter
-        run: flutter --version
+      - name: Get dependencies and analyze
+        shell: bash
+        run: |
+          cd "${{ steps.project.outputs.project_dir }}"
+          flutter pub get
+          flutter analyze --no-fatal-infos
 
-      - name: Создать Android и установить launcher icon
+      - name: Create Android project
         shell: bash
         run: |
           set -euo pipefail
           cd "${{ steps.project.outputs.project_dir }}"
-
-          ICON="assets/icon/app_icon.png"
-          test -f "$ICON"
-          file "$ICON"
-          echo "SHA256 исходной иконки:"
-          sha256sum "$ICON"
-
           rm -rf android
           flutter create --platforms=android --project-name promysel --org ru.promysel .
-
-          # Flutter create генерирует стандартную иконку. Заменяем ее ПОСЛЕ flutter create.
-          rm -f android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml
-          rm -f android/app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml
-
-          declare -A sizes=(
-            [mdpi]=48
-            [hdpi]=72
-            [xhdpi]=96
-            [xxhdpi]=144
-            [xxxhdpi]=192
-          )
-
-          for density in mdpi hdpi xhdpi xxhdpi xxxhdpi; do
-            dir="android/app/src/main/res/mipmap-$density"
-            mkdir -p "$dir"
-            if command -v convert >/dev/null 2>&1; then
-              convert "$ICON" -resize "${sizes[$density]}x${sizes[$density]}" "$dir/ic_launcher.png"
-              cp "$dir/ic_launcher.png" "$dir/ic_launcher_round.png"
-            else
-              cp "$ICON" "$dir/ic_launcher.png"
-              cp "$ICON" "$dir/ic_launcher_round.png"
-            fi
-          done
-
           MANIFEST="android/app/src/main/AndroidManifest.xml"
-          test -f "$MANIFEST"
           sed -i 's/android:label="[^"]*"/android:label="Промысел"/' "$MANIFEST"
+          rm -f android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml android/app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml
+          declare -A sizes=([mdpi]=48 [hdpi]=72 [xhdpi]=96 [xxhdpi]=144 [xxxhdpi]=192)
+          for d in mdpi hdpi xhdpi xxhdpi xxxhdpi; do
+            out="android/app/src/main/res/mipmap-$d"; mkdir -p "$out"
+            convert assets/icon/app_icon.png -resize "${sizes[$d]}x${sizes[$d]}" "$out/ic_launcher.png"
+            cp "$out/ic_launcher.png" "$out/ic_launcher_round.png"
+          done
           sed -i 's#android:icon="[^"]*"#android:icon="@mipmap/ic_launcher"#' "$MANIFEST"
-          if grep -q 'android:roundIcon=' "$MANIFEST"; then
-            sed -i 's#android:roundIcon="[^"]*"#android:roundIcon="@mipmap/ic_launcher_round"#' "$MANIFEST"
-          else
-            sed -i 's#<application#<application android:roundIcon="@mipmap/ic_launcher_round"#' "$MANIFEST"
-          fi
+          if grep -q 'android:roundIcon=' "$MANIFEST"; then sed -i 's#android:roundIcon="[^"]*"#android:roundIcon="@mipmap/ic_launcher_round"#' "$MANIFEST"; else sed -i 's#<application#<application android:roundIcon="@mipmap/ic_launcher_round"#' "$MANIFEST"; fi
 
-          echo "Launcher resources:"
-          find android/app/src/main/res -type f \( -name 'ic_launcher.png' -o -name 'ic_launcher_round.png' \) -print -exec sha256sum {} \;
-          grep -n 'android:icon\|android:roundIcon' "$MANIFEST"
-
-      - name: Установить зависимости
+      - name: Build APK
         shell: bash
         run: |
           set -euo pipefail
           cd "${{ steps.project.outputs.project_dir }}"
-          flutter clean
-          flutter pub get
-
-      - name: Собрать APK
-        shell: bash
-        run: |
-          set -euo pipefail
-          cd "${{ steps.project.outputs.project_dir }}"
-
           flutter build apk --release
-          APK="build/app/outputs/flutter-apk/app-release.apk"
-          test -f "$APK"
+          cp build/app/outputs/flutter-apk/app-release.apk "$GITHUB_WORKSPACE/artifacts/promysel-v1.25.0-release.apk"
+          unzip -t "$GITHUB_WORKSPACE/artifacts/promysel-v1.25.0-release.apk" >/dev/null
+          sha256sum "$GITHUB_WORKSPACE/artifacts/promysel-v1.25.0-release.apk"
 
-          echo "Проверяем launcher icon внутри готового APK:"
-          unzip -l "$APK" | grep -E 'res/.*/ic_launcher|mipmap.*/ic_launcher' || true
-
-          mkdir -p "$GITHUB_WORKSPACE/artifacts"
-          cp "$APK" "$GITHUB_WORKSPACE/artifacts/promysel-v1.25.0-release.apk"
-          sha256sum "$GITHUB_WORKSPACE/artifacts/neftyanik-v1.24.1-release.apk"
-
-      - name: Опубликовать исходный архив
+      - name: Upload source ZIP
         uses: actions/upload-artifact@v4
         with:
           name: promysel-v1.25.0-source
           path: artifacts/promysel-v1.25.0-source.zip
-          if-no-files-found: error
           retention-days: 30
 
-      - name: Опубликовать APK
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: promysel-v1.25.0-android
-          path: artifacts/neftyanik-v1.24.1-release.apk
-          if-no-files-found: error
+          path: artifacts/promysel-v1.25.0-release.apk
           retention-days: 30
