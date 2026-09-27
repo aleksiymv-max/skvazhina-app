@@ -32,6 +32,12 @@ jobs:
           PROJECT="$(dirname "$(find "$DIR" -name pubspec.yaml -print -quit)")"
           echo "project_dir=$PROJECT" >> "$GITHUB_OUTPUT"
 
+      - name: Install image tools
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y imagemagick librsvg2-bin
+
       - name: Apply v1.25 changes
         shell: bash
         run: |
