@@ -58,11 +58,12 @@ jobs:
           python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_v135.py"
           python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_v136.py"
           python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_v136_fix.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_v137.py"
           cp "$GITHUB_WORKSPACE/assets/promysel_icon_v131.png" assets/icon/app_icon.png
           cp "$GITHUB_WORKSPACE/assets/promysel_icon_v131.png" assets/icon/app_icon_foreground.png
           mkdir -p "$GITHUB_WORKSPACE/artifacts"
-          zip -qr "$GITHUB_WORKSPACE/artifacts/promysel-v1.36.0-source.zip" . -x 'android/*' 'build/*' '.dart_tool/*'
-          unzip -t "$GITHUB_WORKSPACE/artifacts/promysel-v1.36.0-source.zip" >/dev/null
+          zip -qr "$GITHUB_WORKSPACE/artifacts/promysel-v1.37.0-source.zip" . -x 'android/*' 'build/*' '.dart_tool/*'
+          unzip -t "$GITHUB_WORKSPACE/artifacts/promysel-v1.37.0-source.zip" >/dev/null
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
@@ -105,20 +106,20 @@ jobs:
           set -euo pipefail
           cd "${{ steps.project.outputs.project_dir }}"
           flutter build apk --release
-          cp build/app/outputs/flutter-apk/app-release.apk "$GITHUB_WORKSPACE/artifacts/promysel-v1.36.0-release.apk"
-          unzip -t "$GITHUB_WORKSPACE/artifacts/promysel-v1.36.0-release.apk" >/dev/null
-          sha256sum "$GITHUB_WORKSPACE/artifacts/promysel-v1.36.0-release.apk"
+          cp build/app/outputs/flutter-apk/app-release.apk "$GITHUB_WORKSPACE/artifacts/promysel-v1.37.0-release.apk"
+          unzip -t "$GITHUB_WORKSPACE/artifacts/promysel-v1.37.0-release.apk" >/dev/null
+          sha256sum "$GITHUB_WORKSPACE/artifacts/promysel-v1.37.0-release.apk"
 
       - name: Upload source ZIP
         uses: actions/upload-artifact@v4
         with:
-          name: promysel-v1.36.0-source
-          path: artifacts/promysel-v1.36.0-source.zip
+          name: promysel-v1.37.0-source
+          path: artifacts/promysel-v1.37.0-source.zip
           retention-days: 30
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: promysel-v1.36.0-android
-          path: artifacts/promysel-v1.36.0-release.apk
+          name: promysel-v1.37.0-android
+          path: artifacts/promysel-v1.37.0-release.apk
           retention-days: 30
