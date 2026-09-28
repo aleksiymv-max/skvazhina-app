@@ -48,13 +48,13 @@ jobs:
           python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_v127.py"
           python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_v128.py"
           cat > /tmp/promysel.svg <<'SVG'
-          <svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
-<defs><linearGradient id="n" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#1D5A8F"/><stop offset="1" stop-color="#001A3D"/></linearGradient><linearGradient id="b" x1="0" y1="1" x2="1" y2="0"><stop stop-color="#0757C9"/><stop offset="1" stop-color="#178BE6"/></linearGradient></defs>
-<rect x="28" y="28" width="968" height="968" rx="220" fill="#FFFFFF"/>
-<path d="M356 112C315 224 214 352 180 478c-47 176 37 346 199 397 77 24 155 13 220-24-111-38-190-144-190-270 0-144 73-285 185-438-78 10-164 42-238  -31z" fill="url(#n)"/>
-<path d="M262 750C302 552 395 337 566 148 429 365 354 563 344 750z" fill="#FFFFFF"/>
-<g fill="url(#b)"><rect x="470" y="660" width="92" height="190" rx="14"/><rect x="590" y="550" width="92" height="300" rx="14"/><rect x="710" y="410" width="92" height="440" rx="14"/><rect x="830" y="270" width="92" height="580" rx="14"/></g>
-</svg>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+          <defs><linearGradient id="n" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#1D5A8F"/><stop offset="1" stop-color="#001A3D"/></linearGradient><linearGradient id="b" x1="0" y1="1" x2="1" y2="0"><stop stop-color="#0757C9"/><stop offset="1" stop-color="#178BE6"/></linearGradient></defs>
+          <rect x="28" y="28" width="968" height="968" rx="220" fill="#FFFFFF"/>
+          <path d="M356 112C315 224 214 352 180 478c-47 176 37 346 199 397 77 24 155 13 220-24-111-38-190-144-190-270 0-144 73-285 185-438-78 10-164 42-238  -31z" fill="url(#n)"/>
+          <path d="M262 750C302 552 395 337 566 148 429 365 354 563 344 750z" fill="#FFFFFF"/>
+          <g fill="url(#b)"><rect x="470" y="660" width="92" height="190" rx="14"/><rect x="590" y="550" width="92" height="300" rx="14"/><rect x="710" y="410" width="92" height="440" rx="14"/><rect x="830" y="270" width="92" height="580" rx="14"/></g>
+          </svg>
           SVG
           convert /tmp/promysel.svg -resize 1024x1024 assets/icon/app_icon.png
           cp assets/icon/app_icon.png assets/icon/app_icon_foreground.png
