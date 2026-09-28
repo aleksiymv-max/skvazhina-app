@@ -47,6 +47,9 @@ jobs:
           python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_v126.py"
           python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_v127.py"
           python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_v128.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_v129.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_v129_walk.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_v129_problems.py"
           cat > /tmp/promysel.svg <<'SVG'
                     <svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
           <defs><linearGradient id="n" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#1D5A8F"/><stop offset="1" stop-color="#001A3D"/></linearGradient><linearGradient id="b" x1="0" y1="1" x2="1" y2="0"><stop stop-color="#0757C9"/><stop offset="1" stop-color="#178BE6"/></linearGradient></defs>
@@ -59,8 +62,8 @@ jobs:
           convert /tmp/promysel.svg -resize 1024x1024 assets/icon/app_icon.png
           cp assets/icon/app_icon.png assets/icon/app_icon_foreground.png
           mkdir -p "$GITHUB_WORKSPACE/artifacts"
-          zip -qr "$GITHUB_WORKSPACE/artifacts/promysel-v1.28.0-source.zip" . -x 'android/*' 'build/*' '.dart_tool/*'
-          unzip -t "$GITHUB_WORKSPACE/artifacts/promysel-v1.28.0-source.zip" >/dev/null
+          zip -qr "$GITHUB_WORKSPACE/artifacts/promysel-v1.29.0-source.zip" . -x 'android/*' 'build/*' '.dart_tool/*'
+          unzip -t "$GITHUB_WORKSPACE/artifacts/promysel-v1.29.0-source.zip" >/dev/null
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
@@ -103,20 +106,20 @@ jobs:
           set -euo pipefail
           cd "${{ steps.project.outputs.project_dir }}"
           flutter build apk --release
-          cp build/app/outputs/flutter-apk/app-release.apk "$GITHUB_WORKSPACE/artifacts/promysel-v1.28.0-release.apk"
-          unzip -t "$GITHUB_WORKSPACE/artifacts/promysel-v1.28.0-release.apk" >/dev/null
-          sha256sum "$GITHUB_WORKSPACE/artifacts/promysel-v1.28.0-release.apk"
+          cp build/app/outputs/flutter-apk/app-release.apk "$GITHUB_WORKSPACE/artifacts/promysel-v1.29.0-release.apk"
+          unzip -t "$GITHUB_WORKSPACE/artifacts/promysel-v1.29.0-release.apk" >/dev/null
+          sha256sum "$GITHUB_WORKSPACE/artifacts/promysel-v1.29.0-release.apk"
 
       - name: Upload source ZIP
         uses: actions/upload-artifact@v4
         with:
-          name: promysel-v1.28.0-source
-          path: artifacts/promysel-v1.28.0-source.zip
+          name: promysel-v1.29.0-source
+          path: artifacts/promysel-v1.29.0-source.zip
           retention-days: 30
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: promysel-v1.28.0-android
-          path: artifacts/promysel-v1.28.0-release.apk
+          name: promysel-v1.29.0-android
+          path: artifacts/promysel-v1.29.0-release.apk
           retention-days: 30
