@@ -7,6 +7,46 @@ p=r/'lib/features/walk/walk_area_screen.dart';x=p.read_text()
 x=x.replace("import '../../core/models/well.dart';","import '../../core/models/well.dart';\nimport '../../core/models/user.dart';\nimport '../../core/models/walk_parameter_config.dart';\nimport '../../core/services/session_service.dart';")
 x=x.replace("return Scaffold(appBar:AppBar(title:Text(area.name)),body:","final u=SessionService.instance.currentUser;final canCfg=u.role==UserRole.engineer&&[ItrSubrole.leadingGeologist,ItrSubrole.geologist,ItrSubrole.leadingTechnologist,ItrSubrole.technologist].contains(u.itrSubrole);return Scaffold(appBar:AppBar(title:Text(area.name),actions:[if(canCfg)IconButton(onPressed:()=>_params(area.id),icon:const Icon(Icons.tune),tooltip:'Параметры обхода')]),body:")
 i=x.rfind('}')
+method=""" Future<void> _params(String id) async {
+  final c=WalkParameterConfig.instance;
+  final g=<String,List<(String,String)>>{
+   'Давления':[('pressure','Ртр, Рз, Рлин')],
+   'Температуры':[('temperature','Т до штуцера, Т после штуцера, Т лин')],
+   'ПКВ':[('pkv','ПКВ')],'ПИД':[('pid','ПИД')],
+   'Дросселирование':[('choke','Да/нет, штуцер/дроссель, трубное/затрубное пространство')],
+   'Погружной датчик':[('downhole','Рузд, Тузд, Рпр, Тпр')],
+   'Параметры ЭЦН':[('esp','F, Iср, Загрузка, Rизоляции')],
+   'Клапан-отсекатель':[('shutoff','Да/нет')],
+   'Ингибитор':[('inhibitor','Да/нет, тип ингибитора')]
+  };
+  await showModalBottomSheet(
+   context:context,isScrollControlled:true,showDragHandle:true,
+   builder:(z)=>StatefulBuilder(builder:(z,s)=>SafeArea(
+    child:FractionallySizedBox(heightFactor:.88,child:ListView(
+     padding:const EdgeInsets.all(16),
+     children:[
+      const Text('Параметры обхода',style:TextStyle(fontSize:22,fontWeight:FontWeight.w900)),
+      const Text('Выберите группы параметров для операторов. Проблемы отображаются всегда.'),
+      ...g.entries.map((a)=>Card(child:ExpansionTile(
+       title:Text(a.key),
+       children:a.value.map((v)=>CheckboxListTile(
+        value:c.on(id,v.$1),title:Text(v.$2),
+        onChanged:(q){c.set(id,v.$1,q??false);s((){});}
+       )).toList()
+      )))
+     ]
+    ))
+   ))
+  );
+ }\nm pathlib import Path
+r=Path.cwd()
+(r/'lib/core/models/walk_parameter_config.dart').write_text("""import 'package:flutter/foundation.dart';
+class WalkParameterConfig extends ChangeNotifier{WalkParameterConfig._();static final instance=WalkParameterConfig._();final Map<String,Set<String>> data={};static const all=<String>{'pressure','temperature','pkv','pid','choke','downhole','esp','shutoff','inhibitor'};Set<String> forArea(String id)=>data.putIfAbsent(id,()=>Set.of(all));bool on(String a,String k)=>forArea(a).contains(k);void set(String a,String k,bool v){v?forArea(a).add(k):forArea(a).remove(k);notifyListeners();}}
+""")
+p=r/'lib/features/walk/walk_area_screen.dart';x=p.read_text()
+x=x.replace("import '../../core/models/well.dart';","import '../../core/models/well.dart';\nimport '../../core/models/user.dart';\nimport '../../core/models/walk_parameter_config.dart';\nimport '../../core/services/session_service.dart';")
+x=x.replace("return Scaffold(appBar:AppBar(title:Text(area.name)),body:","final u=SessionService.instance.currentUser;final canCfg=u.role==UserRole.engineer&&[ItrSubrole.leadingGeologist,ItrSubrole.geologist,ItrSubrole.leadingTechnologist,ItrSubrole.technologist].contains(u.itrSubrole);return Scaffold(appBar:AppBar(title:Text(area.name),actions:[if(canCfg)IconButton(onPressed:()=>_params(area.id),icon:const Icon(Icons.tune),tooltip:'Параметры обхода')]),body:")
+i=x.rfind('}')
 method=""" Future<void> _params(String id)async{final c=WalkParameterConfig.instance;final g=<String,List<(String,String)>>{'Давления':[('pressure','Ртр, Рз, Рлин')],'Температуры':[('temperature','Т до штуцера, Т после штуцера, Т лин')],'ПКВ':[('pkv','ПКВ')],'ПИД':[('pid','ПИД')],'Дросселирование':[('choke','Да/нет, штуцер/дроссель, трубное/затрубное пространство')],'Погружной датчик':[('downhole','Рузд, Тузд, Рпр, Тпр')],'Параметры ЭЦН':[('esp','F, Iср, Загрузка, Rизоляции')],'Клапан-отсекатель':[('shutoff','Да/нет')],'Ингибитор':[('inhibitor','Да/нет, тип ингибитора')]};await showModalBottomSheet(context:context,isScrollControlled:true,showDragHandle:true,builder:(z)=>StatefulBuilder(builder:(z,s)=>SafeArea(child:FractionallySizedBox(heightFactor:.88,child:ListView(padding:const EdgeInsets.all(16),children:[const Text('Параметры обхода',style:TextStyle(fontSize:22,fontWeight:FontWeight.w900)),const Text('Выберите группы параметров для операторов. Проблемы отображаются всегда.'),...g.entries.map((a)=>Card(child:ExpansionTile(title:Text(a.key),children:a.value.map((v)=>CheckboxListTile(value:c.on(id,v.$1),title:Text(v.$2),onChanged:(q){c.set(id,v.$1,q??false);s((){});})).toList()))]))))));}\n"""
 x=x[:i]+method+x[i:];p.write_text(x)
 p=r/'lib/features/wells/well_screen.dart';x=p.read_text()
