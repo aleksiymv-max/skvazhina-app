@@ -2,7 +2,7 @@ from pathlib import Path
 r=Path.cwd()
 def edit(p,f):
  q=r/p;x=q.read_text();q.write_text(f(x))
-edit('pubspec.yaml',lambda x:x.replace('version: 1.36.0+140','version: 1.37.0+141'))
+edit('pubspec.yaml',lambda x:x.replace('version: 1.36.0+140','version: 1.37.0+141'))\nedit('pubspec.yaml',lambda x:x if 'shared_preferences:' in x else x.replace('dependencies:\\n','dependencies:\\n  shared_preferences: ^2.5.3\\n'))
 
 # Central field scoping helpers for consistent multi-field behavior.
 edit('lib/core/services/session_service.dart',lambda x:x.replace(
