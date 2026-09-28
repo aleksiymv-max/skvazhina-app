@@ -52,7 +52,7 @@ def wa(x):
   );
  }
 """
- return x[:s]+m+x[e:]
+ return x[:s]+m+'\n}\n'
 edit('lib/features/walk/walk_area_screen.dart',wa)
 def well(x):
  x=x.replace("if(showP('pressure'))_section('Давление',[_row(_number('Ртр',rtr,'кгс/см²'),_number('Рз',rz,'кгс/см²'))]),","if(showP('rtr')||showP('rz'))_section('Давление',[if(showP('rtr'))_number('Ртр',rtr,'кгс/см²'),if(showP('rz'))_number('Рз',rz,'кгс/см²')]),")
