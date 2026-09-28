@@ -15,3 +15,9 @@ def personnel(x):
  i=x.rfind('}')
  return x[:i]+insert+x[i:]
 edit('lib/features/organization/personnel_screen.dart',personnel)
+
+def fix_export(x):
+ x=x.replace("final p=demoPads.where((x)=>x.id==m.padId).firstOrNull;final a=p==null?null:areaForPad(p.id);","final a=demoAreas.where((a)=>a.pads.any((p)=>p.id==m.padId)).firstOrNull;final p=a?.pads.where((p)=>p.id==m.padId).firstOrNull;")
+ x=x.replace("].map(TextCellValue.new).toList());}_paintHeader(s,10);return _save(b,'Журнал_проблем');}", "].map<CellValue?>((v)=>TextCellValue(v.toString())).toList());}_paintHeader(s,10);return _save(b,'Журнал_проблем');}")
+ return x
+edit('lib/core/services/export_service.dart',fix_export)
