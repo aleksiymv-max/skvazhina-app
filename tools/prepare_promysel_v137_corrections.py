@@ -6,7 +6,7 @@ def edit(p,f):
 # Repository exposes audit rows for a measurement.
 edit('lib/core/repositories/measurement_repository.dart',lambda x:x.replace(
 "  Future<int> correct({required int measurementId,required String parameter,required String? newValue,required String userId,required String userName,required String reason,String? comment}) => _database.correctMeasurement(measurementId:measurementId,parameter:parameter,newValue:newValue,userId:userId,userName:userName,reason:reason,comment:comment);",
-"  Future<int> correct({required int measurementId,required String parameter,required String? newValue,required String userId,required String userName,required String reason='',String? comment}) => _database.correctMeasurement(measurementId:measurementId,parameter:parameter,newValue:newValue,userId:userId,userName:userName,reason:reason,comment:comment);\n  Future<List<Map<String,Object?>>> auditForMeasurement(int id)=>_database.auditForMeasurement(id);"))
+"  Future<int> correct({required int measurementId,required String parameter,required String? newValue,required String userId,required String userName,String reason='',String? comment}) => _database.correctMeasurement(measurementId:measurementId,parameter:parameter,newValue:newValue,userId:userId,userName:userName,reason:reason,comment:comment);\n  Future<List<Map<String,Object?>>> auditForMeasurement(int id)=>_database.auditForMeasurement(id);"))
 
 # Correction screen: no reason/comment fields; audit metadata is automatic.
 def correction(x):
