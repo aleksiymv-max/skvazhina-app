@@ -38,27 +38,35 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y imagemagick librsvg2-bin
 
-      - name: Apply v1.25 changes
+      - name: Apply Promysel updates
         shell: bash
         run: |
           set -euo pipefail
           cd "${{ steps.project.outputs.project_dir }}"
           python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_v125.py"
           python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_v126.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_v127.py"
           cat > /tmp/promysel.svg <<'SVG'
           <svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
-          <rect width="1024" height="1024" rx="210" fill="#f8fbff"/>
-          <path d="M512 95C430 245 250 365 250 565c0 166 117 292 262 292s262-126 262-292C774 365 594 245 512 95z" fill="#0787ef"/>
-          <path d="M512 95c55 133 205 283 205 470 0 130-82 228-205 267V95z" fill="#111c2b"/>
-          <path d="M170 760c175-75 440-71 684 0-211 58-472 60-684 0z" fill="#0755a5"/>
-          <g stroke="#fff" stroke-width="28" stroke-linecap="round" stroke-linejoin="round" fill="none"><path d="M512 350v335M405 475h214M405 475v115M619 475v115"/><circle cx="405" cy="475" r="55"/><circle cx="619" cy="475" r="55"/><circle cx="512" cy="370" r="44"/><path d="M455 685h114M470 590h84M470 685v-95M554 685v-95"/></g>
+          <defs><linearGradient id="drop" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#163F69"/><stop offset="1" stop-color="#071E3A"/></linearGradient><linearGradient id="bars" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#0757C9"/><stop offset="1" stop-color="#1C9BF3"/></linearGradient></defs>
+          <rect width="1024" height="1024" rx="220" fill="#F8FBFF"/>
+          <path d="M395 112C315 258 205 383 205 553c0 170 117 292 265 292 45 0 86-11 122-30-107-37-180-139-180-260 0-132 70-253 164-374-58-47-118-69-181-69z" fill="url(#drop)"/>
+          <path d="M300 690C331 525 403 350 535 194 435 375 380 534 372 690z" fill="#FFFFFF"/>
+          <g fill="url(#bars)">
+            <rect x="460" y="650" width="88" height="176" rx="14"/>
+            <rect x="568" y="565" width="88" height="261" rx="14"/>
+            <rect x="676" y="460" width="88" height="366" rx="14"/>
+            <rect x="784" y="326" width="88" height="500" rx="14"/>
+          </g>
+          <path d="M458 607l110-83 108-104 111-132" fill="none" stroke="#178BE6" stroke-width="28" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M748 292h62v62" fill="none" stroke="#178BE6" stroke-width="28" stroke-linecap="round" stroke-linejoin="round"/>
           </svg>
           SVG
           convert /tmp/promysel.svg -resize 1024x1024 assets/icon/app_icon.png
           cp assets/icon/app_icon.png assets/icon/app_icon_foreground.png
           mkdir -p "$GITHUB_WORKSPACE/artifacts"
-          zip -qr "$GITHUB_WORKSPACE/artifacts/promysel-v1.26.0-source.zip" . -x 'android/*' 'build/*' '.dart_tool/*'
-          unzip -t "$GITHUB_WORKSPACE/artifacts/promysel-v1.26.0-source.zip" >/dev/null
+          zip -qr "$GITHUB_WORKSPACE/artifacts/promysel-v1.27.0-source.zip" . -x 'android/*' 'build/*' '.dart_tool/*'
+          unzip -t "$GITHUB_WORKSPACE/artifacts/promysel-v1.27.0-source.zip" >/dev/null
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
@@ -101,20 +109,20 @@ jobs:
           set -euo pipefail
           cd "${{ steps.project.outputs.project_dir }}"
           flutter build apk --release
-          cp build/app/outputs/flutter-apk/app-release.apk "$GITHUB_WORKSPACE/artifacts/promysel-v1.26.0-release.apk"
-          unzip -t "$GITHUB_WORKSPACE/artifacts/promysel-v1.26.0-release.apk" >/dev/null
-          sha256sum "$GITHUB_WORKSPACE/artifacts/promysel-v1.26.0-release.apk"
+          cp build/app/outputs/flutter-apk/app-release.apk "$GITHUB_WORKSPACE/artifacts/promysel-v1.27.0-release.apk"
+          unzip -t "$GITHUB_WORKSPACE/artifacts/promysel-v1.27.0-release.apk" >/dev/null
+          sha256sum "$GITHUB_WORKSPACE/artifacts/promysel-v1.27.0-release.apk"
 
       - name: Upload source ZIP
         uses: actions/upload-artifact@v4
         with:
-          name: promysel-v1.26.0-source
-          path: artifacts/promysel-v1.26.0-source.zip
+          name: promysel-v1.27.0-source
+          path: artifacts/promysel-v1.27.0-source.zip
           retention-days: 30
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: promysel-v1.26.0-android
-          path: artifacts/promysel-v1.26.0-release.apk
+          name: promysel-v1.27.0-android
+          path: artifacts/promysel-v1.27.0-release.apk
           retention-days: 30
