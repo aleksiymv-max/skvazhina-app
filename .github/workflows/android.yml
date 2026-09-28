@@ -57,6 +57,7 @@ jobs:
           python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_v134.py"
           python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_v135.py"
           python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_v136.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_v136_fix.py"
           cp "$GITHUB_WORKSPACE/assets/promysel_icon_v131.png" assets/icon/app_icon.png
           cp "$GITHUB_WORKSPACE/assets/promysel_icon_v131.png" assets/icon/app_icon_foreground.png
           mkdir -p "$GITHUB_WORKSPACE/artifacts"
