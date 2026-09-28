@@ -50,8 +50,11 @@ jobs:
           python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_v129.py"
           python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_v129_walk.py"
           python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_v129_problems.py"
-          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_v130.py"\n          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_v131.py"
-          cp "$GITHUB_WORKSPACE/assets/promysel_icon_v131.png" assets/icon/app_icon.png\n          cp "$GITHUB_WORKSPACE/assets/promysel_icon_v131.png" assets/icon/app_icon_foreground.png\n          mkdir -p "$GITHUB_WORKSPACE/artifacts"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_v130.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_v131.py"
+          cp "$GITHUB_WORKSPACE/assets/promysel_icon_v131.png" assets/icon/app_icon.png
+          cp "$GITHUB_WORKSPACE/assets/promysel_icon_v131.png" assets/icon/app_icon_foreground.png
+          mkdir -p "$GITHUB_WORKSPACE/artifacts"
           zip -qr "$GITHUB_WORKSPACE/artifacts/promysel-v1.31.0-source.zip" . -x 'android/*' 'build/*' '.dart_tool/*'
           unzip -t "$GITHUB_WORKSPACE/artifacts/promysel-v1.31.0-source.zip" >/dev/null
 
