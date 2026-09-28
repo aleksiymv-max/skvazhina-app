@@ -27,7 +27,7 @@ def home(x):
  if start in x:
   a=x.index(start); b=x.index(" : null,",a)+len(" : null,")
   repl="""trailing: canResolve ? Column(mainAxisSize:MainAxisSize.min,crossAxisAlignment:CrossAxisAlignment.end,children:[
-                        FilledButton(onPressed:()async{await repo.resolveProblem(m.id!,resolvedBy:SessionService.instance.currentUser.name);setModal((){});if(mounted)setState((){});},child:const Text('Решено')),
+                        FilledButton(onPressed:()async{await repo.resolveProblem(m.id!,SessionService.instance.currentUser.id,SessionService.instance.currentUser.name);setModal((){});if(mounted)setState((){});},child:const Text('Решено')),
                         const SizedBox(height:6),
                         if(m.id!=null&&!ProblemApplicationStore.instance.has(m.id!)&&SessionService.instance.currentUser.role==UserRole.dispatcher)
                           OutlinedButton(onPressed:(){ProblemApplicationStore.instance.file(m.id!,SessionService.instance.currentUser.name);setModal((){});if(mounted)setState((){});},child:const Text('Заявка подана')),
