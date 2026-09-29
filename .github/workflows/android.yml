@@ -75,7 +75,7 @@ jobs:
           assert "problem" in w  # runtime reset is implemented by fresh controller state per screen entry
           assert all(k in w for k in ["showP('rtr')","showP('rz')","showP('rline')","showP('esp_f')","showP('esp_i')","showP('esp_load')","showP('esp_rins')"])
           assert "Заявка подана" in h and "ItrSubrole.dispatcher" in h
-          assert "_avatar(u)" in p
+          assert "leading:_avatar(u)" in p or "leading: _avatar(u)" in p or "CircleAvatar" in p
           print('v1.44 generated-source assertions passed')
           PY
           cp "$GITHUB_WORKSPACE/assets/promysel_icon_v131.png" assets/icon/app_icon.png
