@@ -4,10 +4,10 @@ r=Path.cwd()
 # Shared structure revision: define it in the hierarchy module already imported by Wells/Walk.
 p=r/'lib/features/areas/wells_hierarchy_screen.dart';h=p.read_text()
 if "structureRevision" not in h:
-    h=h.replace("import 'package:flutter/material.dart';","import 'package:flutter/material.dart';\\nimport 'package:flutter/foundation.dart';")
+    h=h.replace("import 'package:flutter/material.dart';","import 'package:flutter/material.dart';\nimport 'package:flutter/foundation.dart';")
     # top-level notifier lives beside the authoritative hierarchy UI.
     insert=h.find("\\nclass ")
-    h=h[:insert]+"\\nfinal ValueNotifier<int> structureRevision=ValueNotifier<int>(0);\\nvoid notifyStructureChanged()=>structureRevision.value++;\\n"+h[insert:]
+    h=h[:insert]+"\nfinal ValueNotifier<int> structureRevision=ValueNotifier<int>(0);\nvoid notifyStructureChanged()=>structureRevision.value++;\n"+h[insert:]
 # Notify on structural actions exposed by hierarchy menus.
 h=h.replace("await _addPad(a);","await _addPad(a);notifyStructureChanged();")
 h=h.replace("await _addWell(p);","await _addWell(p);notifyStructureChanged();")
@@ -20,7 +20,7 @@ p.write_text(h)
 p=r/'lib/features/walk/walk_start_screen.dart';w=p.read_text()
 # Import hierarchy notifier if the screen does not already import hierarchy.
 if "wells_hierarchy_screen.dart" not in w:
-    w=w.replace("import 'package:flutter/material.dart';","import 'package:flutter/material.dart';\\nimport '../areas/wells_hierarchy_screen.dart' show structureRevision;")
+    w=w.replace("import 'package:flutter/material.dart';","import 'package:flutter/material.dart';\nimport '../areas/wells_hierarchy_screen.dart' show structureRevision;")
 # Listener lifecycle forces immediate rebuild after hierarchy mutation.
 # Walk reads the same shared hierarchy lists; keep explicit notifier linkage.
 if "structureRevision" not in w: raise SystemExit("walk structure notifier import missing")
@@ -34,7 +34,7 @@ for rel in ['lib/features/walk/area_walk_card_screen.dart','lib/features/walk/pa
     # Existing complete actions get confirmation + blue visual treatment + awaiting label.
     x=x.replace("onPressed:()=>_completeWalkTask(context,t)", "onPressed:()=>_confirmCompleteWalkTask(context,t)")
     if "Future<void> _confirmCompleteWalkTask" not in x:
-        pos=x.rfind("\\n}")
+        pos=x.rfind("\n}")
         helper=r'''
   Future<void> _confirmCompleteWalkTask(BuildContext context,WorkTask task)async{
     final yes=await showDialog<bool>(context:context,builder:(d)=>AlertDialog(title:const Text('Подтвердить выполнение'),content:const Text('Отметить задание как выполненное? После этого оно будет ожидать подтверждения.'),actions:[TextButton(onPressed:()=>Navigator.pop(d,false),child:const Text('Отмена')),FilledButton(onPressed:()=>Navigator.pop(d,true),child:const Text('Задание выполнено'))]));
@@ -56,7 +56,7 @@ if p.exists():
         anchor="subtitle:Text(t.description)"
         if anchor in a:
             a=a.replace(anchor,anchor+",trailing:t.status==WorkTaskStatus.awaitingConfirmation?const Chip(label:Text('Ожидает подтверждения')):t.status==WorkTaskStatus.active?IconButton(tooltip:'Задание выполнено',onPressed:()=>_confirmCompleteWalkTask(context,t),icon:const Icon(Icons.task_alt,color:Colors.blue)):null",1)
-        pos=a.rfind("\\n}")
+        pos=a.rfind("\n}")
         helper=r'''
   Future<void> _confirmCompleteWalkTask(BuildContext context,WorkTask task)async{
     final yes=await showDialog<bool>(context:context,builder:(d)=>AlertDialog(title:const Text('Подтвердить выполнение'),content:const Text('Отметить задание как выполненное? После этого оно будет ожидать подтверждения.'),actions:[TextButton(onPressed:()=>Navigator.pop(d,false),child:const Text('Отмена')),FilledButton(onPressed:()=>Navigator.pop(d,true),child:const Text('Задание выполнено'))]));
