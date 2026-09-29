@@ -6,7 +6,22 @@ pos=x.find("title:Text(a.name")
 if pos<0:raise SystemExit('area title marker missing')
 children=x.find(",children:",pos)
 if children<0:raise SystemExit('area children marker missing')
-if "PopupMenuButton<String>" not in x[pos:children]:x=x[:children]+",trailing:PopupMenuButton<String>(tooltip:'Настройки участка',onSelected:(v){if(v=='params')_areaParams(a.id);},itemBuilder:(_)=>const [PopupMenuItem(value:'params',child:ListTile(leading:Icon(Icons.tune),title:Text('Параметры и единицы')))])"+x[children:]
+segment=x[pos:children]
+if "trailing:" in segment:
+    # Reuse the existing three-dot menu instead of adding a second trailing widget.
+    t=segment.rfind("trailing:")
+    menu=segment[t:]
+    menu=menu.replace("onSelected:(v){","onSelected:(v){if(v=='params'){_areaParams(a.id);return;}",1)
+    marker="itemBuilder:(_)=>"
+    mi=menu.find(marker)
+    if mi<0:raise SystemExit('existing area popup itemBuilder missing')
+    lb=menu.find("[",mi)
+    if lb<0:raise SystemExit('existing area popup items missing')
+    menu=menu[:lb+1]+"const PopupMenuItem(value:'params',child:ListTile(leading:Icon(Icons.tune),title:Text('Параметры и единицы'))),"+menu[lb+1:]
+    segment=segment[:t]+menu
+    x=x[:pos]+segment+x[children:]
+else:
+    x=x[:children]+",trailing:PopupMenuButton<String>(tooltip:'Настройки участка',onSelected:(v){if(v=='params')_areaParams(a.id);},itemBuilder:(_)=>const [PopupMenuItem(value:'params',child:ListTile(leading:Icon(Icons.tune),title:Text('Параметры и единицы')))])"+x[children:]
 method=r"""
  Future<void> _areaParams(String id) async {
   final config=WalkParameterConfig.instance;final draft=Set<String>.of(config.forArea(id));final unitDraft=Map<String,String>.from(config.units[id]??{});
