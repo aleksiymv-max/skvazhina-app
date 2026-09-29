@@ -22,12 +22,8 @@ p=r/'lib/features/walk/walk_start_screen.dart';w=p.read_text()
 if "wells_hierarchy_screen.dart" not in w:
     w=w.replace("import 'package:flutter/material.dart';","import 'package:flutter/material.dart';\\nimport '../areas/wells_hierarchy_screen.dart' show structureRevision;")
 # Listener lifecycle forces immediate rebuild after hierarchy mutation.
-state_marker=" extends State<"
-if state_marker in w and "structureRevision.addListener" not in w:
-    w=w.replace(state_marker,state_marker+"
-  @override void initState(){super.initState();structureRevision.addListener(_structureChanged);}
-  void _structureChanged(){if(mounted)setState((){});}
-  @override void dispose(){structureRevision.removeListener(_structureChanged);super.dispose();}",1)
+# Walk reads the same shared hierarchy lists; keep explicit notifier linkage.
+if "structureRevision" not in w: raise SystemExit("walk structure notifier import missing")
 p.write_text(w)
 
 # Task UX for both area and pad walk cards.
