@@ -162,7 +162,7 @@ jobs:
             'mkd_export_functional': 'createAnnulusJournalXlsx' in hist,
             'well_card_readonly_latest': 'Последние введённые значения' in card and '_latestCard()' in card,
             'well_card_walk_config': 'WalkParameterConfig.instance.unit' in card,
-            'well_card_visibility_synced': 'WalkParameterConfig.instance.on(pad.areaId,_cfgKey(k))' in card,
+            'well_card_visibility_synced': 'WalkParameterConfig.instance.on(areaId,key)' in card and '.where((e)=>configured(e.configKey)).toList()' in card,
             'annulus_selector_in_parameters': "'__annulus__'" in hist and "Межколонные давления" in hist and "if (wellId == '__annulus__') _annulusParametersBlock()" in hist,
             'annulus_role_edit': '_canEditAnnulus' in hist and 'UserRole.engineer' in hist and 'UserRole.shopChief' in hist,
             'annulus_edit_persistence': 'updateAt(e.measuredAt' in hist,
