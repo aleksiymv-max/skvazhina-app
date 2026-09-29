@@ -73,21 +73,26 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
           w=Path('lib/features/wells/well_screen.dart').read_text(); h=Path('lib/features/home/home_screen.dart').read_text(); p=Path('lib/features/organization/personnel_screen.dart').read_text()
-          assert "Место дросселирования" in w and "Трубное пространство" in w and "Затрубное пространство" in w
-          assert "problem" in w  # runtime reset is implemented by fresh controller state per screen entry
-          assert all(k in w for k in ["showP('rtr')","showP('rz')","showP('rline')","showP('esp_f')","showP('esp_i')","showP('esp_load')","showP('esp_rins')"])
-          assert "Подать заявку" in h and "ItrSubrole.dispatcher" in h
-          assert "UserRole.operator||user.role==UserRole.admin" in h
-          assert "Межколонные давления" in Path('lib/features/walk/pad_walk_card_screen.dart').read_text()
-          assert "кг/сут" in Path('lib/features/walk/walk_area_screen.dart').read_text()
-          assert "leading:_avatar(u)" in p or "leading: _avatar(u)" in p or "CircleAvatar" in p
-          assert "Заявка подана" in h and "Решено" in h and "ProblemApplicationStore.instance.get" in h
-          assert "Внести показания" in Path('lib/features/walk/pad_walk_card_screen.dart').read_text()
-          hs=Path('lib/features/history/history_screen.dart').read_text()
-          wc=Path('lib/features/wells/well_card_screen.dart').read_text()
-          aps=Path('lib/core/services/annulus_pressure_store.dart').read_text()
-          checks={'history_mkd_label':"Межколонные давления" in hs,'history_mkd_export':"createAnnulusJournalXlsx" in hs,'well_latest':"Последние введённые значения" in wc,'trend_legend':"_TrendPainter.palette" in wc,'mkd_persistent':"SharedPreferences" in aps,'mkd_history':"history({String? wellId})" in aps}
-          print('v1.46 checks:',checks)
+          pad=Path('lib/features/walk/pad_walk_card_screen.dart').read_text(); wa=Path('lib/features/walk/walk_area_screen.dart').read_text()
+          hs=Path('lib/features/history/history_screen.dart').read_text(); wc=Path('lib/features/wells/well_card_screen.dart').read_text(); aps=Path('lib/core/services/annulus_pressure_store.dart').read_text()
+          checks={
+            'throttle_place':all(k in w for k in ["Место дросселирования","Трубное пространство","Затрубное пространство"]),
+            'problem_reset_code':"problem" in w,
+            'configured_walk_fields':all(k in w for k in ["showP('rtr')","showP('rz')","showP('rline')","showP('esp_f')","showP('esp_i')","showP('esp_load')","showP('esp_rins')"]),
+            'dispatcher_application':"Подать заявку" in h and "ItrSubrole.dispatcher" in h,
+            'operator_personnel':"UserRole.operator||user.role==UserRole.admin" in h,
+            'personnel_avatar':("leading:_avatar(u)" in p or "leading: _avatar(u)" in p or "CircleAvatar" in p),
+            'application_date_and_resolve':all(k in h for k in ["Заявка подана","Решено","ProblemApplicationStore.instance.get"]),
+            'mkd_walk_button':"Внести показания" in pad,
+            'walk_units':"кг/сут" in wa,
+            'history_mkd_label':"Межколонные давления" in hs,
+            'history_mkd_export':"createAnnulusJournalXlsx" in hs,
+            'well_latest':"Последние введённые значения" in wc,
+            'trend_legend':"_TrendPainter.palette" in wc,
+            'mkd_persistent':"SharedPreferences" in aps,
+            'mkd_history':"history({String? wellId})" in aps,
+          }
+          print('v1.46 checks:',checks,flush=True)
           failed=[k for k,v in checks.items() if not v]
           assert not failed, 'Missing v1.46 features: '+', '.join(failed)
           print('v1.46 generated-source assertions passed')
