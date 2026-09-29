@@ -83,9 +83,13 @@ jobs:
           assert "leading:_avatar(u)" in p or "leading: _avatar(u)" in p or "CircleAvatar" in p
           assert "Заявка подана" in h and "Решено" in h and "ProblemApplicationStore.instance.get" in h
           assert "Внести показания" in Path('lib/features/walk/pad_walk_card_screen.dart').read_text()
-          hs=Path('lib/features/history/history_screen.dart').read_text(); assert "Межколонные давления" in hs and "createAnnulusJournalXlsx" in hs
-          wc=Path('lib/features/wells/well_card_screen.dart').read_text(); assert "Последние введённые значения" in wc and "_TrendPainter.palette" in wc
-          aps=Path('lib/core/services/annulus_pressure_store.dart').read_text(); assert "SharedPreferences" in aps and "history({String? wellId})" in aps
+          hs=Path('lib/features/history/history_screen.dart').read_text()
+          wc=Path('lib/features/wells/well_card_screen.dart').read_text()
+          aps=Path('lib/core/services/annulus_pressure_store.dart').read_text()
+          checks={'history_mkd_label':"Межколонные давления" in hs,'history_mkd_export':"createAnnulusJournalXlsx" in hs,'well_latest':"Последние введённые значения" in wc,'trend_legend':"_TrendPainter.palette" in wc,'mkd_persistent':"SharedPreferences" in aps,'mkd_history':"history({String? wellId})" in aps}
+          print('v1.46 checks:',checks)
+          failed=[k for k,v in checks.items() if not v]
+          assert not failed, 'Missing v1.46 features: '+', '.join(failed)
           print('v1.46 generated-source assertions passed')
           PY
           cp "$GITHUB_WORKSPACE/assets/promysel_icon_v131.png" assets/icon/app_icon.png
