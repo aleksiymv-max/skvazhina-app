@@ -157,6 +157,8 @@ p.write_text(e)
 
 # Final locally verified annulus history integration.
 p=r/'lib/features/history/history_screen.dart'; h=p.read_text()
+if "UserRole." in h and "models/user.dart" not in h:
+    h=h.replace("import 'package:flutter/material.dart';","import 'package:flutter/material.dart';\nimport '../../core/models/user.dart';")
 # Replace any previously generated compact annulus helper with a clean block.
 s=h.find("  Widget _annulusParametersBlock()"); e=h.find("  Future<void> _editAnnulus",s)
 if s<0 or e<0: raise SystemExit('annulus helper markers missing')
