@@ -83,5 +83,6 @@ walk=(r/'lib/features/walk/walk_start_screen.dart').read_text();hier=(r/'lib/fea
 assert "structureRevision" in walk and hier.count("notifyStructureChanged()")>=2
 assert "Подтвердить решение" in home and "Проблема решена" in home
 pad=(r/'lib/features/walk/pad_walk_card_screen.dart').read_text(); area=(r/'lib/features/walk/walk_area_screen.dart').read_text()
-assert "Задание ожидает подтверждения" in pad and "Подтвердить выполнение" in pad and "FilledButton.icon" in pad and "setState" in pad\nassert "Задание ожидает подтверждения" in area and "FilledButton.icon" in area and "setState" in area
+assert "Задание ожидает подтверждения" in pad and "Подтвердить выполнение" in pad and "FilledButton.icon" in pad and "setState" in pad
+assert "Задание ожидает подтверждения" in area and "FilledButton.icon" in area and "setState" in area
 print('v1.49 task confirmation and live structure assertions passed')
