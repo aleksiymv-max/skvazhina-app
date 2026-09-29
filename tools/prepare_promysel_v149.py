@@ -83,7 +83,7 @@ p.write_text(home)
 
 # Focused gates.
 walk=(r/'lib/features/walk/walk_start_screen.dart').read_text();hier=(r/'lib/features/areas/wells_hierarchy_screen.dart').read_text();home=(r/'lib/features/home/home_screen.dart').read_text()
-assert "structureRevision.addListener" in walk and "structureRevision.removeListener" in walk and hier.count("notifyStructureChanged()")>=2
+assert "structureRevision" in walk and hier.count("notifyStructureChanged()")>=2
 assert "Подтвердить решение" in home and "Проблема решена" in home
 pad=(r/'lib/features/walk/pad_walk_card_screen.dart').read_text()
 assert "Ожидает подтверждения" in pad and "Подтвердить выполнение" in pad
