@@ -65,3 +65,33 @@ p.write_text(h)
 
 
 # Final application-state verification is performed by the workflow against generated source.
+
+
+# v1.46 final UX corrections from field feedback.
+# History: journal labels without "Выгрузить"; annulus belongs to Parameters, not a fourth tab.
+p=r/'lib/features/history/history_screen.dart'; h=p.read_text()
+h=h.replace("Text('Выгрузить журнал заданий')","Text('Журнал заданий')").replace("Text('Выгрузить журнал проблем')","Text('Журнал проблем')").replace("Text('Выгрузить Межколонные давления')","Text('Межколонные давления')")
+h=h.replace("length: 4,","length: 3,")
+h=h.replace(", Tab(text:'Межколонные давления')","").replace(",Tab(text:'Межколонные давления')","")
+h=h.replace("          _annulusHistory(),\n","")
+# Put annulus history into the Parameters tab content instead of a separate tab.
+param_mark="_measurementHistory(),"
+if param_mark in h and "_annulusParametersBlock()" not in h:
+    h=h.replace(param_mark,param_mark+"\n          _annulusParametersBlock(),",1)
+# Rename helper and remove its duplicate standalone title/export button when possible.
+h=h.replace("Widget _annulusHistory()","Widget _annulusParametersBlock()")
+h=h.replace("const Text('Межколонные давления',style:TextStyle(fontSize:20,fontWeight:FontWeight.w900)),const SizedBox(height:10),","")
+h=re.sub(r"const SizedBox\(height:12\),SizedBox\(width:double\.infinity,child:OutlinedButton\.icon\(onPressed:\(\)async\{final f=await ExportService\.createAnnulusJournalXlsx\(entries:AnnulusPressureStore\.instance\.history\(\)\);await ExportService\.shareXlsx\(f\);\},icon:const Icon\(Icons\.download_outlined\),label:const Text\('Межколонные давления'\)\)\),","",h)
+p.write_text(h)
+
+# Walk MKD action: use same filled action style as the other walk action buttons.
+p=r/'lib/features/walk/pad_walk_card_screen.dart'; w=p.read_text()
+w=w.replace("OutlinedButton.icon(onPressed:()=>_annulus(context,pad),icon:const Icon(Icons.speed_outlined),label:const Text('Внести показания'))","FilledButton.icon(onPressed:()=>_annulus(context,pad),icon:const Icon(Icons.add_chart_outlined),label:const Text('Внести показания'))")
+p.write_text(w)
+
+# Dispatcher problem UI must always show Resolve, and filed state/date must be rendered for every role.
+p=r/'lib/features/home/home_screen.dart'; h=p.read_text()
+h=h.replace("if(!dispatcher)SizedBox(width:double.infinity,child:FilledButton.icon(","SizedBox(width:double.infinity,child:FilledButton.icon(")
+# Keep the visible filed label role-independent; patch known filed button label into dated status.
+h=h.replace("label:Text(filed?'Заявка подана':'Подать заявку')","label:Text(filed?'Заявка подана '+_problemDate(ProblemApplicationStore.instance.data[m.id!]!.$2):'Подать заявку')")
+p.write_text(h)
