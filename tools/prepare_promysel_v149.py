@@ -4,12 +4,19 @@ r=Path.cwd()
 # Shared structure revision: define it in the hierarchy module already imported by Wells/Walk.
 p=r/'lib/features/areas/wells_hierarchy_screen.dart';h=p.read_text()
 if "structureRevision" not in h:
-    h=h.replace("import 'package:flutter/material.dart';","import 'package:flutter/material.dart';\nimport 'package:flutter/foundation.dart';")
+    h=h.replace("import 'package:flutter/material.dart';","import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';")
     # top-level notifier lives beside the authoritative hierarchy UI.
-    insert=h.find("\nclass ")
-    h=h[:insert]+"\nfinal ValueNotifier<int> structureRevision=ValueNotifier<int>(0);\nvoid notifyStructureChanged()=>structureRevision.value++;\n"+h[insert:]
+    insert=h.find("
+class ")
+    h=h[:insert]+"
+final ValueNotifier<int> structureRevision=ValueNotifier<int>(0);
+void notifyStructureChanged()=>structureRevision.value++;
+"+h[insert:]
 # Notify on structural actions exposed by hierarchy menus.
-h=h.replace("await _addPad(a);","await _addPad(a);notifyStructureChanged();")\nh=h.replace("await _addWell(p);","await _addWell(p);notifyStructureChanged();")\nh=h.replace("await _addWell(pad);","await _addWell(pad);notifyStructureChanged();")
+h=h.replace("await _addPad(a);","await _addPad(a);notifyStructureChanged();")
+h=h.replace("await _addWell(p);","await _addWell(p);notifyStructureChanged();")
+h=h.replace("await _addWell(pad);","await _addWell(pad);notifyStructureChanged();")
 h=h.replace("if(v=='addArea')_addArea();","if(v=='addArea')_addArea().then((_)=>notifyStructureChanged());")
 h=h.replace("setState(()=>a.name=n);","setState(()=>a.name=n);notifyStructureChanged();")
 h=h.replace("demoAreas.remove(a);});","demoAreas.remove(a);});notifyStructureChanged();")
@@ -18,11 +25,15 @@ p.write_text(h)
 p=r/'lib/features/walk/walk_start_screen.dart';w=p.read_text()
 # Import hierarchy notifier if the screen does not already import hierarchy.
 if "wells_hierarchy_screen.dart" not in w:
-    w=w.replace("import 'package:flutter/material.dart';","import 'package:flutter/material.dart';\nimport '../areas/wells_hierarchy_screen.dart' show structureRevision;")
+    w=w.replace("import 'package:flutter/material.dart';","import 'package:flutter/material.dart';
+import '../areas/wells_hierarchy_screen.dart' show structureRevision;")
 # Listener lifecycle forces immediate rebuild after hierarchy mutation.
 state_marker=" extends State<"
 if state_marker in w and "structureRevision.addListener" not in w:
-    w=w.replace(state_marker,state_marker+"\n  @override void initState(){super.initState();structureRevision.addListener(_structureChanged);}\n  void _structureChanged(){if(mounted)setState((){});}\n  @override void dispose(){structureRevision.removeListener(_structureChanged);super.dispose();}",1)
+    w=w.replace(state_marker,state_marker+"
+  @override void initState(){super.initState();structureRevision.addListener(_structureChanged);}
+  void _structureChanged(){if(mounted)setState((){});}
+  @override void dispose(){structureRevision.removeListener(_structureChanged);super.dispose();}",1)
 p.write_text(w)
 
 # Task UX for both area and pad walk cards.
@@ -33,7 +44,8 @@ for rel in ['lib/features/walk/area_walk_card_screen.dart','lib/features/walk/pa
     # Existing complete actions get confirmation + blue visual treatment + awaiting label.
     x=x.replace("onPressed:()=>_completeWalkTask(context,t)", "onPressed:()=>_confirmCompleteWalkTask(context,t)")
     if "_confirmCompleteWalkTask" not in x:
-        pos=x.rfind("\n}")
+        pos=x.rfind("
+}")
         helper=r'''
   Future<void> _confirmCompleteWalkTask(BuildContext context,WorkTask task)async{
     final yes=await showDialog<bool>(context:context,builder:(d)=>AlertDialog(title:const Text('Подтвердить выполнение'),content:const Text('Отметить задание как выполненное? После этого оно будет ожидать подтверждения.'),actions:[TextButton(onPressed:()=>Navigator.pop(d,false),child:const Text('Отмена')),FilledButton(onPressed:()=>Navigator.pop(d,true),child:const Text('Задание выполнено'))]));
@@ -55,7 +67,8 @@ if p.exists():
         anchor="subtitle:Text(t.description)"
         if anchor in a:
             a=a.replace(anchor,anchor+",trailing:t.status==WorkTaskStatus.awaitingConfirmation?const Chip(label:Text('Ожидает подтверждения')):t.status==WorkTaskStatus.active?IconButton(tooltip:'Задание выполнено',onPressed:()=>_confirmCompleteWalkTask(context,t),icon:const Icon(Icons.task_alt,color:Colors.blue)):null",1)
-        pos=a.rfind("\n}")
+        pos=a.rfind("
+}")
         helper=r'''
   Future<void> _confirmCompleteWalkTask(BuildContext context,WorkTask task)async{
     final yes=await showDialog<bool>(context:context,builder:(d)=>AlertDialog(title:const Text('Подтвердить выполнение'),content:const Text('Отметить задание как выполненное? После этого оно будет ожидать подтверждения.'),actions:[TextButton(onPressed:()=>Navigator.pop(d,false),child:const Text('Отмена')),FilledButton(onPressed:()=>Navigator.pop(d,true),child:const Text('Задание выполнено'))]));
