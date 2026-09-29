@@ -9,7 +9,7 @@ if "structureRevision" not in h:
     insert=h.find("\nclass ")
     h=h[:insert]+"\nfinal ValueNotifier<int> structureRevision=ValueNotifier<int>(0);\nvoid notifyStructureChanged()=>structureRevision.value++;\n"+h[insert:]
 # Notify on structural actions exposed by hierarchy menus.
-h=h.replace("await _addPad(a);","await _addPad(a);notifyStructureChanged();")
+h=h.replace("await _addPad(a);","await _addPad(a);notifyStructureChanged();")\nh=h.replace("await _addWell(p);","await _addWell(p);notifyStructureChanged();")\nh=h.replace("await _addWell(pad);","await _addWell(pad);notifyStructureChanged();")
 h=h.replace("if(v=='addArea')_addArea();","if(v=='addArea')_addArea().then((_)=>notifyStructureChanged());")
 h=h.replace("setState(()=>a.name=n);","setState(()=>a.name=n);notifyStructureChanged();")
 h=h.replace("demoAreas.remove(a);});","demoAreas.remove(a);});notifyStructureChanged();")
@@ -20,7 +20,7 @@ p=r/'lib/features/walk/walk_start_screen.dart';w=p.read_text()
 if "wells_hierarchy_screen.dart" not in w:
     w=w.replace("import 'package:flutter/material.dart';","import 'package:flutter/material.dart';\nimport '../areas/wells_hierarchy_screen.dart' show structureRevision;")
 # Listener lifecycle forces immediate rebuild after hierarchy mutation.
-state_marker="class _WalkStartScreenState extends State<WalkStartScreen>{"
+state_marker=" extends State<"
 if state_marker in w and "structureRevision.addListener" not in w:
     w=w.replace(state_marker,state_marker+"\n  @override void initState(){super.initState();structureRevision.addListener(_structureChanged);}\n  void _structureChanged(){if(mounted)setState((){});}\n  @override void dispose(){structureRevision.removeListener(_structureChanged);super.dispose();}",1)
 p.write_text(w)
@@ -76,7 +76,7 @@ p.write_text(home)
 
 # Focused gates.
 walk=(r/'lib/features/walk/walk_start_screen.dart').read_text();hier=(r/'lib/features/areas/wells_hierarchy_screen.dart').read_text();home=(r/'lib/features/home/home_screen.dart').read_text()
-assert "structureRevision.addListener" in walk and "notifyStructureChanged()" in hier
+assert "structureRevision.addListener" in walk and "structureRevision.removeListener" in walk and hier.count("notifyStructureChanged()")>=2
 assert "Подтвердить решение" in home and "Проблема решена" in home
 pad=(r/'lib/features/walk/pad_walk_card_screen.dart').read_text()
 assert "Ожидает подтверждения" in pad and "Подтвердить выполнение" in pad
