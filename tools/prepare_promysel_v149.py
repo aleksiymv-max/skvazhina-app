@@ -38,7 +38,7 @@ for rel in ['lib/features/walk/walk_area_screen.dart','lib/features/walk/pad_wal
         helper=r'''
   Future<void> _confirmCompleteWalkTask(BuildContext context,WorkTask task)async{
     final yes=await showDialog<bool>(context:context,builder:(d)=>AlertDialog(title:const Text('Подтвердить выполнение'),content:const Text('Отметить задание как выполненное? После этого оно будет ожидать подтверждения.'),actions:[TextButton(onPressed:()=>Navigator.pop(d,false),child:const Text('Отмена')),FilledButton(onPressed:()=>Navigator.pop(d,true),child:const Text('Задание выполнено'))]));
-    if(yes==true&&context.mounted){final ok=WorkTaskStore.instance.complete(task,'Оператор');if(ok&&context.mounted)Navigator.of(context).pushReplacement(MaterialPageRoute(builder:(_)=>PadWalkCardScreen(pad:pad)));if(context.mounted)ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text(ok?'Задание ожидает подтверждения':'Не удалось отметить задание выполненным')));}
+    if(yes==true&&context.mounted){final ok=WorkTaskStore.instance.complete(task,'Оператор');if(ok&&context.mounted)Navigator.of(context).pushReplacement(MaterialPageRoute(builder:(_)=>PadWalkCardScreen(padId:padId)));if(context.mounted)ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text(ok?'Задание ожидает подтверждения':'Не удалось отметить задание выполненным')));}
   }
 '''
         x=x[:pos]+helper+x[pos:]
@@ -83,6 +83,6 @@ walk=(r/'lib/features/walk/walk_start_screen.dart').read_text();hier=(r/'lib/fea
 assert "structureRevision" in walk and hier.count("notifyStructureChanged()")>=2
 assert "Подтвердить решение" in home and "Проблема решена" in home
 pad=(r/'lib/features/walk/pad_walk_card_screen.dart').read_text(); area=(r/'lib/features/walk/walk_area_screen.dart').read_text()
-assert "Задание ожидает подтверждения" in pad and "Подтвердить выполнение" in pad and "FilledButton.icon" in pad and "pushReplacement" in pad
+assert "Задание ожидает подтверждения" in pad and "Подтвердить выполнение" in pad and "FilledButton.icon" in pad and "padId:padId" in pad
 assert "Задание ожидает подтверждения" in area and "FilledButton.icon" in area and "_confirmCompleteWalkTask" in area
 print('v1.49 task confirmation and live structure assertions passed')
