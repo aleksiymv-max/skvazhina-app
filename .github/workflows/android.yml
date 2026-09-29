@@ -117,6 +117,29 @@ jobs:
           flutter pub get
           flutter analyze --no-fatal-infos --no-fatal-warnings
 
+      - name: Walk and well card configuration gate
+        shell: bash
+        run: |
+          cd "\${{ steps.project.outputs.project_dir }}"
+          python3 - <<'PY'
+          from pathlib import Path
+          walk=Path('lib/features/wells/well_screen.dart').read_text()
+          card=Path('lib/features/wells/well_card_screen.dart').read_text()
+          config=Path('lib/core/models/walk_parameter_config.dart').read_text()
+          required_walk_units=["unitP('rtr'","unitP('rz'","unitP('rline'","unitP('t_before'","unitP('t_line'","unitP('pkv'","unitP('pid'","unitP('choke'","unitP('ruzd'","unitP('tuzd'","unitP('rpr'","unitP('tpr'","unitP('esp_f'","unitP('esp_i'","unitP('esp_load'","unitP('esp_rins'","unitP('shutoff'","unitP('inhibitor'"]
+          checks={
+            'area_config_persists_units': "'units':units" in config and "String unit(String area,String key,String fallback)" in config,
+            'walk_all_configured_units': all(k in walk for k in required_walk_units),
+            'card_uses_same_visibility': "WalkParameterConfig.instance.on(areaId,key)" in card and ".where((e)=>configured(e.configKey)).toList()" in card,
+            'card_uses_same_units': "WalkParameterConfig.instance.unit(areaId,key,fallback)" in card and "configuredUnit(e.configKey,e.fallbackUnit)" in card,
+            'card_uses_latest_walk_record': "latest=await repo.latestForWell(well.id)" in card and "displayValue(m,e.measurementKey)" in card,
+            'card_has_no_old_independent_param_map': "List<MapEntry<String,String>> get params" not in card,
+          }
+          print('WALK/CARD CONFIG GATE',checks,flush=True)
+          bad=[k for k,v in checks.items() if not v]
+          assert not bad, 'Walk/card configuration gate failed: '+', '.join(bad)
+          PY
+
       - name: Role and UX preflight
         shell: bash
         run: |
