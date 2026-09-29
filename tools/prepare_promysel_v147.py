@@ -2,26 +2,12 @@ from pathlib import Path
 r=Path.cwd()
 p=r/'lib/features/areas/wells_hierarchy_screen.dart';x=p.read_text()
 if "walk_parameter_config.dart" not in x:x=x.replace("import 'package:flutter/material.dart';","import 'package:flutter/material.dart';\nimport '../../core/models/walk_parameter_config.dart';")
-pos=x.find("title:Text(a.name")
-if pos<0:raise SystemExit('area title marker missing')
-children=x.find(",children:",pos)
-if children<0:raise SystemExit('area children marker missing')
-segment=x[pos:children]
-if "trailing:" in segment:
-    # Reuse the existing three-dot menu instead of adding a second trailing widget.
-    t=segment.rfind("trailing:")
-    menu=segment[t:]
-    menu=menu.replace("onSelected:(v){","onSelected:(v){if(v=='params'){_areaParams(a.id);return;}",1)
-    marker="itemBuilder:(_)=>"
-    mi=menu.find(marker)
-    if mi<0:raise SystemExit('existing area popup itemBuilder missing')
-    lb=menu.find("[",mi)
-    if lb<0:raise SystemExit('existing area popup items missing')
-    menu=menu[:lb+1]+"const PopupMenuItem(value:'params',child:ListTile(leading:Icon(Icons.tune),title:Text('Параметры и единицы'))),"+menu[lb+1:]
-    segment=segment[:t]+menu
-    x=x[:pos]+segment+x[children:]
-else:
-    x=x[:children]+",trailing:PopupMenuButton<String>(tooltip:'Настройки участка',onSelected:(v){if(v=='params')_areaParams(a.id);},itemBuilder:(_)=>const [PopupMenuItem(value:'params',child:ListTile(leading:Icon(Icons.tune),title:Text('Параметры и единицы')))])"+x[children:]
+# The existing three-dot menu is _areaMenu(a); extend it instead of creating another trailing widget.
+x=x.replace("trailing:(user.canCreateStructure||user.canManageStructure)?_areaMenu(a):null","trailing:_areaMenu(a)")
+old_menu="Widget _areaMenu(ProductionArea a)=>PopupMenuButton<String>(onSelected:(v)async{if(v=='addPad'){await _addPad(a);}else if(v=='rename'){final n=await _ask('Переименовать участок',a.name);if(n!=null&&n.isNotEmpty)setState(()=>a.name=n);}else if(v=='delete'&&await _del('Удалить ${a.name} и все входящие объекты?'))setState((){for(final id in a.padIds)demoPads.removeWhere((p)=>p.id==id);demoAreas.remove(a);});},itemBuilder:(_)=>[if(user.canCreateStructure)const PopupMenuItem(value:'addPad',child:ListTile(leading:Icon(Icons.add_business),title:Text('Добавить кустовую площадку'))),if(user.canManageStructure)...const [PopupMenuItem(value:'rename',child:Text('Редактировать название')),PopupMenuItem(value:'delete',child:Text('Удалить'))]]);"
+new_menu="Widget _areaMenu(ProductionArea a)=>PopupMenuButton<String>(onSelected:(v)async{if(v=='params'){await _areaParams(a.id);}else if(v=='addPad'){await _addPad(a);}else if(v=='rename'){final n=await _ask('Переименовать участок',a.name);if(n!=null&&n.isNotEmpty)setState(()=>a.name=n);}else if(v=='delete'&&await _del('Удалить ${a.name} и все входящие объекты?'))setState((){for(final id in a.padIds)demoPads.removeWhere((p)=>p.id==id);demoAreas.remove(a);});},itemBuilder:(_)=>[const PopupMenuItem(value:'params',child:ListTile(leading:Icon(Icons.tune),title:Text('Параметры и единицы'))),if(user.canCreateStructure)const PopupMenuItem(value:'addPad',child:ListTile(leading:Icon(Icons.add_business),title:Text('Добавить кустовую площадку'))),if(user.canManageStructure)...const [PopupMenuItem(value:'rename',child:Text('Редактировать название')),PopupMenuItem(value:'delete',child:Text('Удалить'))]]);"
+if old_menu not in x:raise SystemExit('exact _areaMenu source marker missing')
+x=x.replace(old_menu,new_menu)
 method=r"""
  Future<void> _areaParams(String id) async {
   final config=WalkParameterConfig.instance;final draft=Set<String>.of(config.forArea(id));final unitDraft=Map<String,String>.from(config.units[id]??{});
