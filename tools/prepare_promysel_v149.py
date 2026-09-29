@@ -43,8 +43,11 @@ for rel in ['lib/features/walk/walk_area_screen.dart','lib/features/walk/pad_wal
 '''
         x=x[:pos]+helper+x[pos:]
     x=x.replace("tooltip:'Отметить выполненным'", "tooltip:'Задание выполнено'")
+    # Walk task action: full blue button, never the circular check icon.
+    x=x.replace("FilledButton.icon(onPressed:()=>_confirmCompleteWalkTask(context,t),icon:const Icon(Icons.task_alt),label:const Text('Задание выполнено'))", "FilledButton.icon(onPressed:()=>_confirmCompleteWalkTask(context,t),icon:const Icon(Icons.task_alt),label:const Text('Задание выполнено'))")
+    x=x.replace("IconButton(tooltip:'Задание выполнено',onPressed:()=>_confirmCompleteWalkTask(context,t),icon:const Icon(Icons.task_alt))", "FilledButton.icon(onPressed:()=>_confirmCompleteWalkTask(context,t),icon:const Icon(Icons.task_alt),label:const Text('Задание выполнено'))")
     # Render awaiting confirmation explicitly.
-    x=x.replace("t.status==WorkTaskStatus.active?IconButton(", "t.status==WorkTaskStatus.awaitingConfirmation?const Chip(label:Text('Ожидает подтверждения')):t.status==WorkTaskStatus.active?IconButton(")
+    x=x.replace("t.status==WorkTaskStatus.active?IconButton(", "t.status==WorkTaskStatus.awaitingConfirmation?const Text('Задание ожидает подтверждения',style:TextStyle(fontWeight:FontWeight.w700)):t.status==WorkTaskStatus.active?IconButton(")
     p.write_text(x)
 
 # Area card may not yet have the complete helper/action; mirror pad task completion using its existing task list.
@@ -80,5 +83,5 @@ walk=(r/'lib/features/walk/walk_start_screen.dart').read_text();hier=(r/'lib/fea
 assert "structureRevision" in walk and hier.count("notifyStructureChanged()")>=2
 assert "Подтвердить решение" in home and "Проблема решена" in home
 pad=(r/'lib/features/walk/pad_walk_card_screen.dart').read_text()
-assert "Ожидает подтверждения" in pad and "Подтвердить выполнение" in pad
+assert "Задание ожидает подтверждения" in pad and "Подтвердить выполнение" in pad and "FilledButton.icon" in pad
 print('v1.49 task confirmation and live structure assertions passed')
