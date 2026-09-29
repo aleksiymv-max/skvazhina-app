@@ -234,4 +234,10 @@ else: raise SystemExit('well card helper insertion boundary missing')
 c=re.sub(r"children:params\.map\(\(e\)=>FilterChip\(label:Text\([^\n]+?\)\)\.toList\(\)", "children:params.where((e)=>e.measurementKey!='nozzle').map((e)=>FilterChip(label:Text(labelFor(e.measurementKey)),selected:selected.contains(e.measurementKey),onSelected:(v)=>setState((){if(v)selected.add(e.measurementKey);else selected.remove(e.measurementKey);touched=null;}))).toList()", c)
 s=c.index("  Widget _latestCard(){"); e=c.index("\n}",s)
 latest=r'''  Widget _latestCard(){if(latest==null)return const Card(child:Padding(padding:EdgeInsets.all(18),child:Text('По скважине пока нет замеров.')));final m=latest!;return Card(child:Padding(padding:const EdgeInsets.all(16),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[const Text('Последние введённые значения',style:TextStyle(fontSize:18,fontWeight:FontWeight.w900)),const SizedBox(height:10),Wrap(spacing:8,runSpacing:8,children:params.map((e)=>Container(width:150,padding:const EdgeInsets.all(12),decoration:BoxDecoration(color:Theme.of(context).colorScheme.primaryContainer.withValues(alpha:.35),borderRadius:BorderRadius.circular(14)),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text(labelFor(e.measurementKey),style:TextStyle(fontSize:11,color:Theme.of(context).colorScheme.onSurfaceVariant)),Text(displayValue(m,e.measurementKey),style:const TextStyle(fontSize:18,fontWeight:FontWeight.w900))]))).toList())])));}'''
-c=c[:s]+latest+c[e:];p.write_text(c)
+c=c[:s]+latest+c[e:];# Remove any stale MapEntry-based label helper left by earlier v1.46 transformations.
+c=re.sub(r"\\s*String labelFor\\(String k\\)=>params\\.firstWhere\\([^\\n]+", "", c)
+c=re.sub(r"\\s*String labelFor\\(String k\\)\\{final e=params\\.firstWhere\\([^\\n]+", "", c)
+# There must be exactly one shared label helper and no MapEntry key/value access in the card parameter model.
+if c.count("String labelFor(String k)") != 1: raise SystemExit('well card must contain exactly one shared labelFor')
+if "params.firstWhere((e)=>e.key" in c: raise SystemExit('stale MapEntry parameter helper remains')
+p.write_text(c)
