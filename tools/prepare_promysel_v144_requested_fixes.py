@@ -41,7 +41,7 @@ p.write_text(x)
 p=r/'lib/core/services/session_service.dart'; x=p.read_text()
 if "avatarPathFor(" not in x:
  pos=x.rfind('\n}')
- x=x[:pos]+"\n  String? avatarPathFor(String userId){try{final u=approvedWorkers.firstWhere((e)=>e.id==userId);return u.avatarPath;}catch(_){return null;}}\n"+x[pos:]
+ x=x[:pos]+"\n  String? avatarPathFor(String userId){try{final u=approvedWorkers.firstWhere((e)=>e.id==userId);final d=u as dynamic;return d.avatarPath as String?;}catch(_){return null;}}\n"+x[pos:]
 p.write_text(x)
 
 # Navigation: remove operator exclusion specifically around Personnel if present.
