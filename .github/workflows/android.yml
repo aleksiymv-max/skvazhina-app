@@ -140,7 +140,7 @@ jobs:
             'well_card_readonly_latest': 'Последние введённые значения' in card and '_latestCard()' in card,
             'well_card_walk_config': 'WalkParameterConfig.instance.unit' in card,
             'well_card_visibility_synced': 'WalkParameterConfig.instance.on(pad.areaId,_cfgKey(k))' in card,
-            'annulus_selector_in_parameters': "value:'__annulus__'" in hist and "Text('Межколонные давления')" in hist,
+            'annulus_selector_in_parameters': "'__annulus__'" in hist and "Межколонные давления" in hist and "if (wellId == '__annulus__') _annulusParametersBlock()" in hist,
             'annulus_role_edit': '_canEditAnnulus' in hist and 'UserRole.engineer' in hist and 'UserRole.shopChief' in hist,
             'annulus_edit_persistence': 'updateAt(e.measuredAt' in hist,
             'annulus_area_sheets': "areas.putIfAbsent" in Path('lib/core/services/export_service.dart').read_text() and "sheetName" in Path('lib/core/services/export_service.dart').read_text(),
