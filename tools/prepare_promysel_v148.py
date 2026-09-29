@@ -18,17 +18,10 @@ grouped=r'''  String groupFor(String key){
   Widget _latestCard(){if(latest==null)return const Card(child:Padding(padding:EdgeInsets.all(18),child:Text('По скважине пока нет замеров.')));final m=latest!;final grouped=<String,List<({String configKey,String measurementKey,String label,String fallbackUnit})>>{};for(final e in params){grouped.putIfAbsent(groupFor(e.configKey),()=>[]).add(e);}return Card(child:Padding(padding:const EdgeInsets.all(16),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[const Text('Последние введённые значения',style:TextStyle(fontSize:18,fontWeight:FontWeight.w900)),const SizedBox(height:10),...grouped.entries.map((g)=>Padding(padding:const EdgeInsets.only(bottom:14),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text(g.key,style:const TextStyle(fontSize:15,fontWeight:FontWeight.w900)),const SizedBox(height:8),Wrap(spacing:8,runSpacing:8,children:g.value.map((e)=>Container(width:150,padding:const EdgeInsets.all(12),decoration:BoxDecoration(color:Theme.of(context).colorScheme.primaryContainer.withValues(alpha:.35),borderRadius:BorderRadius.circular(14)),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text(labelFor(e.measurementKey),style:TextStyle(fontSize:11,color:Theme.of(context).colorScheme.onSurfaceVariant)),Text(displayValue(m,e.measurementKey),style:const TextStyle(fontSize:18,fontWeight:FontWeight.w900))]))).toList())])))])));}'''
 c=c[:s]+grouped+c[e:];p.write_text(c)
 
-# 2) Problem field is never restored from a previous measurement.
+# 2) Problem field is a fresh note for every well visit.
 p=r/'lib/features/wells/well_screen.dart';w=p.read_text()
-# Remove common controller restoration patterns without touching saved historical measurement.
-import re
-w=re.sub(r"problem(?:Controller|Ctrl|Note)?\.text\s*=\s*(?:latest|m|measurement)[^;]*;","",w)
-w=re.sub(r"problem\.text\s*=\s*[^;]*problemNote[^;]*;","",w)
-# Ensure it is blank after the screen has loaded the well/current context.
-init_marker="Future<void> _load() async {"
-if init_marker in w and "problem.clear();" not in w[w.index(init_marker):w.index(init_marker)+1800]:
-    # Clear at the end of async load before setState where possible.
-    w=w.replace("if(mounted)setState((){});","problem.clear();if(mounted)setState((){});",1)
+# Keep historical problemNote in saved measurements, but never restore it into a new walk form.
+w=w.replace("problemNote.text=m.problemNote??'';","problemNote.clear();")
 p.write_text(w)
 
 # 3) Walk hierarchy uses the live shared demoAreas objects, not a copied/static area list.
@@ -64,7 +57,7 @@ p.write_text(pc)
 # Focused invariants.
 card=(r/'lib/features/wells/well_card_screen.dart').read_text();well=(r/'lib/features/wells/well_screen.dart').read_text();walk=(r/'lib/features/walk/walk_start_screen.dart').read_text();pad=(r/'lib/features/walk/pad_walk_card_screen.dart').read_text()
 assert "groupFor(String key)" in card and all(x in card for x in ["Давления","Температуры","Дросселирование","Параметры ЭЦН","Ингибитор"])
-assert ("TextEditingController problem" in well or "problem=TextEditingController" in well) and "problemNote:problem.text.trim().isEmpty?null:problem.text.trim()" in well
+assert "problemNote=TextEditingController()" in well and "problemNote.clear()" in well and "problemNote.text=m.problemNote" not in well and "problemNote:problemNote.text.trim().isEmpty?null:problemNote.text.trim()" in well
 assert "demoAreas.where" in walk and "currentFieldId" in walk
 assert "Отметить выполненным" in pad and "WorkTaskStore.instance.complete" in pad
 print('v1.48 focused corrections assertions passed')
