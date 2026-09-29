@@ -196,3 +196,37 @@ if "if (wellId == '__annulus__') _annulusParametersBlock()" not in h:
     if oldbody not in h: raise SystemExit('parameters ListView body marker missing')
     h=h.replace(oldbody,newbody,1)
 p.write_text(h)
+
+
+# FOCUS FIX: walk units and well card share the area's walk configuration.
+p=r/'lib/features/wells/well_screen.dart'; w=p.read_text()
+for old,new in [
+("_number('Rизоляции',rInsul,'кОм')","_number('Rизоляции',rInsul,unitP('esp_rins','кОм'))"),
+("_number('Работа',pkvWork,'мин',integer:true)","_number('Работа',pkvWork,unitP('pkv','мин'),integer:true)"),
+("_number('Простой',pkvIdle,'мин',integer:true)","_number('Простой',pkvIdle,unitP('pkv','мин'),integer:true)"),
+("_number('Ток ПИД',pidCurrent,'А')","_number('Ток ПИД',pidCurrent,unitP('pid','А'))"),
+("_number('Дроссель 1',choke1,'%',integer:true)","_number('Дроссель 1',choke1,unitP('choke','%'),integer:true)"),
+("_number('Дроссель 2',choke2,'%',integer:true)","_number('Дроссель 2',choke2,unitP('choke','%'),integer:true)"),
+("_text('Штуцер, мм',nozzle,'Сечение штуцера')","_text('Штуцер, '+unitP('choke','мм'),nozzle,'Сечение штуцера')")]:w=w.replace(old,new)
+p.write_text(w)
+p=r/'lib/features/wells/well_card_screen.dart'; c=p.read_text()
+if "walk_parameter_config.dart" not in c:c=c.replace("import '../../core/repositories/measurement_repository.dart';","import '../../core/repositories/measurement_repository.dart';\nimport '../../core/models/walk_parameter_config.dart';")
+start=c.index("  List<MapEntry<String,String>> get params=>") if "  List<MapEntry<String,String>> get params=>" in c else c.index("  String _cfgKey("); end=c.index("  @override void initState()",start)
+shared=r'''  String get areaId=>pad.areaId;
+  bool configured(String key)=>WalkParameterConfig.instance.on(areaId,key);
+  String configuredUnit(String key,String fallback)=>WalkParameterConfig.instance.unit(areaId,key,fallback);
+  List<({String configKey,String measurementKey,String label,String fallbackUnit})> get params=>well.type==WellType.gasCondensate?[
+    (configKey:'rz',measurementKey:'r_buf',label:'Рз',fallbackUnit:'МПа'),(configKey:'rtr',measurementKey:'rtr',label:'Ртр',fallbackUnit:'МПа'),(configKey:'rline',measurementKey:'r_line',label:'Рлин',fallbackUnit:'МПа'),(configKey:'t_before',measurementKey:'t_before_choke',label:'Т до штуцера',fallbackUnit:'°C'),(configKey:'t_line',measurementKey:'t_line',label:'Тлин',fallbackUnit:'°C'),(configKey:'choke',measurementKey:'choke_value',label:'Дроссель 1',fallbackUnit:'%'),(configKey:'choke',measurementKey:'choke_value2',label:'Дроссель 2',fallbackUnit:'%'),(configKey:'choke',measurementKey:'nozzle',label:'Штуцер',fallbackUnit:'мм'),(configKey:'ruzd',measurementKey:'r_downhole',label:'Рузд',fallbackUnit:'МПа'),(configKey:'tuzd',measurementKey:'t_downhole',label:'Тузд',fallbackUnit:'°C'),(configKey:'shutoff',measurementKey:'r_ko',label:'Рко',fallbackUnit:'МПа'),(configKey:'inhibitor',measurementKey:'inhibitor_feed',label:'Расход ингибитора',fallbackUnit:'л/ч'),
+  ].where((e)=>configured(e.configKey)).toList():[
+    (configKey:'rtr',measurementKey:'rtr',label:'Ртр',fallbackUnit:'кгс/см²'),(configKey:'rz',measurementKey:'rz',label:'Рз',fallbackUnit:'кгс/см²'),(configKey:'pkv',measurementKey:'pkv_work',label:'ПКВ · работа',fallbackUnit:'мин'),(configKey:'pkv',measurementKey:'pkv_idle',label:'ПКВ · простой',fallbackUnit:'мин'),(configKey:'pid',measurementKey:'pid_current',label:'Ток ПИД',fallbackUnit:'А'),(configKey:'esp_f',measurementKey:'frequency',label:'F',fallbackUnit:'Гц'),(configKey:'esp_i',measurementKey:'current',label:'Iср',fallbackUnit:'А'),(configKey:'esp_load',measurementKey:'load',label:'Загрузка',fallbackUnit:'%'),(configKey:'rpr',measurementKey:'rp',label:'Рпр',fallbackUnit:'МПа'),(configKey:'tpr',measurementKey:'t_ped',label:'Тпэд',fallbackUnit:'°C'),(configKey:'esp_rins',measurementKey:'r_insul',label:'Rизоляции',fallbackUnit:'кОм'),
+  ].where((e)=>configured(e.configKey)).toList();
+'''
+c=c[:start]+shared+c[end:]
+c=c.replace("selected.addAll(params.take(2).map((e)=>e.key));","selected.addAll(params.take(2).map((e)=>e.measurementKey));")
+c=c.replace("'inhibitor_feed'=>m.inhibitorFeed,_=>null};","'inhibitor_feed'=>m.inhibitorFeed,'pkv_work'=>m.pkvWork?.toDouble(),'pkv_idle'=>m.pkvIdle?.toDouble(),'pid_current'=>m.pidCurrent,_=>null};")
+ls=c.index("  String labelFor("); le=c.index("\n",ls)
+c=c[:ls]+"  String labelFor(String k){final matches=params.where((e)=>e.measurementKey==k);if(matches.isEmpty)return k;final e=matches.first;final u=configuredUnit(e.configKey,e.fallbackUnit);return u.isEmpty?e.label:e.label+', '+u;}\n  String displayValue(Measurement m,String k){if(k=='nozzle')return m.nozzle??'—';final v=value(m,k);return v==null?'—':v.toStringAsFixed(2);}\n"+c[le+1:]
+c=re.sub(r"children:params\.map\(\(e\)=>FilterChip\(label:Text\([^\n]+?\)\)\.toList\(\)", "children:params.where((e)=>e.measurementKey!='nozzle').map((e)=>FilterChip(label:Text(labelFor(e.measurementKey)),selected:selected.contains(e.measurementKey),onSelected:(v)=>setState((){if(v)selected.add(e.measurementKey);else selected.remove(e.measurementKey);touched=null;}))).toList()", c)
+s=c.index("  Widget _latestCard(){"); e=c.index("\n}",s)
+latest=r'''  Widget _latestCard(){if(latest==null)return const Card(child:Padding(padding:EdgeInsets.all(18),child:Text('По скважине пока нет замеров.')));final m=latest!;return Card(child:Padding(padding:const EdgeInsets.all(16),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[const Text('Последние введённые значения',style:TextStyle(fontSize:18,fontWeight:FontWeight.w900)),const SizedBox(height:10),Wrap(spacing:8,runSpacing:8,children:params.map((e)=>Container(width:150,padding:const EdgeInsets.all(12),decoration:BoxDecoration(color:Theme.of(context).colorScheme.primaryContainer.withValues(alpha:.35),borderRadius:BorderRadius.circular(14)),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text(labelFor(e.measurementKey),style:TextStyle(fontSize:11,color:Theme.of(context).colorScheme.onSurfaceVariant)),Text(displayValue(m,e.measurementKey),style:const TextStyle(fontSize:18,fontWeight:FontWeight.w900))]))).toList())])));}'''
+c=c[:s]+latest+c[e:];p.write_text(c)
