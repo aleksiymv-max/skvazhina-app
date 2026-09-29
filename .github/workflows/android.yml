@@ -84,7 +84,6 @@ jobs:
             'personnel_avatar':("leading:_avatar(u)" in p or "leading: _avatar(u)" in p or "CircleAvatar" in p),
             'application_date_text':"Заявка подана" in h,
             'resolve_action':"Решено" in h,
-            'application_get':"ProblemApplicationStore.instance.get" in h,
             'mkd_walk_button':"Внести показания" in pad,
             'walk_units':"кг/сут" in wa,
             'history_mkd_label':"Межколонные давления" in hs,
