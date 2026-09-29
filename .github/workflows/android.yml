@@ -139,6 +139,11 @@ jobs:
             'mkd_export_functional': 'createAnnulusJournalXlsx' in hist,
             'well_card_readonly_latest': 'Последние введённые значения' in card and '_latestCard()' in card,
             'well_card_walk_config': 'WalkParameterConfig.instance.unit' in card,
+            'well_card_visibility_synced': 'WalkParameterConfig.instance.on(pad.areaId,_cfgKey(k))' in card,
+            'annulus_selector_in_parameters': "value:'__annulus__'" in hist and "Text('Межколонные давления')" in hist,
+            'annulus_role_edit': '_canEditAnnulus' in hist and 'UserRole.engineer' in hist and 'UserRole.shopChief' in hist,
+            'annulus_edit_persistence': 'updateAt(e.measuredAt' in hist,
+            'annulus_area_sheets': "areas.putIfAbsent" in Path('lib/core/services/export_service.dart').read_text() and "sheetName" in Path('lib/core/services/export_service.dart').read_text(),
           }
           print('ROLE/UX PREFLIGHT',checks,flush=True)
           bad=[k for k,v in checks.items() if not v]
