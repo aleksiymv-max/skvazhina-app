@@ -69,6 +69,7 @@ jobs:
           python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_v143_exact_walk_and_dispatcher.py"
           python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_v144_requested_fixes.py"
           python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_v145.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_v146.py"
           python3 - <<'PY'
           from pathlib import Path
           w=Path('lib/features/wells/well_screen.dart').read_text(); h=Path('lib/features/home/home_screen.dart').read_text(); p=Path('lib/features/organization/personnel_screen.dart').read_text()
@@ -80,13 +81,18 @@ jobs:
           assert "Межколонные давления" in Path('lib/features/walk/pad_walk_card_screen.dart').read_text()
           assert "кг/сут" in Path('lib/features/walk/walk_area_screen.dart').read_text()
           assert "leading:_avatar(u)" in p or "leading: _avatar(u)" in p or "CircleAvatar" in p
-          print('v1.45 generated-source assertions passed')
+          assert "Заявка подана" in h and "Решено" in h and "ProblemApplicationStore.instance.get" in h
+          assert "Внести показания" in Path('lib/features/walk/pad_walk_card_screen.dart').read_text()
+          hs=Path('lib/features/history/history_screen.dart').read_text(); assert "Межколонные давления" in hs and "createAnnulusJournalXlsx" in hs
+          wc=Path('lib/features/wells/well_card_screen.dart').read_text(); assert "Последние введённые значения" in wc and "_TrendPainter.palette" in wc
+          aps=Path('lib/core/services/annulus_pressure_store.dart').read_text(); assert "SharedPreferences" in aps and "history({String? wellId})" in aps
+          print('v1.46 generated-source assertions passed')
           PY
           cp "$GITHUB_WORKSPACE/assets/promysel_icon_v131.png" assets/icon/app_icon.png
           cp "$GITHUB_WORKSPACE/assets/promysel_icon_v131.png" assets/icon/app_icon_foreground.png
           mkdir -p "$GITHUB_WORKSPACE/artifacts"
-          zip -qr "$GITHUB_WORKSPACE/artifacts/promysel-v1.45.0-source.zip" . -x 'android/*' 'build/*' '.dart_tool/*'
-          unzip -t "$GITHUB_WORKSPACE/artifacts/promysel-v1.45.0-source.zip" >/dev/null
+          zip -qr "$GITHUB_WORKSPACE/artifacts/promysel-v1.46.0-source.zip" . -x 'android/*' 'build/*' '.dart_tool/*'
+          unzip -t "$GITHUB_WORKSPACE/artifacts/promysel-v1.46.0-source.zip" >/dev/null
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
@@ -129,20 +135,20 @@ jobs:
           set -euo pipefail
           cd "${{ steps.project.outputs.project_dir }}"
           flutter build apk --release
-          cp build/app/outputs/flutter-apk/app-release.apk "$GITHUB_WORKSPACE/artifacts/promysel-v1.45.0-release.apk"
-          unzip -t "$GITHUB_WORKSPACE/artifacts/promysel-v1.45.0-release.apk" >/dev/null
-          sha256sum "$GITHUB_WORKSPACE/artifacts/promysel-v1.45.0-release.apk"
+          cp build/app/outputs/flutter-apk/app-release.apk "$GITHUB_WORKSPACE/artifacts/promysel-v1.46.0-release.apk"
+          unzip -t "$GITHUB_WORKSPACE/artifacts/promysel-v1.46.0-release.apk" >/dev/null
+          sha256sum "$GITHUB_WORKSPACE/artifacts/promysel-v1.46.0-release.apk"
 
       - name: Upload source ZIP
         uses: actions/upload-artifact@v4
         with:
-          name: promysel-v1.45.0-source
-          path: artifacts/promysel-v1.45.0-source.zip
+          name: promysel-v1.46.0-source
+          path: artifacts/promysel-v1.46.0-source.zip
           retention-days: 30
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: promysel-v1.45.0-android
-          path: artifacts/promysel-v1.45.0-release.apk
+          name: promysel-v1.46.0-android
+          path: artifacts/promysel-v1.46.0-release.apk
           retention-days: 30
