@@ -117,6 +117,34 @@ jobs:
           flutter pub get
           flutter analyze --no-fatal-infos --no-fatal-warnings
 
+      - name: Role and UX preflight
+        shell: bash
+        run: |
+          cd "${{ steps.project.outputs.project_dir }}"
+          python3 - <<'PY'
+          from pathlib import Path
+          home=Path('lib/features/home/home_screen.dart').read_text()
+          walk=Path('lib/features/walk/pad_walk_card_screen.dart').read_text()
+          hist=Path('lib/features/history/history_screen.dart').read_text()
+          card=Path('lib/features/wells/well_card_screen.dart').read_text()
+          checks={
+            'dispatcher_can_file': 'Подать заявку' in home and 'ItrSubrole.dispatcher' in home,
+            'dispatcher_can_resolve': 'Решено' in home and 'if(!dispatcher)' not in home,
+            'filed_date_visible': 'Заявка подана' in home and '_problemDate' in home,
+            'mkd_walk_standard_action': "FilledButton.icon(onPressed:()=>_annulus" in walk and "label:const Text('Внести показания')" in walk,
+            'journal_names': all(s in hist for s in ["Text('Журнал заданий')","Text('Журнал проблем')","Text('Межколонные давления')"]),
+            'no_export_word': all(s not in hist for s in ["Выгрузить журнал заданий","Выгрузить журнал проблем","Выгрузить Межколонные давления"]),
+            'mkd_not_fourth_tab': 'length: 4' not in hist and "Tab(text:'Межколонные давления')" not in hist,
+            'mkd_inside_parameters': '_annulusParametersBlock()' in hist,
+            'mkd_export_functional': 'createAnnulusJournalXlsx' in hist,
+            'well_card_readonly_latest': 'Последние введённые значения' in card and '_latestCard()' in card,
+            'well_card_walk_config': 'WalkParameterConfig.instance.unit' in card,
+          }
+          print('ROLE/UX PREFLIGHT',checks,flush=True)
+          bad=[k for k,v in checks.items() if not v]
+          assert not bad, 'Preflight failed: '+', '.join(bad)
+          PY
+
       - name: Create Android project
         shell: bash
         run: |
