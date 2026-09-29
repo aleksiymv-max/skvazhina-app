@@ -8,7 +8,10 @@ p=r/'lib/features/wells/well_screen.dart'; x=p.read_text()
 # Ensure the problem controller is never hydrated from a previous measurement.
 x=x.replace("problem.text=m.problemNote??'';","problem.clear();")
 # Add local throttling place state next to choke mode.
-x=x.replace("String chokeMode='Штуцер';","String chokeMode='Штуцер';String chokePlace='Трубное пространство';")
+import re
+if "String chokePlace" not in x:
+    x,n=re.subn(r"(String\s+chokeMode\s*=\s*'Штуцер'\s*;)",r"\1 String chokePlace='Трубное пространство';",x,count=1)
+    if n!=1: raise SystemExit('chokeMode declaration marker not found')
 old="if(showP('choke'))blocks.add(_section('Дросселирование',[SegmentedButton<String>(segments:const[ButtonSegment(value:'Штуцер',label:Text('Штуцер')),ButtonSegment(value:'Дроссель',label:Text('Дроссель'))],selected:{chokeMode},onSelectionChanged:(v)=>setState(()=>chokeMode=v.first)),const SizedBox(height:10),if(chokeMode=='Дроссель')_row(_number('Дроссель 1',choke1,'%',integer:true),_number('Дроссель 2',choke2,'%',integer:true))else _text('Штуцер',nozzle,'Сечение штуцера')]))"
 new="if(showP('choke'))blocks.add(_section('Дросселирование',[DropdownButtonFormField<String>(initialValue:chokePlace,decoration:const InputDecoration(labelText:'Место дросселирования'),items:const[DropdownMenuItem(value:'Трубное пространство',child:Text('Трубное пространство')),DropdownMenuItem(value:'Затрубное пространство',child:Text('Затрубное пространство'))],onChanged:(v){if(v!=null)setState(()=>chokePlace=v);}),const SizedBox(height:10),SegmentedButton<String>(segments:const[ButtonSegment(value:'Штуцер',label:Text('Штуцер')),ButtonSegment(value:'Дроссель',label:Text('Дроссель'))],selected:{chokeMode},onSelectionChanged:(v)=>setState(()=>chokeMode=v.first)),const SizedBox(height:10),if(chokeMode=='Дроссель')_row(_number('Дроссель 1',choke1,'%',integer:true),_number('Дроссель 2',choke2,'%',integer:true))else _text('Штуцер',nozzle,'Сечение штуцера')]))"
 if old not in x: raise SystemExit('choke block marker not found')
