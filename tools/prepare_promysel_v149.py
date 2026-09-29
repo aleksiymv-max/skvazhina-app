@@ -6,8 +6,7 @@ p=r/'lib/features/areas/wells_hierarchy_screen.dart';h=p.read_text()
 if "structureRevision" not in h:
     h=h.replace("import 'package:flutter/material.dart';","import 'package:flutter/material.dart';\\nimport 'package:flutter/foundation.dart';")
     # top-level notifier lives beside the authoritative hierarchy UI.
-    insert=h.find("
-class ")
+    insert=h.find("\\nclass ")
     h=h[:insert]+"\\nfinal ValueNotifier<int> structureRevision=ValueNotifier<int>(0);\\nvoid notifyStructureChanged()=>structureRevision.value++;\\n"+h[insert:]
 # Notify on structural actions exposed by hierarchy menus.
 h=h.replace("await _addPad(a);","await _addPad(a);notifyStructureChanged();")
