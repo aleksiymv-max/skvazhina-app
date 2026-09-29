@@ -35,12 +35,14 @@ for rel in ['lib/features/walk/walk_area_screen.dart','lib/features/walk/pad_wal
     x=x.replace("onPressed:()=>_completeWalkTask(context,t)", "onPressed:()=>_confirmCompleteWalkTask(context,t)")
     if "Future<void> _confirmCompleteWalkTask" not in x:
         pos=x.rfind("\n}")
+        is_pad = rel.endswith('pad_walk_card_screen.dart')
+        refresh = "if(ok&&context.mounted)Navigator.of(context).pushReplacement(MaterialPageRoute(builder:(_)=>PadWalkCardScreen(padId:padId)));" if is_pad else "if(ok&&mounted)setState((){});"
         helper=r'''
   Future<void> _confirmCompleteWalkTask(BuildContext context,WorkTask task)async{
     final yes=await showDialog<bool>(context:context,builder:(d)=>AlertDialog(title:const Text('Подтвердить выполнение'),content:const Text('Отметить задание как выполненное? После этого оно будет ожидать подтверждения.'),actions:[TextButton(onPressed:()=>Navigator.pop(d,false),child:const Text('Отмена')),FilledButton(onPressed:()=>Navigator.pop(d,true),child:const Text('Задание выполнено'))]));
-    if(yes==true&&context.mounted){final ok=WorkTaskStore.instance.complete(task,'Оператор');if(ok&&context.mounted)Navigator.of(context).pushReplacement(MaterialPageRoute(builder:(_)=>PadWalkCardScreen(padId:padId)));if(context.mounted)ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text(ok?'Задание ожидает подтверждения':'Не удалось отметить задание выполненным')));}
+    if(yes==true&&context.mounted){final ok=WorkTaskStore.instance.complete(task,'Оператор');{REFRESH}if(context.mounted)ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text(ok?'Задание ожидает подтверждения':'Не удалось отметить задание выполненным')));}
   }
-'''
+'''.replace('{REFRESH}',refresh)
         x=x[:pos]+helper+x[pos:]
     x=x.replace("tooltip:'Отметить выполненным'", "tooltip:'Задание выполнено'")
     # Walk task action: full blue button, never the circular check icon.
