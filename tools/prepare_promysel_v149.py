@@ -52,23 +52,26 @@ for rel in ['lib/features/walk/walk_area_screen.dart','lib/features/walk/pad_wal
     x=x.replace("t.status==WorkTaskStatus.active?IconButton(", "t.status==WorkTaskStatus.awaitingConfirmation?const Text('Задание ожидает подтверждения',style:TextStyle(fontWeight:FontWeight.w700)):t.status==WorkTaskStatus.active?IconButton(")
     p.write_text(x)
 
+# Exact generated pad task card: active -> blue button; awaiting -> visible label.
+p=r/'lib/features/walk/pad_walk_card_screen.dart';padx=p.read_text()
+old_pad="...tasks.map((t)=>Card(child:ListTile(leading:const Icon(Icons.task_alt),title:Text(t.title),subtitle:Text(t.description),trailing:t.status==WorkTaskStatus.active?FilledButton.icon(onPressed:()=>_confirmCompleteWalkTask(context,t),icon:const Icon(Icons.task_alt),label:const Text('Задание выполнено')):null)))"
+new_pad="...tasks.map((t)=>Card(child:Padding(padding:const EdgeInsets.all(12),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[ListTile(contentPadding:EdgeInsets.zero,leading:const Icon(Icons.task_alt),title:Text(t.title),subtitle:Text(t.description)),const SizedBox(height:8),if(t.status==WorkTaskStatus.active)SizedBox(width:double.infinity,child:FilledButton.icon(onPressed:()=>_confirmCompleteWalkTask(context,t),icon:const Icon(Icons.task_alt),label:const Text('Задание выполнено'))),if(t.status==WorkTaskStatus.awaitingConfirmation)const Padding(padding:EdgeInsets.symmetric(vertical:10),child:Text('Задание ожидает подтверждения',style:TextStyle(fontWeight:FontWeight.w800))) ]))))"
+if old_pad not in padx:
+    raise SystemExit('v1.49: exact pad task card not found; refusing release')
+p.write_text(padx.replace(old_pad,new_pad,1))
+
 # Area card may not yet have the complete helper/action; mirror pad task completion using its existing task list.
 p=r/'lib/features/walk/walk_area_screen.dart'
 if p.exists():
     a=p.read_text()
-    # Area task tile: patch the actual task ListTile explicitly. Do not rely on a generic subtitle fragment.
-    area_action="t.status==WorkTaskStatus.awaitingConfirmation?const Padding(padding:EdgeInsets.only(top:8),child:Text('Задание ожидает подтверждения',style:TextStyle(fontWeight:FontWeight.w700))):t.status==WorkTaskStatus.active?Padding(padding:const EdgeInsets.only(top:8),child:SizedBox(width:double.infinity,child:FilledButton.icon(onPressed:()=>_confirmCompleteWalkTask(context,t),icon:const Icon(Icons.task_alt),label:const Text('Задание выполнено')))):const SizedBox.shrink()"
-    # Existing area task cards are Column-based; append the lifecycle control directly after description.
-    candidates=["Text(t.description),","Text(t.description)"]
-    inserted=False
-    for anchor in candidates:
-        if anchor in a:
-            replacement=anchor+",\n"+area_action if not anchor.endswith(',') else anchor+"\n"+area_action+","
-            a=a.replace(anchor,replacement,1)
-            inserted=True
-            break
-    if not inserted:
-        raise SystemExit('v1.49: area task description anchor not found; refusing to build without area completion UI')
+    # Exact generated area task card: active -> blue button; awaiting -> visible label.
+    old_area="...tasks.map((t)=>Card(child:ListTile(leading:const Icon(Icons.task_alt),title:Text(t.title),subtitle:Text('TARGET\\nDESCRIPTION'),isThreeLine:true)))"
+    new_area="...tasks.map((t)=>Card(child:Padding(padding:const EdgeInsets.all(12),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[ListTile(contentPadding:EdgeInsets.zero,leading:const Icon(Icons.task_alt),title:Text(t.title),subtitle:Text('TARGET\\nDESCRIPTION'),isThreeLine:true),const SizedBox(height:8),if(t.status==WorkTaskStatus.active)SizedBox(width:double.infinity,child:FilledButton.icon(onPressed:()=>_confirmCompleteWalkTask(context,t),icon:const Icon(Icons.task_alt),label:const Text('Задание выполнено'))),if(t.status==WorkTaskStatus.awaitingConfirmation)const Padding(padding:EdgeInsets.symmetric(vertical:10),child:Text('Задание ожидает подтверждения',style:TextStyle(fontWeight:FontWeight.w800))) ]))))"
+    old_area=old_area.replace('TARGET','$'+'{t.targetName}').replace('DESCRIPTION','$'+'{t.description}')
+    new_area=new_area.replace('TARGET','$'+'{t.targetName}').replace('DESCRIPTION','$'+'{t.description}')
+    if old_area not in a:
+        raise SystemExit('v1.49: exact area task card not found; refusing release')
+    a=a.replace(old_area,new_area,1)
     if "Future<void> _confirmCompleteWalkTask" not in a:
         pos=a.rfind("\n}")
         helper=r'''
@@ -94,6 +97,6 @@ walk=(r/'lib/features/walk/walk_start_screen.dart').read_text();hier=(r/'lib/fea
 assert "structureRevision" in walk and hier.count("notifyStructureChanged()")>=2
 assert "Подтвердить решение" in home and "Проблема решена" in home
 pad=(r/'lib/features/walk/pad_walk_card_screen.dart').read_text(); area=(r/'lib/features/walk/walk_area_screen.dart').read_text()
-assert "Задание ожидает подтверждения" in pad and "Подтвердить выполнение" in pad and "FilledButton.icon" in pad and "padId:padId" in pad
+assert "Задание ожидает подтверждения" in pad and "Подтвердить выполнение" in pad and "FilledButton.icon" in pad and "padId:padId" in pad and "width:double.infinity" in pad and "WorkTaskStatus.awaitingConfirmation" in pad
 assert "Задание ожидает подтверждения" in area and "FilledButton.icon" in area and "_confirmCompleteWalkTask" in area and "width:double.infinity" in area and "WorkTaskStatus.active" in area and "WorkTaskStatus.awaitingConfirmation" in area
 print('v1.49 task confirmation and live structure assertions passed')
