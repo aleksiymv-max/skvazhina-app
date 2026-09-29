@@ -67,11 +67,22 @@ jobs:
           python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_v141_parameter_sync.py"
           python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_v142_user_fixes.py"
           python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_v143_exact_walk_and_dispatcher.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_v144_requested_fixes.py"
+          python3 - <<'PY'
+from pathlib import Path
+w=Path('lib/features/wells/well_screen.dart').read_text(); h=Path('lib/features/home/home_screen.dart').read_text(); p=Path('lib/features/organization/personnel_screen.dart').read_text()
+assert "Место дросселирования" in w and "Трубное пространство" in w and "Затрубное пространство" in w
+assert "problem.clear();" in w
+assert "showP('rtr')||showP('rz')||showP('rline')" in w and "showP('esp_f')||showP('esp_i')||showP('esp_load')||showP('esp_rins')" in w
+assert "Заявка подана" in h and "ItrSubrole.dispatcher" in h
+assert "_avatar(u)" in p
+print('v1.44 generated-source assertions passed')
+PY
           cp "$GITHUB_WORKSPACE/assets/promysel_icon_v131.png" assets/icon/app_icon.png
           cp "$GITHUB_WORKSPACE/assets/promysel_icon_v131.png" assets/icon/app_icon_foreground.png
           mkdir -p "$GITHUB_WORKSPACE/artifacts"
-          zip -qr "$GITHUB_WORKSPACE/artifacts/promysel-v1.43.0-source.zip" . -x 'android/*' 'build/*' '.dart_tool/*'
-          unzip -t "$GITHUB_WORKSPACE/artifacts/promysel-v1.43.0-source.zip" >/dev/null
+          zip -qr "$GITHUB_WORKSPACE/artifacts/promysel-v1.44.0-source.zip" . -x 'android/*' 'build/*' '.dart_tool/*'
+          unzip -t "$GITHUB_WORKSPACE/artifacts/promysel-v1.44.0-source.zip" >/dev/null
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
@@ -114,20 +125,20 @@ jobs:
           set -euo pipefail
           cd "${{ steps.project.outputs.project_dir }}"
           flutter build apk --release
-          cp build/app/outputs/flutter-apk/app-release.apk "$GITHUB_WORKSPACE/artifacts/promysel-v1.43.0-release.apk"
-          unzip -t "$GITHUB_WORKSPACE/artifacts/promysel-v1.43.0-release.apk" >/dev/null
-          sha256sum "$GITHUB_WORKSPACE/artifacts/promysel-v1.43.0-release.apk"
+          cp build/app/outputs/flutter-apk/app-release.apk "$GITHUB_WORKSPACE/artifacts/promysel-v1.44.0-release.apk"
+          unzip -t "$GITHUB_WORKSPACE/artifacts/promysel-v1.44.0-release.apk" >/dev/null
+          sha256sum "$GITHUB_WORKSPACE/artifacts/promysel-v1.44.0-release.apk"
 
       - name: Upload source ZIP
         uses: actions/upload-artifact@v4
         with:
-          name: promysel-v1.43.0-source
-          path: artifacts/promysel-v1.43.0-source.zip
+          name: promysel-v1.44.0-source
+          path: artifacts/promysel-v1.44.0-source.zip
           retention-days: 30
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: promysel-v1.43.0-android
-          path: artifacts/promysel-v1.43.0-release.apk
+          name: promysel-v1.44.0-android
+          path: artifacts/promysel-v1.44.0-release.apk
           retention-days: 30
