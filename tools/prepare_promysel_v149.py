@@ -27,7 +27,7 @@ if "structureRevision" not in w: raise SystemExit("walk structure notifier impor
 p.write_text(w)
 
 # Task UX for both area and pad walk cards.
-for rel in ['lib/features/walk/area_walk_card_screen.dart','lib/features/walk/pad_walk_card_screen.dart']:
+for rel in ['lib/features/walk/walk_area_screen.dart','lib/features/walk/pad_walk_card_screen.dart']:
     p=r/rel
     if not p.exists(): continue
     x=p.read_text()
@@ -48,7 +48,7 @@ for rel in ['lib/features/walk/area_walk_card_screen.dart','lib/features/walk/pa
     p.write_text(x)
 
 # Area card may not yet have the complete helper/action; mirror pad task completion using its existing task list.
-p=r/'lib/features/walk/area_walk_card_screen.dart'
+p=r/'lib/features/walk/walk_area_screen.dart'
 if p.exists():
     a=p.read_text()
     if "Задание выполнено" not in a:
