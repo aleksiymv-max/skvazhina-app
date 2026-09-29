@@ -1,40 +1,28 @@
 from pathlib import Path
 r=Path.cwd()
 
-# Shared structure revision: Wells is the source, Walk observes the same structure immediately.
-p=r/'lib/core/models/demo_data.dart';d=p.read_text()
-if "structureRevision" not in d:
-    d="import 'package:flutter/foundation.dart';\n"+d if "package:flutter/foundation.dart" not in d else d
-    d += "\nfinal ValueNotifier<int> structureRevision=ValueNotifier<int>(0);\nvoid notifyStructureChanged()=>structureRevision.value++;\n"
-p.write_text(d)
-
+# Shared structure revision: define it in the hierarchy module already imported by Wells/Walk.
 p=r/'lib/features/areas/wells_hierarchy_screen.dart';h=p.read_text()
-# Every structural mutation already calls setState; notify shared observers after those mutations.
-h=h.replace("setState(()=>demoAreas.add(", "setState(()=>demoAreas.add(")
-# Attach notification to add-area/add-pad/add-well helpers at their closing setState patterns.
-import re
-h=re.sub(r"(setState\(\(\)=>demoAreas\.add\([^;]+;)",r"\1notifyStructureChanged();",h)
-h=re.sub(r"(setState\(\(\)=>demoPads\.add\([^;]+;)",r"\1notifyStructureChanged();",h)
-# Generic additions/removals/renames: notify after async menu action completes.
+if "structureRevision" not in h:
+    h=h.replace("import 'package:flutter/material.dart';","import 'package:flutter/material.dart';\nimport 'package:flutter/foundation.dart';")
+    # top-level notifier lives beside the authoritative hierarchy UI.
+    insert=h.find("\nclass ")
+    h=h[:insert]+"\nfinal ValueNotifier<int> structureRevision=ValueNotifier<int>(0);\nvoid notifyStructureChanged()=>structureRevision.value++;\n"+h[insert:]
+# Notify on structural actions exposed by hierarchy menus.
 h=h.replace("await _addPad(a);","await _addPad(a);notifyStructureChanged();")
-h=h.replace("await _addWell(", "await _addWell(")
-# Ensure addArea action notifies after completion.
 h=h.replace("if(v=='addArea')_addArea();","if(v=='addArea')_addArea().then((_)=>notifyStructureChanged());")
-# Delete/rename actions via menus should refresh walk too.
 h=h.replace("setState(()=>a.name=n);","setState(()=>a.name=n);notifyStructureChanged();")
 h=h.replace("demoAreas.remove(a);});","demoAreas.remove(a);});notifyStructureChanged();")
 p.write_text(h)
 
 p=r/'lib/features/walk/walk_start_screen.dart';w=p.read_text()
-# Rebuild Walk whenever Wells structure changes.
-if "ListenableBuilder(listenable:structureRevision" not in w:
-    marker="@override Widget build(BuildContext context)"
-    if marker in w:
-        w=w.replace(marker,marker.replace("Widget build(BuildContext context)","Widget _walkBuild(BuildContext context)"),1)
-        # this generated screen has a single expression/body build; wrapper inserted before state closing later is risky.
-        # Prefer listener lifecycle for deterministic rebuild.
-        w=w.replace("class _WalkStartScreenState extends State<WalkStartScreen>{","class _WalkStartScreenState extends State<WalkStartScreen>{\n  @override void initState(){super.initState();structureRevision.addListener(_structureChanged);}\n  void _structureChanged(){if(mounted)setState((){});}\n  @override void dispose(){structureRevision.removeListener(_structureChanged);super.dispose();}",1)
-        w=w.replace("@override Widget _walkBuild(BuildContext context)","@override Widget build(BuildContext context)")
+# Import hierarchy notifier if the screen does not already import hierarchy.
+if "wells_hierarchy_screen.dart" not in w:
+    w=w.replace("import 'package:flutter/material.dart';","import 'package:flutter/material.dart';\nimport '../areas/wells_hierarchy_screen.dart' show structureRevision;")
+# Listener lifecycle forces immediate rebuild after hierarchy mutation.
+state_marker="class _WalkStartScreenState extends State<WalkStartScreen>{"
+if state_marker in w and "structureRevision.addListener" not in w:
+    w=w.replace(state_marker,state_marker+"\n  @override void initState(){super.initState();structureRevision.addListener(_structureChanged);}\n  void _structureChanged(){if(mounted)setState((){});}\n  @override void dispose(){structureRevision.removeListener(_structureChanged);super.dispose();}",1)
 p.write_text(w)
 
 # Task UX for both area and pad walk cards.
