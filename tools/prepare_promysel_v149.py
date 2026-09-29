@@ -38,7 +38,7 @@ for rel in ['lib/features/walk/walk_area_screen.dart','lib/features/walk/pad_wal
         helper=r'''
   Future<void> _confirmCompleteWalkTask(BuildContext context,WorkTask task)async{
     final yes=await showDialog<bool>(context:context,builder:(d)=>AlertDialog(title:const Text('Подтвердить выполнение'),content:const Text('Отметить задание как выполненное? После этого оно будет ожидать подтверждения.'),actions:[TextButton(onPressed:()=>Navigator.pop(d,false),child:const Text('Отмена')),FilledButton(onPressed:()=>Navigator.pop(d,true),child:const Text('Задание выполнено'))]));
-    if(yes==true&&context.mounted)await _completeWalkTask(context,task);
+    if(yes==true&&context.mounted){final ok=WorkTaskStore.instance.complete(task,'Оператор');if(context.mounted)ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text(ok?'Задание ожидает подтверждения':'Не удалось отметить задание выполненным')));}
   }
 '''
         x=x[:pos]+helper+x[pos:]
