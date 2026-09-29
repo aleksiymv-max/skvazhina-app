@@ -38,47 +38,7 @@ forms=r"""  List<Widget> _configuredBlocks(){
 """
 x=x[:start]+forms+x[end:];p.write_text(x)
 
-# 2. Dispatcher problem card: actions below content, never squeezed into ListTile.trailing.
-p=r/'lib/features/home/home_screen.dart'; x=p.read_text()
-old=r"""return Card(
-                    child: ListTile(
-                      title: Text('Скважина ${m.wellNumber}'),
-                      subtitle: Text('${m.problemNote ?? 'Проблема'}\nОбнаружено: ${_problemDate(m.measuredAt)}\nОбнаружил: ${m.operatorName ?? '—'}'),
-                      isThreeLine: true,
-                      trailing: SizedBox(width:132,child:Column(mainAxisSize:MainAxisSize.min,children:[
-                        SizedBox(width:132,child:FilledButton(onPressed:()async{
-                          final id=m.id;if(id==null)return;
-                          setModal(()=>problems.removeWhere((p)=>p.id==id));
-                          if(mounted)setState((){});
-                          try{await repo.resolveProblem(id,SessionService.instance.currentUser.id,SessionService.instance.currentUser.name);}
-                          catch(_){if(mounted)ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content:Text('Не удалось сохранить решение.')));}
-                        },child:const Text('Решено'))),
-                        if((SessionService.instance.currentUser.role==UserRole.dispatcher||SessionService.instance.currentUser.itrSubrole==ItrSubrole.dispatcher||SessionService.instance.currentUser.id.startsWith('disp-'))&&m.id!=null)...[
-                          const SizedBox(height:6),
-                          SizedBox(width:132,child:OutlinedButton(
-                            onPressed:ProblemApplicationStore.instance.has(m.id!)?null:(){
-                              ProblemApplicationStore.instance.file(m.id!,SessionService.instance.currentUser.name);
-                              setModal((){});if(mounted)setState((){});
-                            },
-                            child:Row(mainAxisSize:MainAxisSize.min,children:[Icon(ProblemApplicationStore.instance.has(m.id!)?Icons.check_circle:Icons.assignment_turned_in_outlined,size:18),const SizedBox(width:5),const Flexible(child:Text('Заявка подана'))]),
-                          )),
-                        ],
-                      ])),
-                    ),
-                  );"""
-new=r"""final isDispatcher=SessionService.instance.currentUser.role==UserRole.dispatcher||SessionService.instance.currentUser.itrSubrole==ItrSubrole.dispatcher||SessionService.instance.currentUser.id.startsWith('disp-');
-                  final filed=m.id!=null&&ProblemApplicationStore.instance.has(m.id!);
-                  return Card(child:Column(crossAxisAlignment:CrossAxisAlignment.stretch,children:[
-                    ListTile(title:Text('Скважина ${m.wellNumber}'),subtitle:Text('${m.problemNote ?? 'Проблема'}\nОбнаружено: ${_problemDate(m.measuredAt)}\nОбнаружил: ${m.operatorName ?? '—'}'),isThreeLine:true),
-                    Padding(padding:const EdgeInsets.fromLTRB(16,0,16,14),child:Column(crossAxisAlignment:CrossAxisAlignment.stretch,children:[
-                      FilledButton(onPressed:()async{final id=m.id;if(id==null)return;setModal(()=>problems.removeWhere((p)=>p.id==id));if(mounted)setState((){});try{await repo.resolveProblem(id,SessionService.instance.currentUser.id,SessionService.instance.currentUser.name);}catch(_){if(mounted)ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content:Text('Не удалось сохранить решение.')));}},child:const Text('Решено')),
-                      if(isDispatcher&&m.id!=null)...[const SizedBox(height:8),OutlinedButton.icon(onPressed:filed?null:(){ProblemApplicationStore.instance.file(m.id!,SessionService.instance.currentUser.name);setModal((){});if(mounted)setState((){});},icon:Icon(filed?Icons.check_circle:Icons.assignment_turned_in_outlined),label:Text(filed?'Заявка подана':'Подать заявку'))],
-                    ])),
-                  ]));"""
-if old not in x: raise SystemExit('problem card exact marker not found')
-x=x.replace(old,new);p.write_text(x)
-
-# 3. Restore task/problem journals with their real named signatures.
+# 2. Dispatcher problem card: keep the responsive v1.42 card; dispatcher role detection is already patched there.\n\n# 3. Restore task/problem journals with their real named signatures.
 p=r/'lib/features/history/history_screen.dart'; x=p.read_text()
 x=x.replace("ExportService.createTaskJournalXlsx(WorkTaskStore.instance.tasks)","ExportService.createTaskJournalXlsx(tasks:WorkTaskStore.instance.tasks)")
 x=x.replace("ExportService.createProblemJournalXlsx(rows)","ExportService.createProblemJournalXlsx(problems:rows)")
