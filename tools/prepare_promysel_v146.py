@@ -51,3 +51,14 @@ start=x.index("  Widget _latestCard(){");end=x.index("\n}",start)
 latest="""  Widget _latestCard(){if(latest==null)return const Card(child:Padding(padding:EdgeInsets.all(18),child:Text('По скважине пока нет замеров.')));final m=latest!;final groups=well.type==WellType.gasCondensate?<String,List<String>>{'Давления':['r_buf','rtr','r_line'],'Температуры':['t_before_choke','t_line'],'Дросселирование':['choke_value','choke_value2'],'Погружной датчик':['r_downhole','t_downhole'],'Клапан-отсекатель':['r_ko'],'Ингибитор':['inhibitor_feed']}:<String,List<String>>{'Давления':['rtr','rz','rp'],'Параметры ЭЦН':['frequency','current','load','r_insul'],'Температуры':['t_ped']};return Column(crossAxisAlignment:CrossAxisAlignment.start,children:[const Text('Последние введённые значения',style:TextStyle(fontSize:20,fontWeight:FontWeight.w900)),const SizedBox(height:8),...groups.entries.map((g)=>Card(child:Padding(padding:const EdgeInsets.all(14),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text(g.key,style:const TextStyle(fontSize:17,fontWeight:FontWeight.w900)),const SizedBox(height:10),Wrap(spacing:8,runSpacing:8,children:g.value.map((k){final v=value(m,k);return Container(width:150,padding:const EdgeInsets.all(12),decoration:BoxDecoration(color:Theme.of(context).colorScheme.primaryContainer.withValues(alpha:.35),borderRadius:BorderRadius.circular(14)),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text(labelFor(k),style:TextStyle(fontSize:11,color:Theme.of(context).colorScheme.onSurfaceVariant)),Text(v==null?'—':v.toStringAsFixed(2),style:const TextStyle(fontSize:18,fontWeight:FontWeight.w900))]));}).toList())]))))]);} """
 x=x[:start]+latest+x[end:];p.write_text(x)
 p=r/'pubspec.yaml';x=p.read_text();x=re.sub(r'version:\s*1\.45\.0\+149','version: 1.46.0+150',x);p.write_text(x)
+
+
+# Ensure dispatcher application state/date and resolve action are present in final home screen.
+p=r/'lib/features/home/home_screen.dart'; h=p.read_text()
+if 'ProblemApplicationStore.instance.get' not in h:
+    h=h.replace('ProblemApplicationStore.instance.has(p.id)', 'ProblemApplicationStore.instance.get(p.id)!=null')
+if 'Заявка подана' not in h:
+    h=h.replace("const Text('Заявка подана')", "Text('Заявка подана '+_problemDate(ProblemApplicationStore.instance.get(p.id)?.$2))")
+if 'Решено' not in h:
+    raise SystemExit('home resolve action missing after v1.45 patches')
+p.write_text(h)
