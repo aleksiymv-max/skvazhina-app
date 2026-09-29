@@ -151,7 +151,12 @@ jobs:
           walk=Path('lib/features/walk/pad_walk_card_screen.dart').read_text()
           hist=Path('lib/features/history/history_screen.dart').read_text()
           card=Path('lib/features/wells/well_card_screen.dart').read_text()
-          checks={\n            'wells_is_structure_source': "_areaParams(a.id)" in Path('lib/features/areas/wells_hierarchy_screen.dart').read_text() and "tooltip:'Параметры обхода'" not in Path('lib/features/walk/walk_area_screen.dart').read_text(),
+          checks={
+            'wells_is_structure_source': "_areaParams(a.id)" in Path('lib/features/areas/wells_hierarchy_screen.dart').read_text() and "tooltip:'Параметры обхода'" not in Path('lib/features/walk/walk_area_screen.dart').read_text(),
+            'wells_area_menu_owns_config': "value:'params'" in Path('lib/features/areas/wells_hierarchy_screen.dart').read_text() and "Параметры и единицы" in Path('lib/features/areas/wells_hierarchy_screen.dart').read_text(),
+            'walk_consumes_area_config': "WalkParameterConfig.instance.on(areaId,k)" in Path('lib/features/wells/well_screen.dart').read_text() and "WalkParameterConfig.instance.unit(areaId,k,fallback)" in Path('lib/features/wells/well_screen.dart').read_text(),
+            'walk_has_no_config_entry': "_params(area.id)" not in Path('lib/features/walk/walk_area_screen.dart').read_text(),
+            'card_still_uses_latest_measurement': "latestForWell(well.id)" in Path('lib/features/wells/well_card_screen.dart').read_text(),
             'dispatcher_can_file': 'Подать заявку' in home and 'ItrSubrole.dispatcher' in home,
             'dispatcher_can_resolve': 'Решено' in home and 'if(!dispatcher)' not in home,
             'filed_date_visible': 'Заявка подана' in home and '_problemDate' in home,
