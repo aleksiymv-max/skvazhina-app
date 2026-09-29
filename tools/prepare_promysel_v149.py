@@ -99,4 +99,79 @@ assert "Подтвердить решение" in home and "Проблема р�
 pad=(r/'lib/features/walk/pad_walk_card_screen.dart').read_text(); area=(r/'lib/features/walk/walk_area_screen.dart').read_text()
 assert "Задание ожидает подтверждения" in pad and "Подтвердить выполнение" in pad and "FilledButton.icon" in pad and "padId:padId" in pad and "width:double.infinity" in pad and "WorkTaskStatus.awaitingConfirmation" in pad
 assert "Задание ожидает подтверждения" in area and "FilledButton.icon" in area and "_confirmCompleteWalkTask" in area and "width:double.infinity" in area and "WorkTaskStatus.active" in area and "WorkTaskStatus.awaitingConfirmation" in area
-print('v1.49 task confirmation and live structure assertions passed')
+
+
+# Measurement snapshot: History must reproduce exactly the parameter set/units saved during the walk.
+p=r/'lib/core/models/measurement.dart';m=p.read_text()
+if "capturedParameters" not in m:
+    m=m.replace("    this.operatorName,\n    this.source = 'Оператор',","    this.operatorName,\n    this.capturedParameters = const <String>[], this.capturedUnits = const <String,String>{},\n    this.source = 'Оператор',")
+    m=m.replace("  final String? operatorName;\n  final String source;","  final String? operatorName;\n  final List<String> capturedParameters;\n  final Map<String,String> capturedUnits;\n  final String source;")
+p.write_text(m)
+
+p=r/'lib/core/database/app_database.dart';db=p.read_text()
+db=db.replace("version: 10","version: 11")
+db=db.replace("if (old < 10) { await _createWellStates(db); await _seedWeeklyDemoData(db); await _seedWellStatuses(db); }","if (old < 10) { await _createWellStates(db); await _seedWeeklyDemoData(db); await _seedWellStatuses(db); }\n      if (old < 11) { await _addV11Columns(db); }")
+db=db.replace("choke_value2 REAL, shutoff_valve_installed","choke_value2 REAL, captured_parameters TEXT NOT NULL DEFAULT '[]', captured_units TEXT NOT NULL DEFAULT '{}', shutoff_valve_installed")
+if "Future<void> _addV11Columns" not in db:
+    pos=db.index("  Future<void> _addV9Columns")
+    db=db[:pos]+"""  Future<void> _addV11Columns(Database db) async {
+    try { await db.execute("ALTER TABLE measurements ADD COLUMN captured_parameters TEXT NOT NULL DEFAULT '[]'"); } catch (_) {}
+    try { await db.execute("ALTER TABLE measurements ADD COLUMN captured_units TEXT NOT NULL DEFAULT '{}'"); } catch (_) {}
+  }
+
+"""+db[pos:]
+db=db.replace("'problem_resolved_at':m.problemResolvedAt?.toIso8601String(),'sync_status'","'problem_resolved_at':m.problemResolvedAt?.toIso8601String(),'captured_parameters':jsonEncode(m.capturedParameters),'captured_units':jsonEncode(m.capturedUnits),'sync_status'")
+db=db.replace("operatorName:m['operator_name'] as String?,\n  );","operatorName:m['operator_name'] as String?,capturedParameters:_decodeStringList(m['captured_parameters'] as String?),capturedUnits:_decodeStringMap(m['captured_units'] as String?),\n  );")
+if "List<String> _decodeStringList" not in db:
+    pos=db.index("  Map<String,String> _decodeStatuses")
+    db=db[:pos]+"""  List<String> _decodeStringList(String? value) {
+    if (value == null || value.isEmpty) return const <String>[];
+    try { return List<String>.from(jsonDecode(value) as List); } catch (_) { return const <String>[]; }
+  }
+  Map<String,String> _decodeStringMap(String? value) {
+    if (value == null || value.isEmpty) return const <String,String>{};
+    try { return Map<String,String>.from(jsonDecode(value) as Map); } catch (_) { return const <String,String>{}; }
+  }
+
+"""+db[pos:]
+p.write_text(db)
+
+p=r/'lib/features/wells/well_screen.dart';wellsrc=p.read_text()
+needle="await repository.save(Measurement(padId:widget.padId"
+if "capturedParameters:captured" not in wellsrc:
+    if needle not in wellsrc: raise SystemExit("v1.49: measurement save anchor missing")
+    wellsrc=wellsrc.replace(needle,"final captured=WalkParameterConfig.instance.forArea(areaId).toList();final capturedUnits=<String,String>{for(final k in captured)k:WalkParameterConfig.instance.unit(areaId,k,'')};\n      await repository.save(Measurement(padId:widget.padId",1)
+    wellsrc=wellsrc.replace("operatorName:SessionService.instance.currentUser.name));","operatorName:SessionService.instance.currentUser.name,capturedParameters:captured,capturedUnits:capturedUnits));",1)
+p.write_text(wellsrc)
+
+p=r/'lib/features/history/history_screen.dart';hist=p.read_text()
+s=hist.index("  List<(String, String)> _all(Measurement m) {");e=hist.index("  bool get _canEditAnnulus",s)
+new=r'''  String _u(Measurement m,String key,String fallback){final v=m.capturedUnits[key];return v==null||v.isEmpty?fallback:v;}
+  bool _has(Measurement m,String key)=>m.capturedParameters.isEmpty||m.capturedParameters.contains(key);
+  List<(String, String)> _all(Measurement m) {
+    final common=[('Дата и время',DateFormat('dd.MM.yyyy HH:mm').format(m.measuredAt)),('Оператор обхода',m.operatorName??'Не указан')];
+    if(well?.type==WellType.gasCondensate){return [...common,
+      if(_has(m,'rtr'))('Ртр',_f(m.rtr,_u(m,'rtr','МПа'))),if(_has(m,'rline'))('Рлин',_f(m.rLine,_u(m,'rline','МПа'))),
+      if(_has(m,'t_before'))('Т до штуцера',_f(m.tBeforeChoke,_u(m,'t_before','°C'))),if(_has(m,'t_line'))('Тлин',_f(m.tLine,_u(m,'t_line','°C'))),
+      if(_has(m,'choke'))('Дросселирование',m.chokeMode??'Не измерено'),if(_has(m,'choke')&&m.chokeMode=='Дроссель')('Дроссель 1',_f(m.chokeValue,'%')),if(_has(m,'choke')&&m.chokeMode=='Дроссель')('Дроссель 2',_f(m.chokeValue2,'%')),if(_has(m,'choke')&&m.chokeMode=='Штуцер')('Штуцер',m.nozzle??'Не измерено'),
+      if(_has(m,'ruzd'))('Подземная телеметрия: Рузд',_f(m.rDownhole,_u(m,'ruzd','МПа'))),if(_has(m,'tuzd'))('Подземная телеметрия: Тузд',_f(m.tDownhole,_u(m,'tuzd','°C'))),
+      if(_has(m,'shutoff'))('Клапан-отсекатель',m.shutoffValveInstalled?'Да':'Нет'),if(_has(m,'shutoff')&&m.shutoffValveInstalled)('Рко',_f(m.rKo,_u(m,'shutoff','МПа'))),
+      if(_has(m,'inhibitor'))('Ингибитор',m.inhibitorInstalled?'Да':'Нет'),if(_has(m,'inhibitor')&&m.inhibitorInstalled)('Расход ингибитора',_f(m.inhibitorFeed,_u(m,'inhibitor','л/ч'))),if(m.problemNote?.trim().isNotEmpty==true)('Проблема',m.problemNote!)];}
+    return [...common,
+      if(_has(m,'rtr'))('Ртр',_f(m.rtr,_u(m,'rtr','кгс/см²'))),if(_has(m,'rz'))('Рз',_f(m.rz,_u(m,'rz','кгс/см²'))),
+      if(_has(m,'pkv'))('ПКВ установлена',m.pkvInstalled?'Да':'Нет'),if(_has(m,'pkv')&&m.pkvInstalled)('ПКВ: работа',_f(m.pkvWork?.toDouble(),'мин')),if(_has(m,'pkv')&&m.pkvInstalled)('ПКВ: простой',_f(m.pkvIdle?.toDouble(),'мин')),
+      if(_has(m,'pid'))('ПИД установлена',m.pidInstalled?'Да':'Нет'),if(_has(m,'pid')&&m.pidInstalled)('Ток ПИД',_f(m.pidCurrent,'А')),if(_has(m,'pid')&&m.pidInstalled)('Диапазон F',m.pidFrequencyRange??'Не измерено'),
+      if(_has(m,'esp_f'))('F',_f(m.frequency,_u(m,'esp_f','Гц'))),if(_has(m,'esp_i'))('Iср',_f(m.current,_u(m,'esp_i','А'))),if(_has(m,'esp_load'))('Загрузка',_f(m.load,_u(m,'esp_load','%'))),if(_has(m,'rpr'))('Рпр',_f(m.rp,_u(m,'rpr','атм'))),if(_has(m,'tpr'))('Тпэд',_f(m.tPed,_u(m,'tpr','°C'))),if(_has(m,'esp_rins'))('Rизол',_f(m.rInsul,_u(m,'esp_rins','кОм'))),if(m.problemNote?.trim().isNotEmpty==true)('Проблема',m.problemNote!)];
+  }
+'''
+hist=hist[:s]+new+hist[e:];p.write_text(hist)
+
+# Release gates for exact walk->DB->history chain.
+m=(r/'lib/core/models/measurement.dart').read_text();db=(r/'lib/core/database/app_database.dart').read_text();wellsrc=(r/'lib/features/wells/well_screen.dart').read_text();hist=(r/'lib/features/history/history_screen.dart').read_text()
+assert "capturedParameters" in m and "capturedUnits" in m
+assert "version: 11" in db and "captured_parameters" in db and "captured_units" in db and "_decodeStringList" in db and "_decodeStringMap" in db
+assert "WalkParameterConfig.instance.forArea(areaId).toList()" in wellsrc and "capturedParameters:captured" in wellsrc and "capturedUnits:capturedUnits" in wellsrc
+assert "m.capturedParameters.isEmpty||m.capturedParameters.contains(key)" in hist and "m.capturedUnits[key]" in hist and "_has(m,'esp_f')" in hist and "_has(m,'choke')" in hist
+print('v1.49 walk measurement snapshot -> database -> history assertions passed')
+
+print('v1.49 task confirmation, live structure and history snapshot assertions passed')
