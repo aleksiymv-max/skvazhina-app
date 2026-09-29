@@ -56,10 +56,19 @@ for rel in ['lib/features/walk/walk_area_screen.dart','lib/features/walk/pad_wal
 p=r/'lib/features/walk/walk_area_screen.dart'
 if p.exists():
     a=p.read_text()
-    # Ensure the area task tile itself always has the same action/status UI as the pad task.
-    anchor="subtitle:Text(t.description)"
-    if anchor in a and "trailing:t.status==WorkTaskStatus.awaitingConfirmation" not in a:
-        a=a.replace(anchor,anchor+",trailing:t.status==WorkTaskStatus.awaitingConfirmation?const Text('Задание ожидает подтверждения',style:TextStyle(fontWeight:FontWeight.w700)):t.status==WorkTaskStatus.active?FilledButton.icon(onPressed:()=>_confirmCompleteWalkTask(context,t),icon:const Icon(Icons.task_alt),label:const Text('Задание выполнено')):null",1)
+    # Area task tile: patch the actual task ListTile explicitly. Do not rely on a generic subtitle fragment.
+    area_action="t.status==WorkTaskStatus.awaitingConfirmation?const Padding(padding:EdgeInsets.only(top:8),child:Text('Задание ожидает подтверждения',style:TextStyle(fontWeight:FontWeight.w700))):t.status==WorkTaskStatus.active?Padding(padding:const EdgeInsets.only(top:8),child:SizedBox(width:double.infinity,child:FilledButton.icon(onPressed:()=>_confirmCompleteWalkTask(context,t),icon:const Icon(Icons.task_alt),label:const Text('Задание выполнено')))):const SizedBox.shrink()"
+    # Existing area task cards are Column-based; append the lifecycle control directly after description.
+    candidates=["Text(t.description),","Text(t.description)"]
+    inserted=False
+    for anchor in candidates:
+        if anchor in a:
+            replacement=anchor+",\n"+area_action if not anchor.endswith(',') else anchor+"\n"+area_action+","
+            a=a.replace(anchor,replacement,1)
+            inserted=True
+            break
+    if not inserted:
+        raise SystemExit('v1.49: area task description anchor not found; refusing to build without area completion UI')
     if "Future<void> _confirmCompleteWalkTask" not in a:
         pos=a.rfind("\n}")
         helper=r'''
@@ -86,5 +95,5 @@ assert "structureRevision" in walk and hier.count("notifyStructureChanged()")>=2
 assert "Подтвердить решение" in home and "Проблема решена" in home
 pad=(r/'lib/features/walk/pad_walk_card_screen.dart').read_text(); area=(r/'lib/features/walk/walk_area_screen.dart').read_text()
 assert "Задание ожидает подтверждения" in pad and "Подтвердить выполнение" in pad and "FilledButton.icon" in pad and "padId:padId" in pad
-assert "Задание ожидает подтверждения" in area and "FilledButton.icon" in area and "_confirmCompleteWalkTask" in area
+assert "Задание ожидает подтверждения" in area and "FilledButton.icon" in area and "_confirmCompleteWalkTask" in area and "width:double.infinity" in area and "WorkTaskStatus.active" in area and "WorkTaskStatus.awaitingConfirmation" in area
 print('v1.49 task confirmation and live structure assertions passed')
