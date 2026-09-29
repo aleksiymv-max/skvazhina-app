@@ -23,8 +23,8 @@ if needle not in s: raise SystemExit('tasks appbar pattern not found')
 s=s.replace(needle,repl);p.write_text(s)
 # Personnel header: neutral grey surface like History.
 p=r/'lib/features/organization/personnel_screen.dart';s=p.read_text()
-s=s.replace("appBar: AppBar(title: const Text('Персонал'))","appBar: AppBar(backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,foregroundColor: Theme.of(context).colorScheme.onSurface,title: const Text('Персонал'))")
-s=s.replace("appBar:AppBar(title:const Text('Персонал'))","appBar:AppBar(backgroundColor:Theme.of(context).colorScheme.surfaceContainerHighest,foregroundColor:Theme.of(context).colorScheme.onSurface,title:const Text('Персонал'))")
+s=s.replace("appBar: AppBar(","appBar: AppBar(backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,foregroundColor: Theme.of(context).colorScheme.onSurface,",1)
+s=s.replace("appBar:AppBar(","appBar:AppBar(backgroundColor:Theme.of(context).colorScheme.surfaceContainerHighest,foregroundColor:Theme.of(context).colorScheme.onSurface,",1)
 p.write_text(s)
 # Regression / semantic gates.
 ss=(r/'lib/core/services/session_service.dart').read_text();org=(r/'lib/features/organization/organization_screen.dart').read_text();tasks=(r/'lib/features/tasks/tasks_screen.dart').read_text();pers=(r/'lib/features/organization/personnel_screen.dart').read_text();admin=(r/'lib/features/admin/admin_home_screen.dart').read_text();wa=(r/'lib/features/walk/walk_area_screen.dart').read_text();wp=(r/'lib/features/walk/pad_walk_card_screen.dart').read_text();db=(r/'lib/core/database/app_database.dart').read_text()
