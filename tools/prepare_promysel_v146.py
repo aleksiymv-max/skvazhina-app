@@ -181,7 +181,10 @@ block=r'''  Widget _annulusParametersBlock(){
 h=h[:s]+block+h[e:]
 # Ensure Parameters body actually renders this block.
 if "_annulusParametersBlock()," not in h:
-    mark="_measurementHistory(),"
-    if mark not in h: raise SystemExit('parameters body marker missing')
-    h=h.replace(mark,mark+"\n          _annulusParametersBlock(),",1)
+    # Parameters is the first TabBarView child; wrap it with annulus content without relying on its helper name.
+    m=re.search(r"TabBarView\(children:\[(\s*[^,\n]+\(\),)",h)
+    if not m: raise SystemExit('parameters tab child not found')
+    first=m.group(1)
+    wrapped="\n          Column(children:[Expanded(child:"+first.strip().rstrip(',')+"),_annulusParametersBlock()]),"
+    h=h[:m.start(1)]+wrapped+h[m.end(1):]
 p.write_text(h)
