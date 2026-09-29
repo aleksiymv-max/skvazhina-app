@@ -35,7 +35,7 @@ actions="""
                                 final id=m.id;if(id==null)return;
                                 ProblemApplicationStore.instance.file(id,SessionService.instance.currentUser.name);
                                 setModal((){});if(mounted)setState((){});
-                              },child:const Text('Подать заявку'))),
+                              },child:const Text('Заявка подана'))),
                         ],
                       ]),
                     ),
