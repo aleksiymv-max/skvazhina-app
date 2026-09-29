@@ -153,3 +153,35 @@ if start>=0:
  }'''
     e=e[:start]+method+e[end:]
 p.write_text(e)
+
+
+# Repair annulus history widget as a complete syntactically-safe block and wire it into Parameters.
+p=r/'lib/features/history/history_screen.dart'; h=p.read_text()
+# Remove the previously generated compact annulus widget up to editor helper.
+s=h.find("  Widget _annulusParametersBlock()")
+e=h.find("  Future<void> _editAnnulus",s)
+if s<0 or e<0: raise SystemExit('annulus history repair markers missing')
+block=r'''  Widget _annulusParametersBlock(){
+    if(wellId!='__annulus__')return const SizedBox.shrink();
+    final rows=AnnulusPressureStore.instance.history().where((e)=>e.padId==padId).toList();
+    return Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+      const SizedBox(height:12),
+      const Text('История межколонных давлений',style:TextStyle(fontSize:18,fontWeight:FontWeight.w900)),
+      const SizedBox(height:8),
+      if(rows.isEmpty)const Card(child:Padding(padding:EdgeInsets.all(18),child:Text('Показаний межколонных давлений пока нет.'))),
+      ...rows.map((e)=>Card(child:ListTile(
+        title:Text('Скважина ${e.wellNumber} · ${DateFormat('dd.MM.yyyy HH:mm').format(e.measuredAt)}',style:const TextStyle(fontWeight:FontWeight.w800)),
+        subtitle:Text('МКД 178×245: ${e.mkd178x245?.toString()??'—'} МПа\nМКД 245×324: ${e.mkd245x324?.toString()??'—'} МПа'),
+        trailing:_canEditAnnulus?IconButton(icon:const Icon(Icons.edit_outlined),tooltip:'Корректировать',onPressed:()=>_editAnnulus(e)):null,
+      ))),
+    ]);
+  }
+
+'''
+h=h[:s]+block+h[e:]
+# Ensure Parameters body actually renders this block.
+if "_annulusParametersBlock()," not in h:
+    mark="_measurementHistory(),"
+    if mark not in h: raise SystemExit('parameters body marker missing')
+    h=h.replace(mark,mark+"\n          _annulusParametersBlock(),",1)
+p.write_text(h)
