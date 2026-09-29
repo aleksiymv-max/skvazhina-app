@@ -69,7 +69,7 @@ jobs:
           python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_v143_exact_walk_and_dispatcher.py"
           python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_v144_requested_fixes.py"
           python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_v145.py"
-          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_v146.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_v146.py"\n          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_v147.py"
           python3 - <<'PY'
           from pathlib import Path
           w=Path('lib/features/wells/well_screen.dart').read_text(); h=Path('lib/features/home/home_screen.dart').read_text(); p=Path('lib/features/organization/personnel_screen.dart').read_text()
@@ -150,7 +150,7 @@ jobs:
           walk=Path('lib/features/walk/pad_walk_card_screen.dart').read_text()
           hist=Path('lib/features/history/history_screen.dart').read_text()
           card=Path('lib/features/wells/well_card_screen.dart').read_text()
-          checks={
+          checks={\n            'wells_is_structure_source': "_areaParams(a.id)" in Path('lib/features/areas/wells_hierarchy_screen.dart').read_text() and "tooltip:'Параметры обхода'" not in Path('lib/features/walk/walk_area_screen.dart').read_text(),
             'dispatcher_can_file': 'Подать заявку' in home and 'ItrSubrole.dispatcher' in home,
             'dispatcher_can_resolve': 'Решено' in home and 'if(!dispatcher)' not in home,
             'filed_date_visible': 'Заявка подана' in home and '_problemDate' in home,
