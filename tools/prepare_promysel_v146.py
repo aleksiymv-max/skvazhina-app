@@ -95,3 +95,61 @@ h=h.replace("if(!dispatcher)SizedBox(width:double.infinity,child:FilledButton.ic
 # Keep the visible filed label role-independent; patch known filed button label into dated status.
 h=h.replace("label:Text(filed?'Заявка подана':'Подать заявку')","label:Text(filed?'Заявка подана '+_problemDate(ProblemApplicationStore.instance.data[m.id!]!.$2):'Подать заявку')")
 p.write_text(h)
+
+
+# v1.46.1 shared parameter visibility + annulus history/edit/export model.
+p=r/'lib/features/wells/well_card_screen.dart'; c=p.read_text()
+# Filter every latest-value group through the exact same area config used by walk.
+c=c.replace("children:g.value.map((k){final v=value(m,k);return Container(","children:g.value.where((k)=>WalkParameterConfig.instance.on(pad.areaId,_cfgKey(k))).map((k){final v=value(m,k);return Container(")
+p.write_text(c)
+
+# Annulus entries need editable persistence for ITR/shop chief corrections.
+p=r/'lib/core/services/annulus_pressure_store.dart'; a=p.read_text()
+a=a.replace("void save(AnnulusPressureEntry e){entries.add(e);_persist();notifyListeners();}","void save(AnnulusPressureEntry e){entries.add(e);_persist();notifyListeners();} Future<void> updateAt(DateTime original,AnnulusPressureEntry replacement)async{final i=entries.indexWhere((e)=>e.wellId==replacement.wellId&&e.measuredAt==original);if(i<0)return;entries[i]=replacement;await _persist();notifyListeners();}")
+p.write_text(a)
+
+# History: selecting a pad exposes wells plus the special annulus item inside Parameters.
+p=r/'lib/features/history/history_screen.dart'; h=p.read_text()
+h=h.replace("items:(pad?.wells??const <Well>[]).map((w)=>DropdownMenuItem(value:w.id,child:Text('Скважина ${w.number}'))).toList()","items:[...(pad?.wells??const <Well>[]).map((w)=>DropdownMenuItem(value:w.id,child:Text('Скважина ${w.number}'))),const DropdownMenuItem(value:'__annulus__',child:Text('Межколонные давления'))]")
+# Make annulus block pad-scoped when special item selected and expose correction only to ITR/chief/admin.
+if "bool get _canEditAnnulus" not in h:
+    insert=h.find("Widget _annulusParametersBlock()")
+    if insert>=0:
+        h=h[:insert]+"bool get _canEditAnnulus{final u=SessionService.instance.currentUser;return u.role==UserRole.engineer||u.role==UserRole.shopChief||u.role==UserRole.admin;}\n  "+h[insert:]
+h=h.replace("final rows=AnnulusPressureStore.instance.history(wellId:wellId);","final all=AnnulusPressureStore.instance.history();final rows=all.where((e)=>e.padId==padId).toList();")
+# Replace row trailing area with edit action hook when authorized.
+h=h.replace("subtitle:Text('${e.areaName} · ${e.padName} · скв. ${e.wellNumber}\\nМКД 178×245: ${e.mkd178x245?.toString()??'—'} МПа   •   МКД 245×324: ${e.mkd245x324?.toString()??'—'} МПа'))","subtitle:Text('Скв. ${e.wellNumber}\\nМКД 178×245: ${e.mkd178x245?.toString()??'—'} МПа   •   МКД 245×324: ${e.mkd245x324?.toString()??'—'} МПа'),trailing:_canEditAnnulus?IconButton(icon:const Icon(Icons.edit_outlined),tooltip:'Корректировать',onPressed:()=>_editAnnulus(e)):null")
+# Add editor helper before class end.
+pos=h.rfind('\n}')
+editor=r'''
+  Future<void> _editAnnulus(AnnulusPressureEntry e)async{
+    final a=TextEditingController(text:e.mkd178x245?.toString()??'');
+    final b=TextEditingController(text:e.mkd245x324?.toString()??'');
+    await showDialog<void>(context:context,builder:(ctx)=>AlertDialog(title:Text('Скважина ${e.wellNumber}'),content:Column(mainAxisSize:MainAxisSize.min,children:[
+      TextField(controller:a,keyboardType:const TextInputType.numberWithOptions(decimal:true),decoration:const InputDecoration(labelText:'МКД 178×245, МПа')),
+      const SizedBox(height:10),TextField(controller:b,keyboardType:const TextInputType.numberWithOptions(decimal:true),decoration:const InputDecoration(labelText:'МКД 245×324, МПа')),
+    ]),actions:[TextButton(onPressed:()=>Navigator.pop(ctx),child:const Text('Отмена')),FilledButton(onPressed:()async{double? v(String s)=>double.tryParse(s.replaceAll(',','.'));await AnnulusPressureStore.instance.updateAt(e.measuredAt,AnnulusPressureEntry(wellId:e.wellId,wellNumber:e.wellNumber,padId:e.padId,padName:e.padName,areaId:e.areaId,areaName:e.areaName,mkd178x245:v(a.text),mkd245x324:v(b.text),measuredAt:e.measuredAt));if(ctx.mounted)Navigator.pop(ctx);if(mounted)setState((){});},child:const Text('Сохранить'))]));
+  }
+'''
+if "_editAnnulus(AnnulusPressureEntry e)" not in h:h=h[:pos]+editor+h[pos:]
+p.write_text(h)
+
+# Excel: one sheet per production area; rows remain grouped by pad/well/date.
+p=r/'lib/core/services/export_service.dart'; e=p.read_text()
+start=e.find(" static Future<File> createAnnulusJournalXlsx")
+if start>=0:
+    end=e.find("\n}",start)
+    method=r''' static Future<File> createAnnulusJournalXlsx({required List<AnnulusPressureEntry> entries})async{
+  final b=Excel.createExcel();b.delete('Sheet1');
+  final areas=<String,List<AnnulusPressureEntry>>{};
+  for(final e in entries){areas.putIfAbsent(e.areaName.isEmpty?'Участок':e.areaName,()=>[]).add(e);}
+  for(final group in areas.entries){
+    var sheetName=group.key.replaceAll(RegExp(r'[\\/*?:\[\]]'),' ');if(sheetName.length>31)sheetName=sheetName.substring(0,31);
+    final s=b[sheetName];s.appendRow(['Кустовая площадка','Скважина','Дата замера','МКД 178×245, МПа','МКД 245×324, МПа'].map(TextCellValue.new).toList());
+    final rows=[...group.value]..sort((a,b){var c=a.padName.compareTo(b.padName);if(c!=0)return c;c=a.wellNumber.compareTo(b.wellNumber);if(c!=0)return c;return b.measuredAt.compareTo(a.measuredAt);});
+    var ri=1;for(final e in rows){s.appendRow([e.padName,e.wellNumber,_dateTime(e.measuredAt),e.mkd178x245?.toString()??'',e.mkd245x324?.toString()??''].map(TextCellValue.new).toList());ri++;}_paintHeader(s,5);
+  }
+  return _save(b,'Межколонные_давления_${DateFormat('ddMMyyyy').format(DateTime.now())}');
+ }'''
+    e=e[:start]+method+e[end:]
+p.write_text(e)
