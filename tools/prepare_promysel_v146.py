@@ -224,8 +224,13 @@ shared=r'''  String get areaId=>pad.areaId;
 c=c[:start]+shared+c[end:]
 c=c.replace("selected.addAll(params.take(2).map((e)=>e.key));","selected.addAll(params.take(2).map((e)=>e.measurementKey));")
 c=c.replace("'inhibitor_feed'=>m.inhibitorFeed,_=>null};","'inhibitor_feed'=>m.inhibitorFeed,'pkv_work'=>m.pkvWork?.toDouble(),'pkv_idle'=>m.pkvIdle?.toDouble(),'pid_current'=>m.pidCurrent,_=>null};")
-ls=c.index("  String labelFor("); le=c.index("\n",ls)
-c=c[:ls]+"  String labelFor(String k){final matches=params.where((e)=>e.measurementKey==k);if(matches.isEmpty)return k;final e=matches.first;final u=configuredUnit(e.configKey,e.fallbackUnit);return u.isEmpty?e.label:e.label+', '+u;}\n  String displayValue(Measurement m,String k){if(k=='nozzle')return m.nozzle??'—';final v=value(m,k);return v==null?'—':v.toStringAsFixed(2);}\n"+c[le+1:]
+helper="  String labelFor(String k){final matches=params.where((e)=>e.measurementKey==k);if(matches.isEmpty)return k;final e=matches.first;final u=configuredUnit(e.configKey,e.fallbackUnit);return u.isEmpty?e.label:e.label+', '+u;}\n  String displayValue(Measurement m,String k){if(k=='nozzle')return m.nozzle??'—';final v=value(m,k);return v==null?'—':v.toStringAsFixed(2);}\n"
+# Earlier v1.46 patches may have removed/rewritten labelFor. Insert the shared helper at a stable boundary.
+if "  String labelFor(String k)" in c:
+    ls=c.index("  String labelFor(String k)"); le=c.index("\n",ls); c=c[:ls]+helper+c[le+1:]
+elif "  @override void initState()" in c:
+    pos=c.index("  @override void initState()"); c=c[:pos]+helper+c[pos:]
+else: raise SystemExit('well card helper insertion boundary missing')
 c=re.sub(r"children:params\.map\(\(e\)=>FilterChip\(label:Text\([^\n]+?\)\)\.toList\(\)", "children:params.where((e)=>e.measurementKey!='nozzle').map((e)=>FilterChip(label:Text(labelFor(e.measurementKey)),selected:selected.contains(e.measurementKey),onSelected:(v)=>setState((){if(v)selected.add(e.measurementKey);else selected.remove(e.measurementKey);touched=null;}))).toList()", c)
 s=c.index("  Widget _latestCard(){"); e=c.index("\n}",s)
 latest=r'''  Widget _latestCard(){if(latest==null)return const Card(child:Padding(padding:EdgeInsets.all(18),child:Text('По скважине пока нет замеров.')));final m=latest!;return Card(child:Padding(padding:const EdgeInsets.all(16),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[const Text('Последние введённые значения',style:TextStyle(fontSize:18,fontWeight:FontWeight.w900)),const SizedBox(height:10),Wrap(spacing:8,runSpacing:8,children:params.map((e)=>Container(width:150,padding:const EdgeInsets.all(12),decoration:BoxDecoration(color:Theme.of(context).colorScheme.primaryContainer.withValues(alpha:.35),borderRadius:BorderRadius.circular(14)),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text(labelFor(e.measurementKey),style:TextStyle(fontSize:11,color:Theme.of(context).colorScheme.onSurfaceVariant)),Text(displayValue(m,e.measurementKey),style:const TextStyle(fontSize:18,fontWeight:FontWeight.w900))]))).toList())])));}'''
