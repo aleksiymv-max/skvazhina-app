@@ -64,7 +64,7 @@ p.write_text(pc)
 # Focused invariants.
 card=(r/'lib/features/wells/well_card_screen.dart').read_text();well=(r/'lib/features/wells/well_screen.dart').read_text();walk=(r/'lib/features/walk/walk_start_screen.dart').read_text();pad=(r/'lib/features/walk/pad_walk_card_screen.dart').read_text()
 assert "groupFor(String key)" in card and all(x in card for x in ["Давления","Температуры","Дросселирование","Параметры ЭЦН","Ингибитор"])
-assert "problem.clear()" in well
+assert ("TextEditingController problem" in well or "problem=TextEditingController" in well) and "problemNote:problem.text.trim().isEmpty?null:problem.text.trim()" in well
 assert "demoAreas.where" in walk and "currentFieldId" in walk
 assert "Отметить выполненным" in pad and "WorkTaskStore.instance.complete" in pad
 print('v1.48 focused corrections assertions passed')
