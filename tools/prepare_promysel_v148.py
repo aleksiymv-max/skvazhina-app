@@ -36,8 +36,7 @@ if "Future<void> _completeWalkTask(" not in pc:
     pos=pc.rfind("\n}")
     helper=r'''
   Future<void> _completeWalkTask(BuildContext context,WorkTask task)async{
-    final u=SessionService.instance.currentUser;
-    final ok=WorkTaskStore.instance.complete(task,userId:u.id,userName:u.name);
+    final ok=WorkTaskStore.instance.complete(task,'Оператор');
     if(context.mounted)ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text(ok?'Задание отмечено выполненным':'Не удалось отметить задание выполненным')));
   }
 '''
@@ -49,7 +48,7 @@ if "Отметить выполненным" not in pc:
     done=False
     for a in anchors:
         if a in pc:
-            pc=pc.replace(a,a+",trailing:(t.status==WorkTaskStatus.issued||t.status==WorkTaskStatus.inProgress)?IconButton(tooltip:'Отметить выполненным',onPressed:()=>_completeWalkTask(context,t),icon:const Icon(Icons.task_alt)):null",1);done=True;break
+            pc=pc.replace(a,a+",trailing:t.status==WorkTaskStatus.active?IconButton(tooltip:'Отметить выполненным',onPressed:()=>_completeWalkTask(context,t),icon:const Icon(Icons.task_alt)):null",1);done=True;break
     if not done:
         raise SystemExit('walk task card anchor missing')
 p.write_text(pc)
