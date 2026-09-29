@@ -120,7 +120,7 @@ jobs:
       - name: Walk and well card configuration gate
         shell: bash
         run: |
-          cd "\${{ steps.project.outputs.project_dir }}"
+          cd "${{ steps.project.outputs.project_dir }}"
           python3 - <<'PY'
           from pathlib import Path
           walk=Path('lib/features/wells/well_screen.dart').read_text()
