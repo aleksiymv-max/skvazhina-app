@@ -62,3 +62,13 @@ if 'Заявка подана' not in h:
 if 'Решено' not in h:
     raise SystemExit('home resolve action missing after v1.45 patches')
 p.write_text(h)
+
+
+# Final deterministic application-state patch: convert the surviving has() expression to get().
+p=r/'lib/features/home/home_screen.dart'; h=p.read_text()
+if 'ProblemApplicationStore.instance.get' not in h:
+    old='ProblemApplicationStore.instance.has(p.id)'
+    if old not in h:
+        raise SystemExit('application has() expression not found')
+    h=h.replace(old,'ProblemApplicationStore.instance.get(p.id)!=null')
+p.write_text(h)
