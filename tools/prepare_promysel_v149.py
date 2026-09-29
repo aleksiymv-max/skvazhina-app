@@ -33,9 +33,8 @@ for rel in ['lib/features/walk/area_walk_card_screen.dart','lib/features/walk/pa
     x=p.read_text()
     # Existing complete actions get confirmation + blue visual treatment + awaiting label.
     x=x.replace("onPressed:()=>_completeWalkTask(context,t)", "onPressed:()=>_confirmCompleteWalkTask(context,t)")
-    if "_confirmCompleteWalkTask" not in x:
-        pos=x.rfind("
-}")
+    if "Future<void> _confirmCompleteWalkTask" not in x:
+        pos=x.rfind("\\n}")
         helper=r'''
   Future<void> _confirmCompleteWalkTask(BuildContext context,WorkTask task)async{
     final yes=await showDialog<bool>(context:context,builder:(d)=>AlertDialog(title:const Text('Подтвердить выполнение'),content:const Text('Отметить задание как выполненное? После этого оно будет ожидать подтверждения.'),actions:[TextButton(onPressed:()=>Navigator.pop(d,false),child:const Text('Отмена')),FilledButton(onPressed:()=>Navigator.pop(d,true),child:const Text('Задание выполнено'))]));
@@ -57,8 +56,7 @@ if p.exists():
         anchor="subtitle:Text(t.description)"
         if anchor in a:
             a=a.replace(anchor,anchor+",trailing:t.status==WorkTaskStatus.awaitingConfirmation?const Chip(label:Text('Ожидает подтверждения')):t.status==WorkTaskStatus.active?IconButton(tooltip:'Задание выполнено',onPressed:()=>_confirmCompleteWalkTask(context,t),icon:const Icon(Icons.task_alt,color:Colors.blue)):null",1)
-        pos=a.rfind("
-}")
+        pos=a.rfind("\\n}")
         helper=r'''
   Future<void> _confirmCompleteWalkTask(BuildContext context,WorkTask task)async{
     final yes=await showDialog<bool>(context:context,builder:(d)=>AlertDialog(title:const Text('Подтвердить выполнение'),content:const Text('Отметить задание как выполненное? После этого оно будет ожидать подтверждения.'),actions:[TextButton(onPressed:()=>Navigator.pop(d,false),child:const Text('Отмена')),FilledButton(onPressed:()=>Navigator.pop(d,true),child:const Text('Задание выполнено'))]));
