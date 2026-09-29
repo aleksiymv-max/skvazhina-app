@@ -69,15 +69,15 @@ jobs:
           python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_v143_exact_walk_and_dispatcher.py"
           python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_v144_requested_fixes.py"
           python3 - <<'PY'
-from pathlib import Path
-w=Path('lib/features/wells/well_screen.dart').read_text(); h=Path('lib/features/home/home_screen.dart').read_text(); p=Path('lib/features/organization/personnel_screen.dart').read_text()
-assert "Место дросселирования" in w and "Трубное пространство" in w and "Затрубное пространство" in w
-assert "problem.clear();" in w
-assert "showP('rtr')||showP('rz')||showP('rline')" in w and "showP('esp_f')||showP('esp_i')||showP('esp_load')||showP('esp_rins')" in w
-assert "Заявка подана" in h and "ItrSubrole.dispatcher" in h
-assert "_avatar(u)" in p
-print('v1.44 generated-source assertions passed')
-PY
+          from pathlib import Path
+          w=Path('lib/features/wells/well_screen.dart').read_text(); h=Path('lib/features/home/home_screen.dart').read_text(); p=Path('lib/features/organization/personnel_screen.dart').read_text()
+          assert "Место дросселирования" in w and "Трубное пространство" in w and "Затрубное пространство" in w
+          assert "problem.clear();" in w
+          assert "showP('rtr')||showP('rz')||showP('rline')" in w and "showP('esp_f')||showP('esp_i')||showP('esp_load')||showP('esp_rins')" in w
+          assert "Заявка подана" in h and "ItrSubrole.dispatcher" in h
+          assert "_avatar(u)" in p
+          print('v1.44 generated-source assertions passed')
+          PY
           cp "$GITHUB_WORKSPACE/assets/promysel_icon_v131.png" assets/icon/app_icon.png
           cp "$GITHUB_WORKSPACE/assets/promysel_icon_v131.png" assets/icon/app_icon_foreground.png
           mkdir -p "$GITHUB_WORKSPACE/artifacts"
