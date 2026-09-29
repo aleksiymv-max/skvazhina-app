@@ -155,36 +155,42 @@ if start>=0:
 p.write_text(e)
 
 
-# Repair annulus history widget as a complete syntactically-safe block and wire it into Parameters.
+# Final locally verified annulus history integration.
 p=r/'lib/features/history/history_screen.dart'; h=p.read_text()
-# Remove the previously generated compact annulus widget up to editor helper.
-s=h.find("  Widget _annulusParametersBlock()")
-e=h.find("  Future<void> _editAnnulus",s)
-if s<0 or e<0: raise SystemExit('annulus history repair markers missing')
+# Replace any previously generated compact annulus helper with a clean block.
+s=h.find("  Widget _annulusParametersBlock()"); e=h.find("  Future<void> _editAnnulus",s)
+if s<0 or e<0: raise SystemExit('annulus helper markers missing')
 block=r'''  Widget _annulusParametersBlock(){
-    if(wellId!='__annulus__')return const SizedBox.shrink();
     final rows=AnnulusPressureStore.instance.history().where((e)=>e.padId==padId).toList();
     return Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
-      const SizedBox(height:12),
-      const Text('История межколонных давлений',style:TextStyle(fontSize:18,fontWeight:FontWeight.w900)),
-      const SizedBox(height:8),
+      const Text('История межколонных давлений',style:TextStyle(fontSize:18,fontWeight:FontWeight.w900)),const SizedBox(height:8),
       if(rows.isEmpty)const Card(child:Padding(padding:EdgeInsets.all(18),child:Text('Показаний межколонных давлений пока нет.'))),
-      ...rows.map((e)=>Card(child:ListTile(
-        title:Text('Скважина ${e.wellNumber} · ${DateFormat('dd.MM.yyyy HH:mm').format(e.measuredAt)}',style:const TextStyle(fontWeight:FontWeight.w800)),
-        subtitle:Text('МКД 178×245: ${e.mkd178x245?.toString()??'—'} МПа\nМКД 245×324: ${e.mkd245x324?.toString()??'—'} МПа'),
-        trailing:_canEditAnnulus?IconButton(icon:const Icon(Icons.edit_outlined),tooltip:'Корректировать',onPressed:()=>_editAnnulus(e)):null,
-      ))),
+      ...rows.map((e)=>Card(child:ListTile(title:Text('Скважина ${e.wellNumber} · ${DateFormat('dd.MM.yyyy HH:mm').format(e.measuredAt)}',style:const TextStyle(fontWeight:FontWeight.w800)),subtitle:Text('МКД 178×245: ${e.mkd178x245?.toString()??'—'} МПа\\nМКД 245×324: ${e.mkd245x324?.toString()??'—'} МПа'),trailing:_canEditAnnulus?IconButton(icon:const Icon(Icons.edit_outlined),tooltip:'Корректировать',onPressed:()=>_editAnnulus(e)):null))),
     ]);
   }
 
 '''
 h=h[:s]+block+h[e:]
-# Ensure Parameters body actually renders this block.
-if "_annulusParametersBlock()," not in h:
-    # Parameters is the first TabBarView child; wrap it with annulus content without relying on its helper name.
-    m=re.search(r"TabBarView\(children:\[(\s*[^,\n]+\(\),)",h)
-    if not m: raise SystemExit('parameters tab child not found')
-    first=m.group(1)
-    wrapped="\n          Column(children:[Expanded(child:"+first.strip().rstrip(',')+"),_annulusParametersBlock()]),"
-    h=h[:m.start(1)]+wrapped+h[m.end(1):]
+# The Parameters tab is a ListView. Add MKD as a special choice beside wells.
+old="items: (pad?.wells ?? const <Well>[]).map((w) => DropdownMenuItem(value: w.id, child: Text('Скважина ${w.number} · ${w.type == WellType.oil ? 'нефтяная' : 'газовая'}'))).toList()"
+new="items: [...(pad?.wells ?? const <Well>[]).map((w) => DropdownMenuItem(value: w.id, child: Text('Скважина ${w.number} · ${w.type == WellType.oil ? 'нефтяная' : 'газовая'}'))), const DropdownMenuItem(value: '__annulus__', child: Text('Межколонные давления'))]"
+if old in h:h=h.replace(old,new,1)
+# If an earlier patch already changed the selector, keep it.
+if "__annulus__" not in h: raise SystemExit('annulus selector integration failed')
+oldbody="""            if (well != null) Text('Замеры скважины ${well!.number}', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+            const SizedBox(height: 8),
+            if (loading) const Center(child: Padding(padding: EdgeInsets.all(24), child: CircularProgressIndicator()))
+            else if (items.isEmpty) const Card(child: Padding(padding: EdgeInsets.all(18), child: Text('Для выбранной скважины замеров пока нет.')))
+            else ...items.map(_dateCard),"""
+newbody="""            if (wellId == '__annulus__') _annulusParametersBlock()
+            else ...[
+              if (well != null) Text('Замеры скважины ${well!.number}', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+              const SizedBox(height: 8),
+              if (loading) const Center(child: Padding(padding: EdgeInsets.all(24), child: CircularProgressIndicator()))
+              else if (items.isEmpty) const Card(child: Padding(padding: EdgeInsets.all(18), child: Text('Для выбранной скважины замеров пока нет.')))
+              else ...items.map(_dateCard),
+            ],"""
+if "if (wellId == '__annulus__') _annulusParametersBlock()" not in h:
+    if oldbody not in h: raise SystemExit('parameters ListView body marker missing')
+    h=h.replace(oldbody,newbody,1)
 p.write_text(h)
