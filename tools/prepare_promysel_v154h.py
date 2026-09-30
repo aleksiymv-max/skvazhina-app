@@ -4,9 +4,11 @@ r=Path.cwd()
 # Pre-sync hardening: production permissions must be enforced at action boundaries,
 # not only by hiding buttons.
 p=r/'lib/features/wells/well_screen.dart';s=p.read_text()
-anchor="Future<void> _save() async {"
-if anchor in s and "canPerformWalk" not in s[s.index(anchor):s.index(anchor)+260]:
-    s=s.replace(anchor,anchor+"\n    if(!SessionService.instance.currentUser.canPerformWalk){ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content:Text('Недостаточно прав для выполнения обхода.')));return;}",1)
+save_anchor="final captured=WalkParameterConfig.instance.forArea(areaId).toList();"
+guard="if(!SessionService.instance.currentUser.canPerformWalk){ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content:Text('Недостаточно прав для выполнения обхода.')));return;}"
+if guard not in s:
+    if save_anchor not in s: raise SystemExit("v1.54h: real measurement save anchor missing")
+    s=s.replace(save_anchor,guard+"\n      "+save_anchor,1)
 p.write_text(s)
 
 # Problems: service-facing resolve action is guarded as well as its button.
