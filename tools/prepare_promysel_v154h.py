@@ -30,22 +30,16 @@ s=s.replace("bool get canViewStructure => role != UserRole.admin || role == User
 s=s.replace("bool get canViewPersonnel => role != UserRole.admin || role == UserRole.admin;","bool get canViewPersonnel => true;")
 p.write_text(s)
 
-# Organization: replace the legacy workers expression in the existing build locals without injecting declarations into widget lists.
+# Organization: replace the actual chiefId/workers locals from the generated v1.54g source.
 p=r/'lib/features/organization/organization_screen.dart';s=p.read_text()
 if "personnelChiefId" not in s:
-    candidates=[
-      "final workers = s.workersForChief(user.id);",
-      "final workers=s.workersForChief(user.id);",
-      "final workers = chief ? s.workersForChief(user.id) : <AppUser>[];",
-      "final workers=chief?s.workersForChief(user.id):<AppUser>[];",
-    ]
-    new="""final personnelChiefId=user.role==UserRole.shopChief?user.id:user.chiefId;
-    final workers=(user.canManagePersonnel&&personnelChiefId!=null)?s.workersForChief(personnelChiefId):<AppUser>[];"""
-    for old in candidates:
-        if old in s:
-            s=s.replace(old,new,1);break
-    else:
-        raise SystemExit("v1.54h: workers declaration not found in organization build")
+    old="""final chiefId = chief ? s.currentUser.id : (s.currentUser.chiefId ?? 'chief-001');
+    final workers = s.workersForChief(chiefId);"""
+    new="""final personnelChiefId=s.currentUser.role==UserRole.shopChief?s.currentUser.id:s.currentUser.chiefId;
+    final chiefId = personnelChiefId ?? 'chief-001';
+    final workers=(s.currentUser.canManagePersonnel&&personnelChiefId!=null)?s.workersForChief(personnelChiefId):<AppUser>[];"""
+    if old not in s: raise SystemExit("v1.54h: actual chiefId/workers declaration missing")
+    s=s.replace(old,new,1)
 p.write_text(s)
 
 # Strong role/action gates for the generated release.
