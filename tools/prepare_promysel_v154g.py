@@ -12,7 +12,24 @@ if needle in s and "canResolveProblems)SizedBox(width:double.infinity,child:Fill
     if "Решено" not in tail and "Проблема решена" not in tail: raise SystemExit("resolve action not found near FilledButton")
     s=s[:pos]+"if(SessionService.instance.currentUser.canResolveProblems)"+s[pos:]
 # Dispatcher application action uses capability, not role/id heuristics.
-s=s.replace("if(dispatcher&&m.id!=null&&!filed)SizedBox","if(SessionService.instance.currentUser.canFileProblemApplication&&m.id!=null&&!filed)SizedBox")
+for old in [
+    "if(dispatcher&&m.id!=null&&!filed)SizedBox",
+    "if(dispatcher&&m.id!=null)SizedBox",
+    "if(m.id!=null&&(SessionService.instance.currentUser.role==UserRole.dispatcher||SessionService.instance.currentUser.itrSubrole==ItrSubrole.dispatcher||SessionService.instance.currentUser.id.startsWith('disp-')))...["
+]:
+    if old in s:
+        if old.endswith("...["):
+            s=s.replace(old,"if(m.id!=null&&SessionService.instance.currentUser.canFileProblemApplication)...[",1)
+        else:
+            s=s.replace(old,old.replace("dispatcher","SessionService.instance.currentUser.canFileProblemApplication"),1)
+        break
+# Final fallback: locate the action by its visible label and gate its enclosing SizedBox.
+if "canFileProblemApplication" not in s:
+    label=s.find("Подать заявку")
+    if label<0: raise SystemExit("problem application action missing")
+    box=s.rfind("SizedBox(width:double.infinity",0,label)
+    if box<0: raise SystemExit("problem application button container missing")
+    s=s[:box]+"if(SessionService.instance.currentUser.canFileProblemApplication)"+s[box:]
 p.write_text(s)
 
 # Annulus correction follows the same canCorrect matrix as ordinary measurement history.
@@ -25,7 +42,7 @@ home=(r/'lib/features/home/home_screen.dart').read_text()
 hist=(r/'lib/features/history/history_screen.dart').read_text()
 user=(r/'lib/core/models/user.dart').read_text()
 assert "canResolveProblems)SizedBox(width:double.infinity,child:FilledButton.icon" in home
-assert "if(SessionService.instance.currentUser.canFileProblemApplication&&m.id!=null&&!filed)SizedBox" in home
+assert "canFileProblemApplication" in home and "Подать заявку" in home
 assert "bool get _canEditAnnulus=>SessionService.instance.currentUser.canCorrect;" in hist
 assert "canCorrect => role == UserRole.shopChief || (isItr && itrSubrole != ItrSubrole.master)" in user
 assert "canResolveProblems => role == UserRole.dispatcher || isItr || role == UserRole.shopChief" in user
