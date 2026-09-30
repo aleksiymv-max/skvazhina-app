@@ -63,4 +63,21 @@ assert "capturedParameters" in (r/'lib/core/models/measurement.dart').read_text(
 assert "captured_parameters" in (r/'lib/core/database/app_database.dart').read_text()
 assert "problemNote.clear()" in well
 assert "_params(String id)" not in (r/'lib/features/walk/walk_area_screen.dart').read_text()
-print("v1.54h pre-sync action-boundary and data-flow hardening passed")
+print("v1.54h pre-sync action-boundary and data-flow hardening passed")# Organization: after v1.54b/v1.54f the employee section already exists; derive its data source for every role allowed by the matrix.
+p=r/'lib/features/organization/organization_screen.dart';s=p.read_text()
+if "personnelChiefId" not in s:
+    marker="    final chief = user.role == UserRole.shopChief;"
+    marker2="    final chief=user.role==UserRole.shopChief;"
+    inject="""    final personnelChiefId=user.role==UserRole.shopChief?user.id:user.chiefId;
+    final workers=(user.canManagePersonnel&&personnelChiefId!=null)?s.workersForChief(personnelChiefId):<AppUser>[];"""
+    if marker in s:s=s.replace(marker,marker+"\n"+inject,1)
+    elif marker2 in s:s=s.replace(marker2,marker2+"\n"+inject,1)
+    else:
+        # Find the build method's user/session locals and insert before the first employee section use.
+        section=s.find("if (SessionService.instance.currentUser.canManagePersonnel) _section('Сотрудники")
+        if section<0: raise SystemExit("v1.54h: personnel management section missing")
+        line=s.rfind("\n",0,section)
+        s=s[:line]+"\n"+inject+s[line:]
+p.write_text(s)
+
+
