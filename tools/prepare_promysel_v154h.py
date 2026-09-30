@@ -30,24 +30,23 @@ s=s.replace("bool get canViewStructure => role != UserRole.admin || role == User
 s=s.replace("bool get canViewPersonnel => role != UserRole.admin || role == UserRole.admin;","bool get canViewPersonnel => true;")
 p.write_text(s)
 
-# Organization: after v1.54b/v1.54f the employee section already exists; derive its data source for every role allowed by the matrix.
+# Organization: replace the legacy workers expression in the existing build locals without injecting declarations into widget lists.
 p=r/'lib/features/organization/organization_screen.dart';s=p.read_text()
 if "personnelChiefId" not in s:
-    marker="    final chief = user.role == UserRole.shopChief;"
-    marker2="    final chief=user.role==UserRole.shopChief;"
-    inject="""    final personnelChiefId=user.role==UserRole.shopChief?user.id:user.chiefId;
+    candidates=[
+      "final workers = s.workersForChief(user.id);",
+      "final workers=s.workersForChief(user.id);",
+      "final workers = chief ? s.workersForChief(user.id) : <AppUser>[];",
+      "final workers=chief?s.workersForChief(user.id):<AppUser>[];",
+    ]
+    new="""final personnelChiefId=user.role==UserRole.shopChief?user.id:user.chiefId;
     final workers=(user.canManagePersonnel&&personnelChiefId!=null)?s.workersForChief(personnelChiefId):<AppUser>[];"""
-    if marker in s:s=s.replace(marker,marker+"\n"+inject,1)
-    elif marker2 in s:s=s.replace(marker2,marker2+"\n"+inject,1)
+    for old in candidates:
+        if old in s:
+            s=s.replace(old,new,1);break
     else:
-        # Find the build method's user/session locals and insert before the first employee section use.
-        section=s.find("if (SessionService.instance.currentUser.canManagePersonnel) _section('Сотрудники")
-        if section<0: raise SystemExit("v1.54h: personnel management section missing")
-        line=s.rfind("\n",0,section)
-        s=s[:line]+"\n"+inject+s[line:]
+        raise SystemExit("v1.54h: workers declaration not found in organization build")
 p.write_text(s)
-
-
 
 # Strong role/action gates for the generated release.
 u=(r/'lib/core/models/user.dart').read_text()
