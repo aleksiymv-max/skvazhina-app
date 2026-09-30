@@ -52,7 +52,7 @@ hist=(r/'lib/features/history/history_screen.dart').read_text()
 exp=(r/'lib/core/services/export_service.dart').read_text()
 assert "canPerformWalk" in well
 assert "canResolveProblems" in home and "resolveProblem" in home
-assert "user.canManagePersonnel" in org and "personnelChiefId" in org
+assert "canManagePersonnel" in org and "personnelChiefId" in org and "workersForChief(personnelChiefId)" in org
 assert "canConfirmTask" in tasks
 assert "currentUser.canCorrect" in hist
 assert "WalkParameterConfig.all.where" in exp
