@@ -22,8 +22,11 @@ def validate_employee_application(data, field):
 
 def may_decide(actor, request):
     if request.get("status")!="pending": return False
-    if request.get("requested_role")==CHIEF_ROLE:
+    # Only the first chief who creates a new field requires administrator approval.
+    if request.get("requested_role")==CHIEF_ROLE and request.get("creates_new_field"):
         return actor.get("role")==ADMIN_ROLE
+    # Once a field exists, every further chief and employee is approved by any
+    # active chief of that same field.
     return actor.get("role")==CHIEF_ROLE and actor.get("approved") and not actor.get("blocked") and request.get("field_id")==actor.get("field_id")
 
 def public_field(field):
