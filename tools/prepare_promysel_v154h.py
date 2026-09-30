@@ -20,12 +20,17 @@ p.write_text(s)
 
 # Personnel: list data must be available to matrix-authorized ITR managers, not chief only.
 p=r/'lib/features/organization/organization_screen.dart';s=p.read_text()
-s=s.replace("final workers = chief ? s.workersForChief(user.id) : <AppUser>[];",
-"""final personnelChiefId=user.role==UserRole.shopChief?user.id:user.chiefId;
-    final workers=(user.canManagePersonnel&&personnelChiefId!=null)?s.workersForChief(personnelChiefId):<AppUser>[];""")
-s=s.replace("final workers=chief?s.workersForChief(user.id):<AppUser>[];",
-"""final personnelChiefId=user.role==UserRole.shopChief?user.id:user.chiefId;
-    final workers=(user.canManagePersonnel&&personnelChiefId!=null)?s.workersForChief(personnelChiefId):<AppUser>[];""")
+old_workers="final workers = chief ? s.workersForChief(user.id) : <AppUser>[];"
+old_workers_compact="final workers=chief?s.workersForChief(user.id):<AppUser>[];"
+new_workers="""final personnelChiefId=user.role==UserRole.shopChief?user.id:user.chiefId;
+    final workers=(user.canManagePersonnel&&personnelChiefId!=null)?s.workersForChief(personnelChiefId):<AppUser>[];"""
+if "personnelChiefId" not in s:
+    if old_workers in s:s=s.replace(old_workers,new_workers,1)
+    elif old_workers_compact in s:s=s.replace(old_workers_compact,new_workers,1)
+    else:
+        marker="final workers = s.workersForChief(user.id);"
+        if marker in s:s=s.replace(marker,new_workers,1)
+        else: raise SystemExit("v1.54h: organization workers source anchor missing")
 p.write_text(s)
 
 # Task store is an action boundary: require the caller capability in UI before every mutation.
