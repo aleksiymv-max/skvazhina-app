@@ -21,7 +21,7 @@ s=s.replace("WalkParameterConfig._(){_load();} static final instance=WalkParamet
 s=s.replace(" final Map<String,Set<String>> data={};"," late final Future<void> _loadFuture; Future<void> ensureLoaded()=>_loadFuture;\n final Map<String,Set<String>> data={};")
 s=s.replace("'t_before','t_after','t_line'","'t_before','t_line'")
 s=s.replace("Set<String>.from((e.value as List).cast<String>());","Set<String>.from((e.value as List).cast<String>())..remove('t_after');")
-s=s.replace("'t_after',","").replace(",'t_after'","").replace("'t_after'","")
+s=s.replace("'t_after',","").replace(",'t_after'","")
 p.write_text(s)
 
 p=r/'lib/features/areas/wells_hierarchy_screen.dart';s=p.read_text();s=s.replace(",('t_after','Т после штуцера',['°C','K'])","");p.write_text(s)
