@@ -96,7 +96,7 @@ jobs:
             'application_date_text':"Заявка подана" in h,
             'resolve_action':"Решено" in h,
             'mkd_walk_button':"Внести показания" in pad,
-            'walk_units':"кг/сут" in wa,
+            'walk_units':"кг/сут" in Path('lib/core/models/walk_parameter_config.dart').read_text(),
             'history_mkd_label':"Межколонные давления" in hs,
             'history_mkd_export':"createAnnulusJournalXlsx" in hs,
             'well_latest':"Последние введённые значения" in wc,
