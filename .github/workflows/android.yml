@@ -1,4 +1,4 @@
-name: Build Promysel APK
+name: Build Promysel APK 
 
 on:
   workflow_dispatch:
