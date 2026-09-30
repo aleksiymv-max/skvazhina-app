@@ -189,7 +189,8 @@ jobs:
             'presync_role_matrix': all(k in Path('lib/core/models/user.dart').read_text() for k in ['canPerformWalk','canCorrect','canCreateProblems','canResolveProblems','canFileProblemApplication','canExport','canCreateTask','canConfirmTask','canCompleteTask','canManagePersonnel']),
             'presync_action_boundaries': 'canPerformWalk' in Path('lib/features/wells/well_screen.dart').read_text() and 'canResolveProblems' in home and 'canConfirmTask' in Path('lib/features/tasks/tasks_screen.dart').read_text(),
             'history_snapshot_chain': 'captured_parameters' in Path('lib/core/database/app_database.dart').read_text() and 'capturedParameters' in Path('lib/core/models/measurement.dart').read_text(),
-            'fresh_problem_per_visit': 'problemNote.clear()' in Path('lib/features/wells/well_screen.dart').read_text(),\n            'annulus_area_sheets': "areas.putIfAbsent" in Path('lib/core/services/export_service.dart').read_text() and "sheetName" in Path('lib/core/services/export_service.dart').read_text(),
+            'fresh_problem_per_visit': 'problemNote.clear()' in Path('lib/features/wells/well_screen.dart').read_text(),
+            'annulus_area_sheets': "areas.putIfAbsent" in Path('lib/core/services/export_service.dart').read_text() and "sheetName" in Path('lib/core/services/export_service.dart').read_text(),
           }
           print('ROLE/UX PREFLIGHT',checks,flush=True)
           bad=[k for k,v in checks.items() if not v]
