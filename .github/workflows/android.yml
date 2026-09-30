@@ -85,6 +85,7 @@ jobs:
           python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_v154f.py"
           python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_v154g.py"
           python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_v154h.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_v155.py"
           python3 - <<'PY'
           from pathlib import Path
           w=Path('lib/features/wells/well_screen.dart').read_text(); h=Path('lib/features/home/home_screen.dart').read_text(); p=Path('lib/features/organization/personnel_screen.dart').read_text()
