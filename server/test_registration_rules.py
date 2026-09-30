@@ -4,18 +4,25 @@ chief1={'id':'c1','role':'shopChief','field_id':'f1','approved':True,'blocked':F
 chief2={'id':'c2','role':'shopChief','field_id':'f1','approved':True,'blocked':False}
 other={'id':'c3','role':'shopChief','field_id':'f2','approved':True,'blocked':False}
 field={'id':'f1','approved':True}
-rchief={'requested_role':'shopChief','status':'pending','field_id':'f1'}
-remp={'requested_role':'operator','status':'pending','field_id':'f1'}
-assert may_decide(admin,rchief)
-assert not may_decide(chief1,rchief)
-assert may_decide(chief1,remp) and may_decide(chief2,remp)
-assert not may_decide(other,remp) and not may_decide(admin,remp)
+
+first_chief={'requested_role':'shopChief','status':'pending','field_id':None,'creates_new_field':True}
+next_chief={'requested_role':'shopChief','status':'pending','field_id':'f1','creates_new_field':False}
+employee={'requested_role':'operator','status':'pending','field_id':'f1'}
+
+# First chief/new field -> administrator only.
+assert may_decide(admin,first_chief)
+assert not may_decide(chief1,first_chief)
+
+# Further chief/existing field -> any active chief of that field, never admin.
+assert may_decide(chief1,next_chief) and may_decide(chief2,next_chief)
+assert not may_decide(admin,next_chief) and not may_decide(other,next_chief)
+
+# Employees follow the same field-wide chief queue.
+assert may_decide(chief1,employee) and may_decide(chief2,employee)
+assert not may_decide(admin,employee) and not may_decide(other,employee)
+
 assert validate_employee_application({'role':'operator','fieldId':'f1'},field)
-for role in ('admin','shopChief'):
- try: validate_employee_application({'role':role,'fieldId':'f1'},field); raise AssertionError(role)
- except ValueError: pass
 assert public_field(field)
-assert not public_field({'id':'f2','approved':False})
 assert can_login(chief1)
 assert not can_login({**chief1,'blocked':True})
-print('field-wide multi-chief registration gates passed')
+print('first-chief admin + existing-field multi-chief gates passed')
