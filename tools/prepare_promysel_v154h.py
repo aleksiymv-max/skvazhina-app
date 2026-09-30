@@ -18,21 +18,6 @@ if needle in s:
     s=s.replace(needle,"try{if(!SessionService.instance.currentUser.canResolveProblems)throw Exception('Недостаточно прав');await repo.resolveProblem(id,SessionService.instance.currentUser.id,SessionService.instance.currentUser.name);}",1)
 p.write_text(s)
 
-# Personnel: list data must be available to matrix-authorized ITR managers, not chief only.
-p=r/'lib/features/organization/organization_screen.dart';s=p.read_text()
-old_workers="final workers = chief ? s.workersForChief(user.id) : <AppUser>[];"
-old_workers_compact="final workers=chief?s.workersForChief(user.id):<AppUser>[];"
-new_workers="""final personnelChiefId=user.role==UserRole.shopChief?user.id:user.chiefId;
-    final workers=(user.canManagePersonnel&&personnelChiefId!=null)?s.workersForChief(personnelChiefId):<AppUser>[];"""
-if "personnelChiefId" not in s:
-    if old_workers in s:s=s.replace(old_workers,new_workers,1)
-    elif old_workers_compact in s:s=s.replace(old_workers_compact,new_workers,1)
-    else:
-        marker="final workers = s.workersForChief(user.id);"
-        if marker in s:s=s.replace(marker,new_workers,1)
-        else: raise SystemExit("v1.54h: organization workers source anchor missing")
-p.write_text(s)
-
 # Task store is an action boundary: require the caller capability in UI before every mutation.
 p=r/'lib/features/tasks/tasks_screen.dart';s=p.read_text()
 s=s.replace("store.confirm(t,userId:u.id,userName:u.name,isShopChief:u.role==UserRole.shopChief)","u.canConfirmTask&&store.confirm(t,userId:u.id,userName:u.name,isShopChief:true)")
@@ -44,6 +29,25 @@ p=r/'lib/core/models/user.dart';s=p.read_text()
 s=s.replace("bool get canViewStructure => role != UserRole.admin || role == UserRole.admin;","bool get canViewStructure => true;")
 s=s.replace("bool get canViewPersonnel => role != UserRole.admin || role == UserRole.admin;","bool get canViewPersonnel => true;")
 p.write_text(s)
+
+# Organization: after v1.54b/v1.54f the employee section already exists; derive its data source for every role allowed by the matrix.
+p=r/'lib/features/organization/organization_screen.dart';s=p.read_text()
+if "personnelChiefId" not in s:
+    marker="    final chief = user.role == UserRole.shopChief;"
+    marker2="    final chief=user.role==UserRole.shopChief;"
+    inject="""    final personnelChiefId=user.role==UserRole.shopChief?user.id:user.chiefId;
+    final workers=(user.canManagePersonnel&&personnelChiefId!=null)?s.workersForChief(personnelChiefId):<AppUser>[];"""
+    if marker in s:s=s.replace(marker,marker+"\n"+inject,1)
+    elif marker2 in s:s=s.replace(marker2,marker2+"\n"+inject,1)
+    else:
+        # Find the build method's user/session locals and insert before the first employee section use.
+        section=s.find("if (SessionService.instance.currentUser.canManagePersonnel) _section('Сотрудники")
+        if section<0: raise SystemExit("v1.54h: personnel management section missing")
+        line=s.rfind("\n",0,section)
+        s=s[:line]+"\n"+inject+s[line:]
+p.write_text(s)
+
+
 
 # Strong role/action gates for the generated release.
 u=(r/'lib/core/models/user.dart').read_text()
@@ -63,21 +67,4 @@ assert "capturedParameters" in (r/'lib/core/models/measurement.dart').read_text(
 assert "captured_parameters" in (r/'lib/core/database/app_database.dart').read_text()
 assert "problemNote.clear()" in well
 assert "_params(String id)" not in (r/'lib/features/walk/walk_area_screen.dart').read_text()
-print("v1.54h pre-sync action-boundary and data-flow hardening passed")# Organization: after v1.54b/v1.54f the employee section already exists; derive its data source for every role allowed by the matrix.
-p=r/'lib/features/organization/organization_screen.dart';s=p.read_text()
-if "personnelChiefId" not in s:
-    marker="    final chief = user.role == UserRole.shopChief;"
-    marker2="    final chief=user.role==UserRole.shopChief;"
-    inject="""    final personnelChiefId=user.role==UserRole.shopChief?user.id:user.chiefId;
-    final workers=(user.canManagePersonnel&&personnelChiefId!=null)?s.workersForChief(personnelChiefId):<AppUser>[];"""
-    if marker in s:s=s.replace(marker,marker+"\n"+inject,1)
-    elif marker2 in s:s=s.replace(marker2,marker2+"\n"+inject,1)
-    else:
-        # Find the build method's user/session locals and insert before the first employee section use.
-        section=s.find("if (SessionService.instance.currentUser.canManagePersonnel) _section('Сотрудники")
-        if section<0: raise SystemExit("v1.54h: personnel management section missing")
-        line=s.rfind("\n",0,section)
-        s=s[:line]+"\n"+inject+s[line:]
-p.write_text(s)
-
-
+print("v1.54h pre-sync action-boundary and data-flow hardening passed")
