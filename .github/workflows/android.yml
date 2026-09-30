@@ -210,6 +210,7 @@ jobs:
           sed -i 's/: FlutterActivity()/: FlutterFragmentActivity()/' android/app/src/main/kotlin/ru/promysel/promysel/MainActivity.kt
           sed -i '/<manifest/a\\    <uses-permission android:name="android.permission.CAMERA" />' "$MANIFEST"
           sed -i 's/android:label="[^"]*"/android:label="Промысел"/' "$MANIFEST"
+          sed -i 's#<application#<application android:usesCleartextTraffic="true"#' "$MANIFEST"
           rm -f android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml android/app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml
           declare -A sizes=([mdpi]=48 [hdpi]=72 [xhdpi]=96 [xxhdpi]=144 [xxxhdpi]=192)
           for d in mdpi hdpi xhdpi xxhdpi xxxhdpi; do
@@ -225,7 +226,7 @@ jobs:
         run: |
           set -euo pipefail
           cd "${{ steps.project.outputs.project_dir }}"
-          flutter build apk --release
+          flutter build apk --release --dart-define=PROMYSEL_SYNC_URL=http://159.194.248.93
           cp build/app/outputs/flutter-apk/app-release.apk "$GITHUB_WORKSPACE/artifacts/promysel-v1.46.0-release.apk"
           unzip -t "$GITHUB_WORKSPACE/artifacts/promysel-v1.46.0-release.apk" >/dev/null
           sha256sum "$GITHUB_WORKSPACE/artifacts/promysel-v1.46.0-release.apk"
