@@ -20,6 +20,17 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Registration server preflight
+        shell: bash
+        run: |
+          set -euo pipefail
+          export PYTHONPATH="$GITHUB_WORKSPACE/server"
+          python3 -m py_compile server/registration_rules.py server/registration_decisions.py server/registration_service.py server/mailer.py server/preflight_registration.py
+          python3 server/test_registration_rules.py
+          python3 server/test_registration_decisions.py
+          python3 server/test_registration_service.py
+          python3 server/preflight_registration.py
+
       - name: Extract base source
         id: project
         shell: bash
