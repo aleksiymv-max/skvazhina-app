@@ -2,26 +2,37 @@ from pathlib import Path
 
 root=Path(__file__).parent
 schema=(root/'registration_schema.sql').read_text()
+migration=(root/'migrations'/'002_registration.sql').read_text()
 contract=(root/'REGISTRATION_API.md').read_text()
 service=(root/'registration_service.py').read_text()
 rules=(root/'registration_rules.py').read_text()
 api=(root/'registration_api.py').read_text()
+mailer=(root/'mailer.py').read_text()
 
-required_tables=['fields','users','registration_requests','auth_tokens','mail_outbox']
+required_tables=['fields','users','registration_requests','auth_tokens','mail_outbox','registration_audit']
 for t in required_tables:
  assert ('CREATE TABLE IF NOT EXISTS '+t) in schema,t
+ assert ('CREATE TABLE IF NOT EXISTS '+t) in migration,'migration missing '+t
 
 for required in [
+ 'full_name TEXT NOT NULL',
+ 'role TEXT NOT NULL',
  'creates_new_field BOOLEAN NOT NULL DEFAULT FALSE',
  'uq_pending_registration_email',
  'idx_reg_queue',
  'must_change_password BOOLEAN NOT NULL DEFAULT TRUE',
  'blocked BOOLEAN NOT NULL DEFAULT FALSE',
+ 'revoked_at TIMESTAMPTZ',
+ 'registration_request_id TEXT NOT NULL',
+ 'updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()',
+ 'details JSONB NOT NULL',
 ]:
  assert required in schema,required
+ assert required in migration,'migration mismatch: '+required
 
-for forbidden in ['chief_id TEXT','chief_user_id TEXT']:
- assert forbidden not in schema,'legacy per-chief registration column: '+forbidden
+for forbidden in ['chief_id TEXT','chief_user_id TEXT','app_users','auth_sessions','requested_role TEXT','requested_subrole TEXT']:
+ assert forbidden not in schema,'legacy registration schema: '+forbidden
+ assert forbidden not in migration,'legacy registration migration: '+forbidden
 
 for required in [
  'Registration is scoped to a field, not to one selected chief',
@@ -43,4 +54,5 @@ assert "/registration/fields" in api
 assert "/registration/pending" in api
 assert "/auth/login" in api
 assert "/auth/first-password" in api
-print("registration field-wide contract/preflight gates passed")
+assert "formatdate" in mailer and "make_msgid" in mailer
+print("registration production-schema/field-wide preflight gates passed")
