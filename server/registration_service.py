@@ -1,7 +1,7 @@
 """Framework-independent registration service used by FastAPI routes.
 Database adapter must provide atomic claim/approve methods; mail is queued only after commit.
 """
-from registration_rules import validate_chief_application,validate_employee_application,may_decide
+from registration_rules import validate_chief_application,validate_employee_application,may_decide,can_login
 
 class RegistrationService:
  def __init__(self,repo,mailer,passwords): self.repo,self.mailer,self.passwords=repo,mailer,passwords
@@ -32,3 +32,19 @@ class RegistrationService:
   self.repo.commit()
   sent=self.mailer.flush_registration(req['id'])
   return {'status':'approved','mailSent':sent}
+ def login(self,login,password):
+  email=(login or '').strip().lower()
+  user=self.repo.user_by_email(email)
+  if not can_login(user) or not self.repo.verify_password(user,password):
+   raise PermissionError('Неверный логин или пароль')
+  token=self.repo.create_auth_token(user)
+  self.repo.commit()
+  return {'token':token,'user':self.repo.public_user(user),'mustChangePassword':bool(user.get('must_change_password'))}
+ def change_password(self,actor,password):
+  if not can_login(actor): raise PermissionError('Пользователь недоступен')
+  if not actor.get('must_change_password'): raise ValueError('Первичная смена пароля уже выполнена')
+  self.repo.change_password(actor,password)
+  self.repo.revoke_auth_tokens(actor['id'])
+  token=self.repo.create_auth_token(actor)
+  self.repo.commit()
+  return {'token':token,'user':self.repo.public_user(actor),'mustChangePassword':False}
