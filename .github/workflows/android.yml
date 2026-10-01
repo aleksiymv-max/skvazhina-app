@@ -242,7 +242,7 @@ jobs:
         run: |
           set -euo pipefail
           cd "${{ steps.project.outputs.project_dir }}"
-          flutter build apk --release --dart-define=PROMYSEL_SYNC_URL=http://159.194.248.93
+          flutter build apk --release --dart-define=PROMYSEL_SYNC_URL=https://quumapafagul.beget.app
           cp build/app/outputs/flutter-apk/app-release.apk "$GITHUB_WORKSPACE/artifacts/promysel-v1.46.0-release.apk"
           unzip -t "$GITHUB_WORKSPACE/artifacts/promysel-v1.46.0-release.apk" >/dev/null
           sha256sum "$GITHUB_WORKSPACE/artifacts/promysel-v1.46.0-release.apk"
