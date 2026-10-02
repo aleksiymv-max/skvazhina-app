@@ -14,21 +14,13 @@ needle="await refreshFields();await refreshPending();notifyListeners();return d[
 s=s.replace(needle,"await _persistSession();unawaited(refreshFields().catchError((_){ }));unawaited(refreshPending().catchError((_){ }));notifyListeners();return d['mustChangePassword']==true;",1)
 if "import 'dart:async';" not in s:s="import 'dart:async';\n"+s
 needle2="if(nt.isNotEmpty)api.token=nt;notifyListeners();";assert needle2 in s;s=s.replace(needle2,"if(nt.isNotEmpty)api.token=nt;await _persistSession();notifyListeners();",1);p.write_text(s)
-
-# Restore the saved identity before OilmanApp creates its static GoRouter.
 main=r/'lib/main.dart';m=main.read_text()
 if "core/services/session_service.dart" not in m:m=m.replace("import 'core/services/sync_service.dart';","import 'core/services/sync_service.dart';\nimport 'core/services/session_service.dart';")
-restore="  await SessionService.instance.restoreSession();\n\n"
-marker="  runApp(OilmanApp(initializationError: initializationError));"
-assert marker in m
+restore="  await SessionService.instance.restoreSession();\n\n";marker="  runApp(OilmanApp(initializationError: initializationError));";assert marker in m
 if restore.strip() not in m:m=m.replace(marker,restore+marker,1)
 main.write_text(m)
-
-# GoRouter is the real root in current generated source; select its first location from restored token.
-app=r/'lib/app/app.dart';a=app.read_text()
-old="initialLocation: '/login',";assert old in a,'Expected GoRouter initialLocation not found'
-a=a.replace(old,"initialLocation: (SessionService.instance.api.token?.isNotEmpty ?? false) ? '/' : '/login',",1)
-app.write_text(a)
-
+app=r/'lib/app/app.dart';a=app.read_text();old="initialLocation: '/login',";assert old in a,'Expected GoRouter initialLocation not found';a=a.replace(old,"initialLocation: (SessionService.instance.api.token?.isNotEmpty ?? false) ? '/' : '/login',",1);app.write_text(a)
 db=r/'lib/core/database/app_database.dart';d=db.read_text();d=re.sub(r"\n\s*await\s+_seedDemo[^;]*;",'',d);d=re.sub(r"\n\s*await\s+seedDemo[^;]*;",'',d);db.write_text(d)
 s=p.read_text();a=app.read_text();m=main.read_text();d=db.read_text();checks={'persistent_token':'promysel_session_v2' in s and 'SharedPreferences' in s,'restore_session':'restoreSession()' in s and 'api.token=tok' in s,'persist_after_login':'await _persistSession()' in s,'fast_background_refresh':'unawaited(refreshFields()' in s and 'unawaited(refreshPending()' in s,'startup_restore':'await SessionService.instance.restoreSession()' in m,'router_session_start':"api.token?.isNotEmpty" in a and "? '/' : '/login'" in a,'no_seed_calls':'await _seedDemo' not in d and 'await seedDemo' not in d};print('V159 STABILITY GATES',checks,flush=True);bad=[k for k,v in checks.items() if not v];assert not bad,'v159 gate failed: '+', '.join(bad);print('v1.59 persistent session / GoRouter startup / legacy seed cleanup passed')
+# Apply the consolidated v1.60 production fixes as the final build layer.
+exec((Path(__file__).with_name('prepare_promysel_v160.py')).read_text(), {'__name__':'__main__','__file__':str(Path(__file__).with_name('prepare_promysel_v160.py'))})
