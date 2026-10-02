@@ -75,3 +75,5 @@ print('v1.58.1 demo cleanup, e-mail fix and full production control gates passed
 
 # Final server-backed authentication/registration patch and its own hard gates.
 exec((Path(__file__).with_name('prepare_promysel_v157e.py')).read_text(), {'__name__':'__main__','__file__':str(Path(__file__).with_name('prepare_promysel_v157e.py'))})
+# Align generated client payload with the live FastAPI contract (fullName, not name).
+exec((Path(__file__).with_name('prepare_promysel_v157f.py')).read_text(), {'__name__':'__main__','__file__':str(Path(__file__).with_name('prepare_promysel_v157f.py'))})
