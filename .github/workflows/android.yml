@@ -10,7 +10,7 @@ concurrency:
   cancel-in-progress: true
 jobs:
   build:
-    name: Build Promysel Android
+    name: Build Promysel Android ARM64
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -63,24 +63,20 @@ jobs:
           M=android/app/src/main/AndroidManifest.xml;sed -i '/<manifest/a\\    <uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.CAMERA" />' "$M";sed -i 's/android:label="[^"]*"/android:label="Промысел"/' "$M"
           rm -f android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml android/app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml
           declare -A z=([mdpi]=48 [hdpi]=72 [xhdpi]=96 [xxhdpi]=144 [xxxhdpi]=192);for d in mdpi hdpi xhdpi xxhdpi xxxhdpi;do o="android/app/src/main/res/mipmap-$d";mkdir -p "$o";convert assets/icon/app_icon.png -resize "${z[$d]}x${z[$d]}" "$o/ic_launcher.png";cp "$o/ic_launcher.png" "$o/ic_launcher_round.png";done;sed -i 's#android:icon="[^"]*"#android:icon="@mipmap/ic_launcher"#' "$M"
-      - name: Build compact APKs and report size
+      - name: Build optimized ARM64 APK and report size
         shell: bash
         run: |
           set -euo pipefail;cd "${{ steps.project.outputs.project_dir }}"
-          rm -rf "$GITHUB_WORKSPACE/artifacts/symbols";mkdir -p "$GITHUB_WORKSPACE/artifacts/symbols"
-          flutter build apk --release --split-per-abi --tree-shake-icons --obfuscate --split-debug-info="$GITHUB_WORKSPACE/artifacts/symbols" --dart-define=PROMYSEL_SYNC_URL=https://quumapafagul.beget.app
-          mkdir -p "$GITHUB_WORKSPACE/artifacts/apk"
-          cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk "$GITHUB_WORKSPACE/artifacts/apk/promysel-v1.61-arm64.apk"
-          cp build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk "$GITHUB_WORKSPACE/artifacts/apk/promysel-v1.61-arm32.apk"
-          cp build/app/outputs/flutter-apk/app-x86_64-release.apk "$GITHUB_WORKSPACE/artifacts/apk/promysel-v1.61-x86_64.apk"
+          rm -rf "$GITHUB_WORKSPACE/artifacts/symbols";mkdir -p "$GITHUB_WORKSPACE/artifacts/symbols" "$GITHUB_WORKSPACE/artifacts/apk"
+          flutter build apk --release --target-platform android-arm64 --tree-shake-icons --obfuscate --split-debug-info="$GITHUB_WORKSPACE/artifacts/symbols" --dart-define=PROMYSEL_SYNC_URL=https://quumapafagul.beget.app
+          cp build/app/outputs/flutter-apk/app-release.apk "$GITHUB_WORKSPACE/artifacts/apk/promysel-v1.61-arm64.apk"
           python3 - <<'PY'
           from pathlib import Path
-          baseline=27634136
-          for p in Path('/home/runner/work/skvazhina-app/skvazhina-app/artifacts/apk').glob('*.apk'):
-           n=p.stat().st_size;print(p.name,n,'bytes; reduction',round((1-n/baseline)*100,1),'%')
+          p=Path('/home/runner/work/skvazhina-app/skvazhina-app/artifacts/apk/promysel-v1.61-arm64.apk');baseline=27634136;n=p.stat().st_size
+          print(p.name,n,'bytes; reduction',round((1-n/baseline)*100,1),'%')
           PY
-          sha256sum "$GITHUB_WORKSPACE"/artifacts/apk/*.apk
+          sha256sum "$GITHUB_WORKSPACE/artifacts/apk/promysel-v1.61-arm64.apk"
       - uses: actions/upload-artifact@v4
-        with: {name: promysel-v1.61-compact-android, path: artifacts/apk/*.apk, retention-days: 30}
+        with: {name: promysel-v1.61-arm64-android, path: artifacts/apk/promysel-v1.61-arm64.apk, retention-days: 30}
       - uses: actions/upload-artifact@v4
         with: {name: promysel-v1.61-debug-symbols, path: artifacts/symbols/**, retention-days: 30}
