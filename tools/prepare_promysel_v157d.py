@@ -25,31 +25,16 @@ t=re.sub(r"final Map<String,String> userFields=\{[^;]*;", "final Map<String,Stri
 t=re.sub(r"final Map<String,bool> workPresence=\{[^;]*;", "final Map<String,bool> workPresence={};", t, count=1)
 t=re.sub(r"final List<AppUser> _workers=\[[^;]*;", "final List<AppUser> _workers=[];", t, count=1)
 t=re.sub(r"final Map<String,String> _passwords=\{[^;]*;", "final Map<String,String> _passwords={};", t, count=1)
-# Correct Dart raw-regexp: a literal dot is \. (one backslash), not \\. (two).
 t=t.replace("r'^[^@ ]+@[^@ ]+\\\\.[^@ ]+$'", "r'^[^@ ]+@[^@ ]+\\.[^@ ]+$'")
 t=t.replace("'field-1'", "'new'").replace('"field-1"', '"new"')
 p.write_text(t)
 
-# Hard production gates: fail the build if demo data or broken e-mail validation returns.
 session=p.read_text()
 for forbidden in ['Уренгойское НГКМ','Северное НГКМ','chief-001','op-001',"'operator'","'engineer'","'dispatcher'","r'^[^@ ]+@[^@ ]+\\\\.[^@ ]+$'"]:
     assert forbidden not in session, 'Forbidden prototype content remains: '+forbidden
 assert "r'^[^@ ]+@[^@ ]+\\.[^@ ]+$'" in session
 
-user=(r/'lib/core/models/user.dart').read_text()
-hierarchy=(r/'lib/features/areas/wells_hierarchy_screen.dart').read_text()
-walk=(r/'lib/features/wells/well_screen.dart').read_text()
-card=(r/'lib/features/wells/well_card_screen.dart').read_text()
-history=(r/'lib/features/history/history_screen.dart').read_text()
-db=(r/'lib/core/database/app_database.dart').read_text()
-model=(r/'lib/core/models/measurement.dart').read_text()
-export=(r/'lib/core/services/export_service.dart').read_text()
-sync=(r/'lib/core/services/sync_service.dart').read_text()
-home=(r/'lib/features/home/home_screen.dart').read_text()
-tasks=(r/'lib/features/tasks/tasks_screen.dart').read_text()
-org=(r/'lib/features/organization/organization_screen.dart').read_text()
-login=(r/'lib/features/auth/login_screen.dart').read_text()
-
+user=(r/'lib/core/models/user.dart').read_text();hierarchy=(r/'lib/features/areas/wells_hierarchy_screen.dart').read_text();walk=(r/'lib/features/wells/well_screen.dart').read_text();card=(r/'lib/features/wells/well_card_screen.dart').read_text();history=(r/'lib/features/history/history_screen.dart').read_text();db=(r/'lib/core/database/app_database.dart').read_text();model=(r/'lib/core/models/measurement.dart').read_text();export=(r/'lib/core/services/export_service.dart').read_text();sync=(r/'lib/core/services/sync_service.dart').read_text();home=(r/'lib/features/home/home_screen.dart').read_text();tasks=(r/'lib/features/tasks/tasks_screen.dart').read_text();org=(r/'lib/features/organization/organization_screen.dart').read_text();login=(r/'lib/features/auth/login_screen.dart').read_text()
 checks={
  'registration_field_wide': "field-1" not in login and "chiefId:chiefId" not in login,
  'personal_email_wording': all(x not in login for x in ['Рабочая почта','Рабочий e-mail','Корпоративная почта','Корпоративный e-mail']),
@@ -87,3 +72,6 @@ failed=[k for k,v in checks.items() if not v]
 print('FULL PRODUCTION CONTROL GATES',checks,flush=True)
 assert not failed, 'Production control gate failed: '+', '.join(failed)
 print('v1.58.1 demo cleanup, e-mail fix and full production control gates passed')
+
+# Final server-backed authentication/registration patch and its own hard gates.
+exec((Path(__file__).with_name('prepare_promysel_v157e.py')).read_text(), {'__name__':'__main__','__file__':str(Path(__file__).with_name('prepare_promysel_v157e.py'))})
