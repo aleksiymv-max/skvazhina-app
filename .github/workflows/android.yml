@@ -36,16 +36,17 @@ jobs:
         run: |
           set -euo pipefail
           BASE="https://quumapafagul.beget.app"
-          curl --fail --silent --show-error --retry 3 --connect-timeout 10 "$BASE/health" | tee /tmp/promysel-health.json
-          curl --fail --silent --show-error --retry 3 --connect-timeout 10 "$BASE/v1/registration/fields" | tee /tmp/promysel-fields.json
+          curl --fail --silent --show-error --retry 3 --connect-timeout 10 "$BASE/health" -o /tmp/promysel-health.json
+          curl --fail --silent --show-error --retry 3 --connect-timeout 10 "$BASE/v1/registration/fields" -o /tmp/promysel-fields.json
           python3 - <<'PY'
           import json
           h=json.load(open('/tmp/promysel-health.json'))
           f=json.load(open('/tmp/promysel-fields.json'))
           assert h.get('status') == 'ok', h
           assert h.get('database') is True, h
-          assert isinstance(f.get('items'), list), f
-          print('Production endpoint preflight passed')
+          items=f if isinstance(f,list) else f.get('items') if isinstance(f,dict) else None
+          assert isinstance(items,list), f
+          print('Production endpoint preflight passed; fields:',len(items))
           PY
 
       - name: Extract base source
@@ -100,20 +101,7 @@ jobs:
           files={p.as_posix():p.read_text(errors='ignore') for p in Path('lib').rglob('*.dart')}
           allsrc='\n'.join(files.values())
           def text(path): return Path(path).read_text()
-          session=text('lib/core/services/session_service.dart')
-          reg=text('lib/core/services/registration_service.dart')
-          sync=text('lib/core/services/sync_service.dart')
-          user=text('lib/core/models/user.dart')
-          walk=text('lib/features/wells/well_screen.dart')
-          card=text('lib/features/wells/well_card_screen.dart')
-          hist=text('lib/features/history/history_screen.dart')
-          hierarchy=text('lib/features/areas/wells_hierarchy_screen.dart')
-          home=text('lib/features/home/home_screen.dart')
-          tasks=text('lib/features/tasks/tasks_screen.dart')
-          db=text('lib/core/database/app_database.dart')
-          model=text('lib/core/models/measurement.dart')
-          export=text('lib/core/services/export_service.dart')
-          cfg=text('lib/core/models/walk_parameter_config.dart')
+          session=text('lib/core/services/session_service.dart'); reg=text('lib/core/services/registration_service.dart'); sync=text('lib/core/services/sync_service.dart'); user=text('lib/core/models/user.dart'); walk=text('lib/features/wells/well_screen.dart'); card=text('lib/features/wells/well_card_screen.dart'); hist=text('lib/features/history/history_screen.dart'); hierarchy=text('lib/features/areas/wells_hierarchy_screen.dart'); home=text('lib/features/home/home_screen.dart'); tasks=text('lib/features/tasks/tasks_screen.dart'); db=text('lib/core/database/app_database.dart'); model=text('lib/core/models/measurement.dart'); export=text('lib/core/services/export_service.dart'); cfg=text('lib/core/models/walk_parameter_config.dart')
           checks={
             'server_login':'RegistrationService.instance.login' in session and '/v1/auth/login' in reg,
             'server_registration':'RegistrationService.instance.register' in session and '/v1/registration/apply' in reg,
@@ -122,13 +110,14 @@ jobs:
             'server_approve':'/approve' in reg and 'approveRemote' in session,
             'server_reject':'/reject' in reg and 'rejectRemote' in session,
             'server_first_password':'/v1/auth/first-password' in reg,
-            'https_transport':'https://quumapafagul.beget.app' in allsrc or 'PROMYSEL_SYNC_URL' in allsrc,
+            'list_response_normalized':"if(x is List)return <String,dynamic>{'items':x}" in reg,
+            'https_transport':'PROMYSEL_SYNC_URL' in allsrc,
             'no_prototype_fields':'Уренгойское НГКМ' not in allsrc and 'Северное НГКМ' not in allsrc,
             'no_demo_passwords':'operator123' not in allsrc and 'admin123' not in allsrc,
             'role_matrix':all(k in user for k in ['canPerformWalk','canCorrect','canCreateProblems','canResolveProblems','canFileProblemApplication','canExport','canCreateTask','canConfirmTask','canCompleteTask','canManagePersonnel']),
             'role_boundaries':'canPerformWalk' in walk and 'canResolveProblems' in home and 'canConfirmTask' in tasks,
             'hierarchy_config':"value:'params'" in hierarchy and 'Параметры и единицы' in hierarchy,
-            'walk_config': 'WalkParameterConfig.instance.on(areaId,k)' in walk and 'WalkParameterConfig.instance.unit(areaId,k,fallback)' in walk,
+            'walk_config':'WalkParameterConfig.instance.on(areaId,k)' in walk and 'WalkParameterConfig.instance.unit(areaId,k,fallback)' in walk,
             'card_same_config':'WalkParameterConfig.instance.on(areaId,key)' in card and 'WalkParameterConfig.instance.unit(areaId,key,fallback)' in card,
             'card_latest':'latestForWell(well.id)' in card,
             'history_snapshot':'captured_parameters' in db and 'capturedParameters' in model,
@@ -140,9 +129,9 @@ jobs:
             'configured_units':"String unit(String area,String key,String fallback)" in cfg,
             'mkd_history':'Межколонные давления' in hist and 'createAnnulusJournalXlsx' in hist,
           }
-          print('FULL SOURCE PREFLIGHT', checks, flush=True)
+          print('FULL SOURCE PREFLIGHT',checks,flush=True)
           bad=[k for k,v in checks.items() if not v]
-          assert not bad, 'Full source preflight failed: '+', '.join(bad)
+          assert not bad,'Full source preflight failed: '+', '.join(bad)
           PY
           mkdir -p "$GITHUB_WORKSPACE/artifacts"
           zip -qr "$GITHUB_WORKSPACE/artifacts/promysel-v1.58.4-source.zip" . -x 'android/*' 'build/*' '.dart_tool/*'
@@ -176,11 +165,7 @@ jobs:
           sed -i 's/android:label="[^"]*"/android:label="Промысел"/' "$MANIFEST"
           rm -f android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml android/app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml
           declare -A sizes=([mdpi]=48 [hdpi]=72 [xhdpi]=96 [xxhdpi]=144 [xxxhdpi]=192)
-          for d in mdpi hdpi xhdpi xxhdpi xxxhdpi; do
-            out="android/app/src/main/res/mipmap-$d"; mkdir -p "$out"
-            convert assets/icon/app_icon.png -resize "${sizes[$d]}x${sizes[$d]}" "$out/ic_launcher.png"
-            cp "$out/ic_launcher.png" "$out/ic_launcher_round.png"
-          done
+          for d in mdpi hdpi xhdpi xxhdpi xxxhdpi; do out="android/app/src/main/res/mipmap-$d"; mkdir -p "$out"; convert assets/icon/app_icon.png -resize "${sizes[$d]}x${sizes[$d]}" "$out/ic_launcher.png"; cp "$out/ic_launcher.png" "$out/ic_launcher_round.png"; done
           sed -i 's#android:icon="[^"]*"#android:icon="@mipmap/ic_launcher"#' "$MANIFEST"
           if grep -q 'android:roundIcon=' "$MANIFEST"; then sed -i 's#android:roundIcon="[^"]*"#android:roundIcon="@mipmap/ic_launcher_round"#' "$MANIFEST"; else sed -i 's#<application#<application android:roundIcon="@mipmap/ic_launcher_round"#' "$MANIFEST"; fi
 
@@ -193,10 +178,7 @@ jobs:
           grep -F 'android.permission.INTERNET' "$MANIFEST"
           grep -F 'android.permission.CAMERA' "$MANIFEST"
           grep -F 'android:label="Промысел"' "$MANIFEST"
-          if grep -q 'usesCleartextTraffic="true"' "$MANIFEST"; then
-            echo 'Production manifest must not allow cleartext traffic' >&2
-            exit 1
-          fi
+          if grep -q 'usesCleartextTraffic="true"' "$MANIFEST"; then echo 'Production manifest must not allow cleartext traffic' >&2; exit 1; fi
           echo 'Android release manifest gate passed'
 
       - name: Build APK
