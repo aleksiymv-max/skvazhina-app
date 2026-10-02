@@ -8,35 +8,39 @@ s=p.read_text()
 s=re.sub(r"^.*local_auth.*\n?",'',s,flags=re.M)
 s=re.sub(r"\s*final\s+auth\s*=\s*LocalAuthentication\(\)\s*;",'',s)
 
-# Remove complete methods by balanced braces, not regex.
-def remove_method(src, marker):
-    i=src.find(marker)
-    if i<0:return src
-    b=src.find('{',i)
+# Balanced method removal supports arbitrary whitespace between name and parentheses.
+def remove_named_method(src,name):
+    m=re.search(r'(?:Future<[^>]+>|Future|void)\s+'+re.escape(name)+r'\s*\(',src)
+    if not m:return src
+    i=m.start();b=src.find('{',m.end())
     if b<0:return src
-    depth=0;j=b
+    depth=0;j=b;quote=None;esc=False
     while j<len(src):
-        if src[j]=='{':depth+=1
-        elif src[j]=='}':
-            depth-=1
-            if depth==0:
-                return src[:i]+src[j+1:]
+        c=src[j]
+        if quote:
+            if esc:esc=False
+            elif c=='\\':esc=True
+            elif c==quote:quote=None
+        else:
+            if c in "'\"":quote=c
+            elif c=='{':depth+=1
+            elif c=='}':
+                depth-=1
+                if depth==0:return src[:i]+src[j+1:]
         j+=1
-    raise RuntimeError('Unbalanced method '+marker)
+    raise RuntimeError('Unbalanced method '+name)
 
-# Old PIN implementation must be physically absent.
-s=remove_method(s,'Future<void> _setPin(')
-s=remove_method(s,'Future<void> _bio')
-s=remove_method(s,'Future<void> _biometric')
+# Old PIN/biometric implementations must be physically absent.
+for name in ('_setPin','_bioLogin','_biometricLogin','_checkBiometrics','_testBiometrics','_bio'):
+    while re.search(r'(?:Future<[^>]+>|Future|void)\s+'+re.escape(name)+r'\s*\(',s):s=remove_named_method(s,name)
 
-# Remove UI statements containing PIN/biometric callbacks/text using balanced ListTile parentheses.
-def remove_listtile_containing(src, needles):
-    pos=0
+# Remove complete ListTile/Card/SwitchListTile widgets containing PIN/biometric text/callback.
+def remove_call_containing(src,call,needles):
+    pos=0;needle=call+'('
     while True:
-        i=src.find('ListTile(',pos)
+        i=src.find(needle,pos)
         if i<0:return src
-        depth=0;j=i+len('ListTile')
-        quote=None;esc=False
+        par=src.find('(',i);depth=0;j=par;quote=None;esc=False
         while j<len(src):
             c=src[j]
             if quote:
@@ -59,13 +63,16 @@ def remove_listtile_containing(src, needles):
             j+=1
         else:return src
 
-s=remove_listtile_containing(s,['_setPin','PIN-код','биометр','fingerprint','LocalAuthentication'])
-# Remove obsolete quick-auth storage operations but keep photo secure storage.
-s=re.sub(r"[^;\n]*quick_pin[^;\n]*;",'',s)
-s=re.sub(r"[^;\n]*quick_user[^;\n]*;",'',s)
+needles=['_setPin','PIN-код','PIN код','биометр','fingerprint','LocalAuthentication']
+for call in ('ListTile','SwitchListTile','Card'):
+    s=remove_call_containing(s,call,needles)
+
+# Remove any residual standalone statements/lines from old quick-auth implementation.
+for pat in (r'^.*quick_pin.*\n?',r'^.*quick_user.*\n?',r'^.*Проверить биометрию.*\n?',r'^.*Настроить PIN-код.*\n?',r'^.*_setPin.*\n?',r'^.*LocalAuthentication.*\n?'):
+    s=re.sub(pat,'',s,flags=re.M)
 
 # Deterministically replace password method with server-backed old/new/confirm dialog.
-s=remove_method(s,'Future<void> _changePassword(')
+s=remove_named_method(s,'_changePassword')
 class_end=s.rfind('}')
 assert class_end>=0
 method=r'''  Future<void> _changePassword() async {
