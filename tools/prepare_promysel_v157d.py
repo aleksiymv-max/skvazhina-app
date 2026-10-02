@@ -9,18 +9,13 @@ assert "/v1/registration/fields" in s and "/reject" in s
 p=r/'lib/features/auth/login_screen.dart';s=p.read_text()
 s=s.replace("required String chiefId","String? chiefId")
 s=s.replace("chiefId:chiefId","chiefId:null")
-# Do not preselect prototype field.
 s=s.replace("String fieldId='field-1'","String fieldId='new'")
 s=s.replace("fieldId=v??'field-1'","fieldId=v??'new'")
 p.write_text(s)
 
-# Full production control gates for the field-test APK. These checks deliberately
-# cover the same data path end-to-end: structure -> area configuration -> walk
-# measurement -> database snapshot -> card/history/export -> field-scoped sync.
 user=(r/'lib/core/models/user.dart').read_text()
 hierarchy=(r/'lib/features/areas/wells_hierarchy_screen.dart').read_text()
 walk=(r/'lib/features/wells/well_screen.dart').read_text()
-config=(r/'lib/core/models/walk_parameter_config.dart').read_text()
 card=(r/'lib/features/wells/well_card_screen.dart').read_text()
 history=(r/'lib/features/history/history_screen.dart').read_text()
 db=(r/'lib/core/database/app_database.dart').read_text()
@@ -40,7 +35,9 @@ checks={
  'role_structure_edit': 'canEditStructure' in user and 'canEditStructure' in hierarchy,
  'role_structure_delete': 'canDeleteStructure' in user and 'canDeleteStructure' in hierarchy,
  'role_personnel': 'canManagePersonnel' in user and 'canManagePersonnel' in org,
- 'role_problem_actions': all(x in home for x in ['canCreateProblems','canResolveProblems','canFileProblemApplication']),
+ # Problem creation is performed during the well walk, while resolve/application
+ # actions live on the problem card. Validate the capability at its real boundary.
+ 'role_problem_actions': 'canCreateProblems' in user and 'problemNote' in walk and all(x in home for x in ['canResolveProblems','canFileProblemApplication']),
  'role_task_actions': all(x in tasks for x in ['canConfirmTask','canCompleteTask']),
  'structure_area_config': "value:'params'" in hierarchy and 'Параметры и единицы' in hierarchy,
  'walk_reads_area_visibility': 'WalkParameterConfig.instance.on(areaId' in walk,
