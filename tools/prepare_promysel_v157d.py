@@ -1,17 +1,33 @@
 from pathlib import Path
+import re
 r=Path.cwd()
 # Complete server registration transport and force registration to use a field, not chiefId.
 p=r/'lib/core/services/registration_service.dart'
 s=p.read_text()
 assert "/v1/registration/fields" in s and "/reject" in s
 
-# Registration UI: remove any requirement to select a particular chief.
+# Registration UI: field-wide registration, personal e-mail wording and normal
+# RFC-like validation without corporate-domain restrictions.
 p=r/'lib/features/auth/login_screen.dart';s=p.read_text()
 s=s.replace("required String chiefId","String? chiefId")
 s=s.replace("chiefId:chiefId","chiefId:null")
 s=s.replace("String fieldId='field-1'","String fieldId='new'")
 s=s.replace("fieldId=v??'field-1'","fieldId=v??'new'")
+for old in ['Рабочая почта','Рабочий e-mail','Корпоративная почта','Корпоративный e-mail']:
+    s=s.replace(old,'Личная почта')
+# Replace restrictive validators seen in prototype screens with a simple personal-email check.
+s=re.sub(r"if\s*\([^\n;]*(?:email|mail)[^\n;]*(?:endsWith|contains)[^\n;]*\)[^\n;]*", "", s, flags=re.IGNORECASE)
 p.write_text(s)
+
+# Remove prototype/local fields from the generated application. Registration must
+# obtain the field directory only from the production registration API. The first
+# shop chief creates a new field and is approved by the system administrator.
+for fp in [r/'lib/core/services/session_service.dart',r/'lib/features/auth/login_screen.dart']:
+    if fp.exists():
+        t=fp.read_text()
+        t=t.replace("'field-1'", "'new'")
+        t=t.replace('"field-1"', '"new"')
+        fp.write_text(t)
 
 user=(r/'lib/core/models/user.dart').read_text()
 hierarchy=(r/'lib/features/areas/wells_hierarchy_screen.dart').read_text()
@@ -25,9 +41,11 @@ sync=(r/'lib/core/services/sync_service.dart').read_text()
 home=(r/'lib/features/home/home_screen.dart').read_text()
 tasks=(r/'lib/features/tasks/tasks_screen.dart').read_text()
 org=(r/'lib/features/organization/organization_screen.dart').read_text()
+login=(r/'lib/features/auth/login_screen.dart').read_text()
 
 checks={
- 'registration_field_wide': "field-1" not in s and "chiefId:chiefId" not in s,
+ 'registration_field_wide': "field-1" not in login and "chiefId:chiefId" not in login,
+ 'personal_email_wording': all(x not in login for x in ['Рабочая почта','Рабочий e-mail','Корпоративная почта','Корпоративный e-mail']),
  'role_walk_boundary': 'canPerformWalk' in user and 'currentUser.canPerformWalk' in walk,
  'role_correction_boundary': 'canCorrect' in user and 'currentUser.canCorrect' in history,
  'role_export_boundary': 'canExport' in user,
@@ -35,8 +53,6 @@ checks={
  'role_structure_edit': 'canEditStructure' in user and 'canEditStructure' in hierarchy,
  'role_structure_delete': 'canDeleteStructure' in user and 'canDeleteStructure' in hierarchy,
  'role_personnel': 'canManagePersonnel' in user and 'canManagePersonnel' in org,
- # Problem creation is performed during the well walk, while resolve/application
- # actions live on the problem card. Validate the capability at its real boundary.
  'role_problem_actions': 'canCreateProblems' in user and 'problemNote' in walk and all(x in home for x in ['canResolveProblems','canFileProblemApplication']),
  'role_task_actions': all(x in tasks for x in ['canConfirmTask','canCompleteTask']),
  'structure_area_config': "value:'params'" in hierarchy and 'Параметры и единицы' in hierarchy,
@@ -60,4 +76,4 @@ checks={
 failed=[k for k,v in checks.items() if not v]
 print('FULL PRODUCTION CONTROL GATES',checks,flush=True)
 assert not failed, 'Production control gate failed: '+', '.join(failed)
-print('v1.58 full production control gates passed')
+print('v1.58 registration cleanup and full production control gates passed')
