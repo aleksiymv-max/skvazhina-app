@@ -5,11 +5,11 @@ Registration is scoped to a field, not to one selected chief. The client never c
 
 ## Data
 - fields: id, name, approved, created_at
-- users: id, email(unique), name, role, subrole, field_id, approved, blocked, must_change_password, password_hash
-- registration_requests: id, email, name, requested_role, requested_subrole, field_id, new_field_name, creates_new_field, status, approved_by, created_at, decided_at
-- auth_tokens: token_hash, user_id, expires_at, created_at
-- mail_outbox: registration_id(unique), recipient, template, payload, status, attempts, last_error, created_at, sent_at
-- registration_audit: request_id, actor_user_id, action, created_at
+- users: id, email(unique), full_name, role, subrole, field_id, approved, blocked, must_change_password, password_hash, created_at, updated_at
+- registration_requests: id, email, full_name, role, subrole, field_id, new_field_name, creates_new_field, status, decided_by, rejection_reason, created_at, decided_at
+- auth_tokens: id, token_hash(unique), user_id, expires_at, created_at, revoked_at
+- mail_outbox: id, registration_request_id, recipient, subject, body, status, attempts, last_error, created_at, updated_at, sent_at
+- registration_audit: id, registration_request_id, actor_user_id, action, details, created_at
 
 ## Bootstrap
 The only pre-existing account is the system administrator. No production field, chief, employee, well or measurement is seeded.
