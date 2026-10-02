@@ -6,8 +6,7 @@ p=r/'lib/core/services/registration_service.dart'
 s=p.read_text()
 assert "/v1/registration/fields" in s and "/reject" in s
 
-# Registration UI: field-wide registration, personal e-mail wording and normal
-# RFC-like validation without corporate-domain restrictions.
+# Registration UI: field-wide registration and personal e-mail wording.
 p=r/'lib/features/auth/login_screen.dart';s=p.read_text()
 s=s.replace("required String chiefId","String? chiefId")
 s=s.replace("chiefId:chiefId","chiefId:null")
@@ -15,19 +14,27 @@ s=s.replace("String fieldId='field-1'","String fieldId='new'")
 s=s.replace("fieldId=v??'field-1'","fieldId=v??'new'")
 for old in ['Рабочая почта','Рабочий e-mail','Корпоративная почта','Корпоративный e-mail']:
     s=s.replace(old,'Личная почта')
-# Replace restrictive validators seen in prototype screens with a simple personal-email check.
-s=re.sub(r"if\s*\([^\n;]*(?:email|mail)[^\n;]*(?:endsWith|contains)[^\n;]*\)[^\n;]*", "", s, flags=re.IGNORECASE)
 p.write_text(s)
 
-# Remove prototype/local fields from the generated application. Registration must
-# obtain the field directory only from the production registration API. The first
-# shop chief creates a new field and is approved by the system administrator.
-for fp in [r/'lib/core/services/session_service.dart',r/'lib/features/auth/login_screen.dart']:
-    if fp.exists():
-        t=fp.read_text()
-        t=t.replace("'field-1'", "'new'")
-        t=t.replace('"field-1"', '"new"')
-        fp.write_text(t)
+# Production reset: APK must contain no prototype fields, users or passwords.
+p=r/'lib/core/services/session_service.dart'
+t=p.read_text()
+t=t.replace("AppUser currentUser=const AppUser(id:'op-001',name:'Оператор ДНГ',role:UserRole.operator,chiefId:'chief-001');", "AppUser currentUser=const AppUser(id:'',name:'',role:UserRole.operator,approved:false);")
+t=re.sub(r"final List<OilFieldRegistration> fields=\[[^;]*;", "final List<OilFieldRegistration> fields=[];", t, count=1)
+t=re.sub(r"final Map<String,String> userFields=\{[^;]*;", "final Map<String,String> userFields={};", t, count=1)
+t=re.sub(r"final Map<String,bool> workPresence=\{[^;]*;", "final Map<String,bool> workPresence={};", t, count=1)
+t=re.sub(r"final List<AppUser> _workers=\[[^;]*;", "final List<AppUser> _workers=[];", t, count=1)
+t=re.sub(r"final Map<String,String> _passwords=\{[^;]*;", "final Map<String,String> _passwords={};", t, count=1)
+# Correct Dart raw-regexp: a literal dot is \. (one backslash), not \\. (two).
+t=t.replace("r'^[^@ ]+@[^@ ]+\\\\.[^@ ]+$'", "r'^[^@ ]+@[^@ ]+\\.[^@ ]+$'")
+t=t.replace("'field-1'", "'new'").replace('"field-1"', '"new"')
+p.write_text(t)
+
+# Hard production gates: fail the build if demo data or broken e-mail validation returns.
+session=p.read_text()
+for forbidden in ['Уренгойское НГКМ','Северное НГКМ','chief-001','op-001',"'operator'","'engineer'","'dispatcher'","r'^[^@ ]+@[^@ ]+\\\\.[^@ ]+$'"]:
+    assert forbidden not in session, 'Forbidden prototype content remains: '+forbidden
+assert "r'^[^@ ]+@[^@ ]+\\.[^@ ]+$'" in session
 
 user=(r/'lib/core/models/user.dart').read_text()
 hierarchy=(r/'lib/features/areas/wells_hierarchy_screen.dart').read_text()
@@ -46,6 +53,9 @@ login=(r/'lib/features/auth/login_screen.dart').read_text()
 checks={
  'registration_field_wide': "field-1" not in login and "chiefId:chiefId" not in login,
  'personal_email_wording': all(x not in login for x in ['Рабочая почта','Рабочий e-mail','Корпоративная почта','Корпоративный e-mail']),
+ 'no_demo_fields': all(x not in session for x in ['Уренгойское НГКМ','Северное НГКМ']),
+ 'no_demo_accounts': all(x not in session for x in ['chief-001','op-001','eng-001','disp-001']),
+ 'email_validator_fixed': "r'^[^@ ]+@[^@ ]+\\.[^@ ]+$'" in session,
  'role_walk_boundary': 'canPerformWalk' in user and 'currentUser.canPerformWalk' in walk,
  'role_correction_boundary': 'canCorrect' in user and 'currentUser.canCorrect' in history,
  'role_export_boundary': 'canExport' in user,
@@ -76,4 +86,4 @@ checks={
 failed=[k for k,v in checks.items() if not v]
 print('FULL PRODUCTION CONTROL GATES',checks,flush=True)
 assert not failed, 'Production control gate failed: '+', '.join(failed)
-print('v1.58 registration cleanup and full production control gates passed')
+print('v1.58.1 demo cleanup, e-mail fix and full production control gates passed')
