@@ -25,11 +25,28 @@ jobs:
         run: |
           set -euo pipefail
           export PYTHONPATH="$GITHUB_WORKSPACE/server"
-          python3 -m py_compile server/registration_rules.py server/registration_decisions.py server/registration_service.py server/mailer.py server/preflight_registration.py
+          python3 -m py_compile server/registration_rules.py server/registration_decisions.py server/registration_service.py server/registration_api.py server/mailer.py server/preflight_registration.py
           python3 server/test_registration_rules.py
           python3 server/test_registration_decisions.py
           python3 server/test_registration_service.py
           python3 server/preflight_registration.py
+
+      - name: Production endpoint preflight
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE="https://quumapafagul.beget.app"
+          curl --fail --silent --show-error --retry 3 --connect-timeout 10 "$BASE/health" | tee /tmp/promysel-health.json
+          curl --fail --silent --show-error --retry 3 --connect-timeout 10 "$BASE/v1/registration/fields" | tee /tmp/promysel-fields.json
+          python3 - <<'PY'
+          import json
+          h=json.load(open('/tmp/promysel-health.json'))
+          f=json.load(open('/tmp/promysel-fields.json'))
+          assert h.get('status') == 'ok', h
+          assert h.get('database') is True, h
+          assert isinstance(f.get('items'), list), f
+          print('Production endpoint preflight passed')
+          PY
 
       - name: Extract base source
         id: project
@@ -54,87 +71,82 @@ jobs:
         run: |
           set -euo pipefail
           cd "${{ steps.project.outputs.project_dir }}"
-          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_v125.py"
-          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_v126.py"
-          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_v127.py"
-          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_v128.py"
-          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_v129.py"
-          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_v129_walk.py"
-          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_v129_problems.py"
-          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_v130.py"
-          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_v131.py"
-          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_v132.py"
-          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_v133.py"
-          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_v134.py"
-          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_v135.py"
-          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_v136.py"
-          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_v136_fix.py"
-          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_v137.py"
-          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_v137_corrections.py"
-          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_v138_problem_actions.py"
-          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_v139_problem_layout.py"
-          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_v140_problem_card.py"
-          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_v140_closed_lists.py"
-          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_v141_parameter_sync.py"
-          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_v142_user_fixes.py"
-          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_v143_exact_walk_and_dispatcher.py"
-          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_v144_requested_fixes.py"
-          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_v145.py"
-          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_v146.py"
-          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_v147.py"
-          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_v148.py"
-          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_v149.py"
-          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_v150.py"
-          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_v151.py"
-          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_v152.py"
-          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_v153.py"
-          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_v154a.py"
-          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_v154b.py"
-          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_v154c.py"
-          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_v154d.py"
-          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_v154e.py"
-          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_v154f.py"
-          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_v154g.py"
-          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_v154h.py"
-          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_v155.py"
-          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_v156.py"
-          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_v157a.py"
-          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_v157b.py"
-          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_v157c.py"
-          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_v157d.py"
-          python3 - <<'PY'
-          from pathlib import Path
-          w=Path('lib/features/wells/well_screen.dart').read_text(); h=Path('lib/features/home/home_screen.dart').read_text(); p=Path('lib/features/organization/personnel_screen.dart').read_text()
-          pad=Path('lib/features/walk/pad_walk_card_screen.dart').read_text(); wa=Path('lib/features/walk/walk_area_screen.dart').read_text()
-          hs=Path('lib/features/history/history_screen.dart').read_text(); wc=Path('lib/features/wells/well_card_screen.dart').read_text(); aps=Path('lib/core/services/annulus_pressure_store.dart').read_text()
-          checks={
-            'throttle_place':all(k in w for k in ["Место дросселирования","Трубное пространство","Затрубное пространство"]),
-            'problem_reset_code':"problem" in w,
-            'configured_walk_fields':all(k in w for k in ["showP('rtr')","showP('rz')","showP('rline')","showP('esp_f')","showP('esp_i')","showP('esp_load')","showP('esp_rins')"]),
-            'dispatcher_application':"Подать заявку" in h and "ItrSubrole.dispatcher" in h,
-            'operator_personnel':"UserRole.operator||user.role==UserRole.admin" in h,
-            'personnel_avatar':("leading:_avatar(u)" in p or "leading: _avatar(u)" in p or "CircleAvatar" in p),
-            'application_date_text':"Заявка подана" in h,
-            'resolve_action':"Решено" in h,
-            'mkd_walk_button':"Внести показания" in pad,
-            'walk_units':"String unit(String area,String key,String fallback)" in Path('lib/core/models/walk_parameter_config.dart').read_text(),
-            'history_mkd_label':"Межколонные давления" in hs,
-            'history_mkd_export':"createAnnulusJournalXlsx" in hs,
-            'well_latest':"Последние введённые значения" in wc,
-            'trend_legend':"_TrendPainter.palette" in wc,
-            'mkd_persistent':"SharedPreferences" in aps,
-            'mkd_history':"history({String? wellId})" in aps,
-          }
-          print('v1.46 checks:',checks,flush=True)
-          failed=[k for k,v in checks.items() if not v]
-          assert not failed, 'Missing v1.46 features: '+', '.join(failed)
-          print('v1.46 generated-source assertions passed')
-          PY
+          for s in \
+            prepare_promysel_v125.py prepare_promysel_v126.py prepare_promysel_v127.py prepare_promysel_v128.py \
+            prepare_promysel_v129.py prepare_promysel_v129_walk.py prepare_promysel_v129_problems.py prepare_promysel_v130.py \
+            prepare_promysel_v131.py prepare_promysel_v132.py prepare_promysel_v133.py prepare_promysel_v134.py \
+            prepare_promysel_v135.py prepare_promysel_v136.py prepare_promysel_v136_fix.py prepare_promysel_v137.py \
+            prepare_promysel_v137_corrections.py prepare_promysel_v138_problem_actions.py prepare_promysel_v139_problem_layout.py \
+            prepare_promysel_v140_problem_card.py prepare_promysel_v140_closed_lists.py prepare_promysel_v141_parameter_sync.py \
+            prepare_promysel_v142_user_fixes.py prepare_promysel_v143_exact_walk_and_dispatcher.py prepare_promysel_v144_requested_fixes.py \
+            prepare_promysel_v145.py prepare_promysel_v146.py prepare_promysel_v147.py prepare_promysel_v148.py \
+            prepare_promysel_v149.py prepare_promysel_v150.py prepare_promysel_v151.py prepare_promysel_v152.py prepare_promysel_v153.py \
+            prepare_promysel_v154a.py prepare_promysel_v154b.py prepare_promysel_v154c.py prepare_promysel_v154d.py \
+            prepare_promysel_v154e.py prepare_promysel_v154f.py prepare_promysel_v154g.py prepare_promysel_v154h.py \
+            prepare_promysel_v155.py prepare_promysel_v156.py prepare_promysel_v157a.py prepare_promysel_v157b.py \
+            prepare_promysel_v157c.py prepare_promysel_v157d.py; do
+              python3 "$GITHUB_WORKSPACE/tools/$s"
+          done
           cp "$GITHUB_WORKSPACE/assets/promysel_icon_v131.png" assets/icon/app_icon.png
           cp "$GITHUB_WORKSPACE/assets/promysel_icon_v131.png" assets/icon/app_icon_foreground.png
+
+      - name: Full generated source preflight
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "${{ steps.project.outputs.project_dir }}"
+          python3 - <<'PY'
+          from pathlib import Path
+          files={p.as_posix():p.read_text(errors='ignore') for p in Path('lib').rglob('*.dart')}
+          allsrc='\n'.join(files.values())
+          def text(path): return Path(path).read_text()
+          session=text('lib/core/services/session_service.dart')
+          reg=text('lib/core/services/registration_service.dart')
+          sync=text('lib/core/services/sync_service.dart')
+          user=text('lib/core/models/user.dart')
+          walk=text('lib/features/wells/well_screen.dart')
+          card=text('lib/features/wells/well_card_screen.dart')
+          hist=text('lib/features/history/history_screen.dart')
+          hierarchy=text('lib/features/areas/wells_hierarchy_screen.dart')
+          home=text('lib/features/home/home_screen.dart')
+          tasks=text('lib/features/tasks/tasks_screen.dart')
+          db=text('lib/core/database/app_database.dart')
+          model=text('lib/core/models/measurement.dart')
+          export=text('lib/core/services/export_service.dart')
+          cfg=text('lib/core/models/walk_parameter_config.dart')
+          checks={
+            'server_login':'RegistrationService.instance.login' in session and '/v1/auth/login' in reg,
+            'server_registration':'RegistrationService.instance.register' in session and '/v1/registration/apply' in reg,
+            'server_fields':'/v1/registration/fields' in reg,
+            'server_pending':'/v1/registration/pending' in reg,
+            'server_approve':'/approve' in reg and 'approveRemote' in session,
+            'server_reject':'/reject' in reg and 'rejectRemote' in session,
+            'server_first_password':'/v1/auth/first-password' in reg,
+            'https_transport':'https://quumapafagul.beget.app' in allsrc or 'PROMYSEL_SYNC_URL' in allsrc,
+            'no_prototype_fields':'Уренгойское НГКМ' not in allsrc and 'Северное НГКМ' not in allsrc,
+            'no_demo_passwords':'operator123' not in allsrc and 'admin123' not in allsrc,
+            'role_matrix':all(k in user for k in ['canPerformWalk','canCorrect','canCreateProblems','canResolveProblems','canFileProblemApplication','canExport','canCreateTask','canConfirmTask','canCompleteTask','canManagePersonnel']),
+            'role_boundaries':'canPerformWalk' in walk and 'canResolveProblems' in home and 'canConfirmTask' in tasks,
+            'hierarchy_config':"value:'params'" in hierarchy and 'Параметры и единицы' in hierarchy,
+            'walk_config': 'WalkParameterConfig.instance.on(areaId,k)' in walk and 'WalkParameterConfig.instance.unit(areaId,k,fallback)' in walk,
+            'card_same_config':'WalkParameterConfig.instance.on(areaId,key)' in card and 'WalkParameterConfig.instance.unit(areaId,key,fallback)' in card,
+            'card_latest':'latestForWell(well.id)' in card,
+            'history_snapshot':'captured_parameters' in db and 'capturedParameters' in model,
+            'export_config':'WalkParameterConfig' in export,
+            'sync_push_pull':'/v1/sync/push' in sync and '/v1/sync/pull' in sync,
+            'offline_queue':'queue' in sync.lower() or 'pending' in sync.lower(),
+            'fresh_problem':'problemNote.clear()' in walk,
+            'dispatcher_application':'Подать заявку' in home and 'ItrSubrole.dispatcher' in home,
+            'configured_units':"String unit(String area,String key,String fallback)" in cfg,
+            'mkd_history':'Межколонные давления' in hist and 'createAnnulusJournalXlsx' in hist,
+          }
+          print('FULL SOURCE PREFLIGHT', checks, flush=True)
+          bad=[k for k,v in checks.items() if not v]
+          assert not bad, 'Full source preflight failed: '+', '.join(bad)
+          PY
           mkdir -p "$GITHUB_WORKSPACE/artifacts"
-          zip -qr "$GITHUB_WORKSPACE/artifacts/promysel-v1.46.0-source.zip" . -x 'android/*' 'build/*' '.dart_tool/*'
-          unzip -t "$GITHUB_WORKSPACE/artifacts/promysel-v1.46.0-source.zip" >/dev/null
+          zip -qr "$GITHUB_WORKSPACE/artifacts/promysel-v1.58.4-source.zip" . -x 'android/*' 'build/*' '.dart_tool/*'
+          unzip -t "$GITHUB_WORKSPACE/artifacts/promysel-v1.58.4-source.zip" >/dev/null
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
@@ -145,74 +157,10 @@ jobs:
       - name: Get dependencies and analyze
         shell: bash
         run: |
+          set -euo pipefail
           cd "${{ steps.project.outputs.project_dir }}"
           flutter pub get
           flutter analyze --no-fatal-infos --no-fatal-warnings
-
-      - name: Walk and well card configuration gate
-        shell: bash
-        run: |
-          cd "${{ steps.project.outputs.project_dir }}"
-          python3 - <<'PY'
-          from pathlib import Path
-          walk=Path('lib/features/wells/well_screen.dart').read_text()
-          card=Path('lib/features/wells/well_card_screen.dart').read_text()
-          config=Path('lib/core/models/walk_parameter_config.dart').read_text()
-          required_walk_units=["unitP('rtr'","unitP('rz'","unitP('rline'","unitP('t_before'","unitP('t_line'","unitP('pkv'","unitP('pid'","unitP('choke'","unitP('ruzd'","unitP('tuzd'","unitP('rpr'","unitP('tpr'","unitP('esp_f'","unitP('esp_i'","unitP('esp_load'","unitP('esp_rins'","unitP('shutoff'","unitP('inhibitor'"]
-          checks={
-            'area_config_persists_units': "'units':units" in config and "String unit(String area,String key,String fallback)" in config,
-            'walk_all_configured_units': all(k in walk for k in required_walk_units),
-            'card_uses_same_visibility': "WalkParameterConfig.instance.on(areaId,key)" in card and ".where((e)=>configured(e.configKey)).toList()" in card,
-            'card_uses_same_units': "WalkParameterConfig.instance.unit(areaId,key,fallback)" in card and "configuredUnit(e.configKey,e.fallbackUnit)" in card,
-            'card_uses_latest_walk_record': "latest=await repo.latestForWell(well.id)" in card and "displayValue(m,e.measurementKey)" in card,
-            'card_has_no_old_independent_param_map': "List<MapEntry<String,String>> get params" not in card,
-          }
-          print('WALK/CARD CONFIG GATE',checks,flush=True)
-          bad=[k for k,v in checks.items() if not v]
-          assert not bad, 'Walk/card configuration gate failed: '+', '.join(bad)
-          PY
-
-      - name: Role and UX preflight
-        shell: bash
-        run: |
-          cd "${{ steps.project.outputs.project_dir }}"
-          python3 - <<'PY'
-          from pathlib import Path
-          home=Path('lib/features/home/home_screen.dart').read_text()
-          walk=Path('lib/features/walk/pad_walk_card_screen.dart').read_text()
-          hist=Path('lib/features/history/history_screen.dart').read_text()
-          card=Path('lib/features/wells/well_card_screen.dart').read_text()
-          checks={
-            'wells_is_structure_source': "_areaParams(a.id)" in Path('lib/features/areas/wells_hierarchy_screen.dart').read_text() and "tooltip:'Параметры обхода'" not in Path('lib/features/walk/walk_area_screen.dart').read_text(),
-            'wells_area_menu_owns_config': "value:'params'" in Path('lib/features/areas/wells_hierarchy_screen.dart').read_text() and "Параметры и единицы" in Path('lib/features/areas/wells_hierarchy_screen.dart').read_text(),
-            'walk_consumes_area_config': "WalkParameterConfig.instance.on(areaId,k)" in Path('lib/features/wells/well_screen.dart').read_text() and "WalkParameterConfig.instance.unit(areaId,k,fallback)" in Path('lib/features/wells/well_screen.dart').read_text(),
-            'walk_has_no_config_entry': "_params(area.id)" not in Path('lib/features/walk/walk_area_screen.dart').read_text(),
-            'card_still_uses_latest_measurement': "latestForWell(well.id)" in Path('lib/features/wells/well_card_screen.dart').read_text(),
-            'dispatcher_can_file': 'Подать заявку' in home and 'ItrSubrole.dispatcher' in home,
-            'dispatcher_can_resolve': 'Решено' in home and 'if(!dispatcher)' not in home,
-            'filed_date_visible': 'Заявка подана' in home and '_problemDate' in home,
-            'mkd_walk_standard_action': "FilledButton.icon(onPressed:()=>_annulus" in walk and "label:const Text('Внести показания')" in walk,
-            'journal_names': all(s in hist for s in ["Text('Журнал заданий')","Text('Журнал проблем')","Text('Межколонные давления')"]),
-            'no_export_word': all(s not in hist for s in ["Выгрузить журнал заданий","Выгрузить журнал проблем","Выгрузить Межколонные давления"]),
-            'mkd_not_fourth_tab': 'length: 4' not in hist and "Tab(text:'Межколонные давления')" not in hist,
-            'mkd_inside_parameters': '_annulusParametersBlock()' in hist,
-            'mkd_export_functional': 'createAnnulusJournalXlsx' in hist,
-            'well_card_readonly_latest': 'Последние введённые значения' in card and '_latestCard()' in card,
-            'well_card_walk_config': 'WalkParameterConfig.instance.unit' in card,
-            'well_card_visibility_synced': 'WalkParameterConfig.instance.on(areaId,key)' in card and '.where((e)=>configured(e.configKey)).toList()' in card,
-            'annulus_selector_in_parameters': "'__annulus__'" in hist and "Межколонные давления" in hist and "if (wellId == '__annulus__') _annulusParametersBlock()" in hist,
-            'annulus_role_edit': 'bool get _canEditAnnulus=>SessionService.instance.currentUser.canCorrect;' in hist,
-            'annulus_edit_persistence': 'updateAt(e.measuredAt' in hist,
-            'presync_role_matrix': all(k in Path('lib/core/models/user.dart').read_text() for k in ['canPerformWalk','canCorrect','canCreateProblems','canResolveProblems','canFileProblemApplication','canExport','canCreateTask','canConfirmTask','canCompleteTask','canManagePersonnel']),
-            'presync_action_boundaries': 'canPerformWalk' in Path('lib/features/wells/well_screen.dart').read_text() and 'canResolveProblems' in home and 'canConfirmTask' in Path('lib/features/tasks/tasks_screen.dart').read_text(),
-            'history_snapshot_chain': 'captured_parameters' in Path('lib/core/database/app_database.dart').read_text() and 'capturedParameters' in Path('lib/core/models/measurement.dart').read_text(),
-            'fresh_problem_per_visit': 'problemNote.clear()' in Path('lib/features/wells/well_screen.dart').read_text(),
-            'annulus_area_sheets': "areas.putIfAbsent" in Path('lib/core/services/export_service.dart').read_text() and "sheetName" in Path('lib/core/services/export_service.dart').read_text(),
-          }
-          print('ROLE/UX PREFLIGHT',checks,flush=True)
-          bad=[k for k,v in checks.items() if not v]
-          assert not bad, 'Preflight failed: '+', '.join(bad)
-          PY
 
       - name: Create Android project
         shell: bash
@@ -224,9 +172,8 @@ jobs:
           MANIFEST="android/app/src/main/AndroidManifest.xml"
           sed -i 's/import io.flutter.embedding.android.FlutterActivity/import io.flutter.embedding.android.FlutterFragmentActivity/' android/app/src/main/kotlin/ru/promysel/promysel/MainActivity.kt
           sed -i 's/: FlutterActivity()/: FlutterFragmentActivity()/' android/app/src/main/kotlin/ru/promysel/promysel/MainActivity.kt
-          sed -i '/<manifest/a\\    <uses-permission android:name="android.permission.CAMERA" />' "$MANIFEST"
+          sed -i '/<manifest/a\\    <uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.CAMERA" />' "$MANIFEST"
           sed -i 's/android:label="[^"]*"/android:label="Промысел"/' "$MANIFEST"
-          sed -i 's#<application#<application android:usesCleartextTraffic="true"#' "$MANIFEST"
           rm -f android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml android/app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml
           declare -A sizes=([mdpi]=48 [hdpi]=72 [xhdpi]=96 [xxhdpi]=144 [xxxhdpi]=192)
           for d in mdpi hdpi xhdpi xxhdpi xxxhdpi; do
@@ -237,26 +184,41 @@ jobs:
           sed -i 's#android:icon="[^"]*"#android:icon="@mipmap/ic_launcher"#' "$MANIFEST"
           if grep -q 'android:roundIcon=' "$MANIFEST"; then sed -i 's#android:roundIcon="[^"]*"#android:roundIcon="@mipmap/ic_launcher_round"#' "$MANIFEST"; else sed -i 's#<application#<application android:roundIcon="@mipmap/ic_launcher_round"#' "$MANIFEST"; fi
 
+      - name: Android release manifest gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "${{ steps.project.outputs.project_dir }}"
+          MANIFEST="android/app/src/main/AndroidManifest.xml"
+          grep -F 'android.permission.INTERNET' "$MANIFEST"
+          grep -F 'android.permission.CAMERA' "$MANIFEST"
+          grep -F 'android:label="Промысел"' "$MANIFEST"
+          if grep -q 'usesCleartextTraffic="true"' "$MANIFEST"; then
+            echo 'Production manifest must not allow cleartext traffic' >&2
+            exit 1
+          fi
+          echo 'Android release manifest gate passed'
+
       - name: Build APK
         shell: bash
         run: |
           set -euo pipefail
           cd "${{ steps.project.outputs.project_dir }}"
           flutter build apk --release --dart-define=PROMYSEL_SYNC_URL=https://quumapafagul.beget.app
-          cp build/app/outputs/flutter-apk/app-release.apk "$GITHUB_WORKSPACE/artifacts/promysel-v1.46.0-release.apk"
-          unzip -t "$GITHUB_WORKSPACE/artifacts/promysel-v1.46.0-release.apk" >/dev/null
-          sha256sum "$GITHUB_WORKSPACE/artifacts/promysel-v1.46.0-release.apk"
+          cp build/app/outputs/flutter-apk/app-release.apk "$GITHUB_WORKSPACE/artifacts/promysel-v1.58.4-release.apk"
+          unzip -t "$GITHUB_WORKSPACE/artifacts/promysel-v1.58.4-release.apk" >/dev/null
+          sha256sum "$GITHUB_WORKSPACE/artifacts/promysel-v1.58.4-release.apk"
 
       - name: Upload source ZIP
         uses: actions/upload-artifact@v4
         with:
-          name: promysel-v1.46.0-source
-          path: artifacts/promysel-v1.46.0-source.zip
+          name: promysel-v1.58.4-source
+          path: artifacts/promysel-v1.58.4-source.zip
           retention-days: 30
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: promysel-v1.46.0-android
-          path: artifacts/promysel-v1.46.0-release.apk
+          name: promysel-v1.58.4-android
+          path: artifacts/promysel-v1.58.4-release.apk
           retention-days: 30
