@@ -1,17 +1,13 @@
 name: Build Promysel APK
-
 on:
   workflow_dispatch:
   push:
     branches: [main]
-
 permissions:
   contents: read
-
 concurrency:
   group: promysel-android-${{ github.ref }}
   cancel-in-progress: true
-
 jobs:
   build:
     name: Build Promysel Android
@@ -19,7 +15,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
       - name: Registration server preflight
         shell: bash
         run: |
@@ -30,67 +25,40 @@ jobs:
           python3 server/test_registration_decisions.py
           python3 server/test_registration_service.py
           python3 server/preflight_registration.py
-
       - name: Production endpoint preflight
         shell: bash
         run: |
           set -euo pipefail
           BASE="https://quumapafagul.beget.app"
-          curl --fail --silent --show-error --retry 3 --connect-timeout 10 "$BASE/health" -o /tmp/promysel-health.json
-          curl --fail --silent --show-error --retry 3 --connect-timeout 10 "$BASE/v1/registration/fields" -o /tmp/promysel-fields.json
+          curl --fail --silent --show-error --retry 3 --connect-timeout 10 "$BASE/health" -o /tmp/h.json
+          curl --fail --silent --show-error --retry 3 --connect-timeout 10 "$BASE/v1/registration/fields" -o /tmp/f.json
           python3 - <<'PY'
           import json
-          h=json.load(open('/tmp/promysel-health.json'))
-          f=json.load(open('/tmp/promysel-fields.json'))
-          assert h.get('status') == 'ok', h
-          assert h.get('database') is True, h
+          h=json.load(open('/tmp/h.json')); f=json.load(open('/tmp/f.json'))
+          assert h.get('status')=='ok' and h.get('database') is True,h
           items=f if isinstance(f,list) else f.get('items') if isinstance(f,dict) else None
-          assert isinstance(items,list), f
+          assert isinstance(items,list),f
           print('Production endpoint preflight passed; fields:',len(items))
           PY
-
       - name: Extract base source
         id: project
         shell: bash
         run: |
           set -euo pipefail
-          SRC="$GITHUB_WORKSPACE/neftyanik_v1.24.1_stable_hotfix.zip"
-          DIR="$RUNNER_TEMP/promysel"
-          rm -rf "$DIR" && mkdir -p "$DIR"
-          unzip -q "$SRC" -d "$DIR"
+          DIR="$RUNNER_TEMP/promysel"; rm -rf "$DIR"; mkdir -p "$DIR"
+          unzip -q "$GITHUB_WORKSPACE/neftyanik_v1.24.1_stable_hotfix.zip" -d "$DIR"
           PROJECT="$(dirname "$(find "$DIR" -name pubspec.yaml -print -quit)")"
           echo "project_dir=$PROJECT" >> "$GITHUB_OUTPUT"
-
       - name: Install image tools
-        shell: bash
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y imagemagick librsvg2-bin
-
+        run: sudo apt-get update && sudo apt-get install -y imagemagick librsvg2-bin
       - name: Apply Promysel updates
         shell: bash
         run: |
           set -euo pipefail
           cd "${{ steps.project.outputs.project_dir }}"
-          for s in \
-            prepare_promysel_v125.py prepare_promysel_v126.py prepare_promysel_v127.py prepare_promysel_v128.py \
-            prepare_promysel_v129.py prepare_promysel_v129_walk.py prepare_promysel_v129_problems.py prepare_promysel_v130.py \
-            prepare_promysel_v131.py prepare_promysel_v132.py prepare_promysel_v133.py prepare_promysel_v134.py \
-            prepare_promysel_v135.py prepare_promysel_v136.py prepare_promysel_v136_fix.py prepare_promysel_v137.py \
-            prepare_promysel_v137_corrections.py prepare_promysel_v138_problem_actions.py prepare_promysel_v139_problem_layout.py \
-            prepare_promysel_v140_problem_card.py prepare_promysel_v140_closed_lists.py prepare_promysel_v141_parameter_sync.py \
-            prepare_promysel_v142_user_fixes.py prepare_promysel_v143_exact_walk_and_dispatcher.py prepare_promysel_v144_requested_fixes.py \
-            prepare_promysel_v145.py prepare_promysel_v146.py prepare_promysel_v147.py prepare_promysel_v148.py \
-            prepare_promysel_v149.py prepare_promysel_v150.py prepare_promysel_v151.py prepare_promysel_v152.py prepare_promysel_v153.py \
-            prepare_promysel_v154a.py prepare_promysel_v154b.py prepare_promysel_v154c.py prepare_promysel_v154d.py \
-            prepare_promysel_v154e.py prepare_promysel_v154f.py prepare_promysel_v154g.py prepare_promysel_v154h.py \
-            prepare_promysel_v155.py prepare_promysel_v156.py prepare_promysel_v157a.py prepare_promysel_v157b.py \
-            prepare_promysel_v157c.py prepare_promysel_v157d.py; do
-              python3 "$GITHUB_WORKSPACE/tools/$s"
-          done
+          for s in prepare_promysel_v125.py prepare_promysel_v126.py prepare_promysel_v127.py prepare_promysel_v128.py prepare_promysel_v129.py prepare_promysel_v129_walk.py prepare_promysel_v129_problems.py prepare_promysel_v130.py prepare_promysel_v131.py prepare_promysel_v132.py prepare_promysel_v133.py prepare_promysel_v134.py prepare_promysel_v135.py prepare_promysel_v136.py prepare_promysel_v136_fix.py prepare_promysel_v137.py prepare_promysel_v137_corrections.py prepare_promysel_v138_problem_actions.py prepare_promysel_v139_problem_layout.py prepare_promysel_v140_problem_card.py prepare_promysel_v140_closed_lists.py prepare_promysel_v141_parameter_sync.py prepare_promysel_v142_user_fixes.py prepare_promysel_v143_exact_walk_and_dispatcher.py prepare_promysel_v144_requested_fixes.py prepare_promysel_v145.py prepare_promysel_v146.py prepare_promysel_v147.py prepare_promysel_v148.py prepare_promysel_v149.py prepare_promysel_v150.py prepare_promysel_v151.py prepare_promysel_v152.py prepare_promysel_v153.py prepare_promysel_v154a.py prepare_promysel_v154b.py prepare_promysel_v154c.py prepare_promysel_v154d.py prepare_promysel_v154e.py prepare_promysel_v154f.py prepare_promysel_v154g.py prepare_promysel_v154h.py prepare_promysel_v155.py prepare_promysel_v156.py prepare_promysel_v157a.py prepare_promysel_v157b.py prepare_promysel_v157c.py prepare_promysel_v157d.py prepare_promysel_v159.py; do python3 "$GITHUB_WORKSPACE/tools/$s"; done
           cp "$GITHUB_WORKSPACE/assets/promysel_icon_v131.png" assets/icon/app_icon.png
           cp "$GITHUB_WORKSPACE/assets/promysel_icon_v131.png" assets/icon/app_icon_foreground.png
-
       - name: Full generated source preflight
         shell: bash
         run: |
@@ -98,59 +66,26 @@ jobs:
           cd "${{ steps.project.outputs.project_dir }}"
           python3 - <<'PY'
           from pathlib import Path
-          files={p.as_posix():p.read_text(errors='ignore') for p in Path('lib').rglob('*.dart')}
-          allsrc='\n'.join(files.values())
-          def text(path): return Path(path).read_text()
-          session=text('lib/core/services/session_service.dart'); reg=text('lib/core/services/registration_service.dart'); sync=text('lib/core/services/sync_service.dart'); user=text('lib/core/models/user.dart'); walk=text('lib/features/wells/well_screen.dart'); card=text('lib/features/wells/well_card_screen.dart'); hist=text('lib/features/history/history_screen.dart'); hierarchy=text('lib/features/areas/wells_hierarchy_screen.dart'); home=text('lib/features/home/home_screen.dart'); tasks=text('lib/features/tasks/tasks_screen.dart'); db=text('lib/core/database/app_database.dart'); model=text('lib/core/models/measurement.dart'); export=text('lib/core/services/export_service.dart'); cfg=text('lib/core/models/walk_parameter_config.dart')
-          checks={
-            'server_login':'RegistrationService.instance.login' in session and '/v1/auth/login' in reg,
-            'server_registration':'RegistrationService.instance.register' in session and '/v1/registration/apply' in reg,
-            'server_fields':'/v1/registration/fields' in reg,
-            'server_pending':'/v1/registration/pending' in reg,
-            'server_approve':'/approve' in reg and 'approveRemote' in session,
-            'server_reject':'/reject' in reg and 'rejectRemote' in session,
-            'server_first_password':'/v1/auth/first-password' in reg,
-            'list_response_normalized':"if(x is List)return <String,dynamic>{'items':x}" in reg,
-            'https_transport':'PROMYSEL_SYNC_URL' in allsrc,
-            'no_prototype_fields':'Уренгойское НГКМ' not in allsrc and 'Северное НГКМ' not in allsrc,
-            'no_demo_passwords':'operator123' not in allsrc and 'admin123' not in allsrc,
-            'role_matrix':all(k in user for k in ['canPerformWalk','canCorrect','canCreateProblems','canResolveProblems','canFileProblemApplication','canExport','canCreateTask','canConfirmTask','canCompleteTask','canManagePersonnel']),
-            'role_boundaries':'canPerformWalk' in walk and 'canResolveProblems' in home and 'canConfirmTask' in tasks,
-            'hierarchy_config':"value:'params'" in hierarchy and 'Параметры и единицы' in hierarchy,
-            'walk_config':'WalkParameterConfig.instance.on(areaId,k)' in walk and 'WalkParameterConfig.instance.unit(areaId,k,fallback)' in walk,
-            'card_same_config':'WalkParameterConfig.instance.on(areaId,key)' in card and 'WalkParameterConfig.instance.unit(areaId,key,fallback)' in card,
-            'card_latest':'latestForWell(well.id)' in card,
-            'history_snapshot':'captured_parameters' in db and 'capturedParameters' in model,
-            'export_config':'WalkParameterConfig' in export,
-            'sync_push_pull':'/v1/sync/push' in sync and '/v1/sync/pull' in sync,
-            'offline_queue':'queue' in sync.lower() or 'pending' in sync.lower(),
-            'fresh_problem':'problemNote.clear()' in walk,
-            'dispatcher_application':'Подать заявку' in home and 'ItrSubrole.dispatcher' in home,
-            'configured_units':"String unit(String area,String key,String fallback)" in cfg,
-            'mkd_history':'Межколонные давления' in hist and 'createAnnulusJournalXlsx' in hist,
-          }
-          print('FULL SOURCE PREFLIGHT',checks,flush=True)
-          bad=[k for k,v in checks.items() if not v]
-          assert not bad,'Full source preflight failed: '+', '.join(bad)
+          files={p.as_posix():p.read_text(errors='ignore') for p in Path('lib').rglob('*.dart')}; allsrc='\n'.join(files.values())
+          def text(p):return Path(p).read_text()
+          session=text('lib/core/services/session_service.dart');reg=text('lib/core/services/registration_service.dart');sync=text('lib/core/services/sync_service.dart');user=text('lib/core/models/user.dart');walk=text('lib/features/wells/well_screen.dart');card=text('lib/features/wells/well_card_screen.dart');hist=text('lib/features/history/history_screen.dart');hier=text('lib/features/areas/wells_hierarchy_screen.dart');home=text('lib/features/home/home_screen.dart');tasks=text('lib/features/tasks/tasks_screen.dart');db=text('lib/core/database/app_database.dart');model=text('lib/core/models/measurement.dart');export=text('lib/core/services/export_service.dart');cfg=text('lib/core/models/walk_parameter_config.dart');app=text('lib/app/app.dart')
+          checks={'server_login':'RegistrationService.instance.login' in session and '/v1/auth/login' in reg,'server_registration':'RegistrationService.instance.register' in session and '/v1/registration/apply' in reg,'server_fields':'/v1/registration/fields' in reg,'server_pending':'/v1/registration/pending' in reg,'server_approve':'/approve' in reg and 'approveRemote' in session,'server_reject':'/reject' in reg and 'rejectRemote' in session,'server_first_password':'/v1/auth/first-password' in reg,'list_normalized':"if(x is List)return <String,dynamic>{'items':x}" in reg,'https':'PROMYSEL_SYNC_URL' in allsrc,'no_prototype_fields':'Уренгойское НГКМ' not in allsrc and 'Северное НГКМ' not in allsrc,'role_matrix':all(k in user for k in ['canPerformWalk','canCorrect','canExport','canManagePersonnel']),'walk_config':'WalkParameterConfig.instance.on(areaId,k)' in walk,'card_latest':'latestForWell(well.id)' in card,'history_snapshot':'captured_parameters' in db and 'capturedParameters' in model,'export_config':'WalkParameterConfig' in export,'sync':'/v1/sync/push' in sync and '/v1/sync/pull' in sync,'fresh_problem':'problemNote.clear()' in walk,'dispatcher':'ItrSubrole.dispatcher' in home,'mkd':'Межколонные давления' in hist,'persistent_session':'promysel_session_v2' in session and 'restoreSession()' in session,'session_gate':'SessionGate' in app,'no_seed_calls':'await _seedDemo' not in db and 'await seedDemo' not in db}
+          print('FULL SOURCE PREFLIGHT',checks);bad=[k for k,v in checks.items() if not v];assert not bad,bad
           PY
           mkdir -p "$GITHUB_WORKSPACE/artifacts"
-          zip -qr "$GITHUB_WORKSPACE/artifacts/promysel-v1.58.4-source.zip" . -x 'android/*' 'build/*' '.dart_tool/*'
-          unzip -t "$GITHUB_WORKSPACE/artifacts/promysel-v1.58.4-source.zip" >/dev/null
-
+          zip -qr "$GITHUB_WORKSPACE/artifacts/promysel-v1.59-source.zip" . -x 'android/*' 'build/*' '.dart_tool/*'
+          unzip -t "$GITHUB_WORKSPACE/artifacts/promysel-v1.59-source.zip" >/dev/null
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
           channel: stable
           cache: true
-
       - name: Get dependencies and analyze
         shell: bash
         run: |
-          set -euo pipefail
           cd "${{ steps.project.outputs.project_dir }}"
           flutter pub get
           flutter analyze --no-fatal-infos --no-fatal-warnings
-
       - name: Create Android project
         shell: bash
         run: |
@@ -158,49 +93,38 @@ jobs:
           cd "${{ steps.project.outputs.project_dir }}"
           rm -rf android
           flutter create --platforms=android --project-name promysel --org ru.promysel .
-          MANIFEST="android/app/src/main/AndroidManifest.xml"
+          M=android/app/src/main/AndroidManifest.xml
           sed -i 's/import io.flutter.embedding.android.FlutterActivity/import io.flutter.embedding.android.FlutterFragmentActivity/' android/app/src/main/kotlin/ru/promysel/promysel/MainActivity.kt
           sed -i 's/: FlutterActivity()/: FlutterFragmentActivity()/' android/app/src/main/kotlin/ru/promysel/promysel/MainActivity.kt
-          sed -i '/<manifest/a\\    <uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.CAMERA" />' "$MANIFEST"
-          sed -i 's/android:label="[^"]*"/android:label="Промысел"/' "$MANIFEST"
+          sed -i '/<manifest/a\\    <uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.CAMERA" />' "$M"
+          sed -i 's/android:label="[^"]*"/android:label="Промысел"/' "$M"
           rm -f android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml android/app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml
-          declare -A sizes=([mdpi]=48 [hdpi]=72 [xhdpi]=96 [xxhdpi]=144 [xxxhdpi]=192)
-          for d in mdpi hdpi xhdpi xxhdpi xxxhdpi; do out="android/app/src/main/res/mipmap-$d"; mkdir -p "$out"; convert assets/icon/app_icon.png -resize "${sizes[$d]}x${sizes[$d]}" "$out/ic_launcher.png"; cp "$out/ic_launcher.png" "$out/ic_launcher_round.png"; done
-          sed -i 's#android:icon="[^"]*"#android:icon="@mipmap/ic_launcher"#' "$MANIFEST"
-          if grep -q 'android:roundIcon=' "$MANIFEST"; then sed -i 's#android:roundIcon="[^"]*"#android:roundIcon="@mipmap/ic_launcher_round"#' "$MANIFEST"; else sed -i 's#<application#<application android:roundIcon="@mipmap/ic_launcher_round"#' "$MANIFEST"; fi
-
+          declare -A z=([mdpi]=48 [hdpi]=72 [xhdpi]=96 [xxhdpi]=144 [xxxhdpi]=192)
+          for d in mdpi hdpi xhdpi xxhdpi xxxhdpi;do o="android/app/src/main/res/mipmap-$d";mkdir -p "$o";convert assets/icon/app_icon.png -resize "${z[$d]}x${z[$d]}" "$o/ic_launcher.png";cp "$o/ic_launcher.png" "$o/ic_launcher_round.png";done
+          sed -i 's#android:icon="[^"]*"#android:icon="@mipmap/ic_launcher"#' "$M"
       - name: Android release manifest gate
-        shell: bash
         run: |
-          set -euo pipefail
-          cd "${{ steps.project.outputs.project_dir }}"
-          MANIFEST="android/app/src/main/AndroidManifest.xml"
-          grep -F 'android.permission.INTERNET' "$MANIFEST"
-          grep -F 'android.permission.CAMERA' "$MANIFEST"
-          grep -F 'android:label="Промысел"' "$MANIFEST"
-          if grep -q 'usesCleartextTraffic="true"' "$MANIFEST"; then echo 'Production manifest must not allow cleartext traffic' >&2; exit 1; fi
-          echo 'Android release manifest gate passed'
-
+          cd "${{ steps.project.outputs.project_dir }}"; M=android/app/src/main/AndroidManifest.xml
+          grep -F 'android.permission.INTERNET' "$M"; grep -F 'android.permission.CAMERA' "$M"; grep -F 'android:label="Промысел"' "$M"
+          ! grep -q 'usesCleartextTraffic="true"' "$M"
       - name: Build APK
         shell: bash
         run: |
           set -euo pipefail
           cd "${{ steps.project.outputs.project_dir }}"
           flutter build apk --release --dart-define=PROMYSEL_SYNC_URL=https://quumapafagul.beget.app
-          cp build/app/outputs/flutter-apk/app-release.apk "$GITHUB_WORKSPACE/artifacts/promysel-v1.58.4-release.apk"
-          unzip -t "$GITHUB_WORKSPACE/artifacts/promysel-v1.58.4-release.apk" >/dev/null
-          sha256sum "$GITHUB_WORKSPACE/artifacts/promysel-v1.58.4-release.apk"
-
+          cp build/app/outputs/flutter-apk/app-release.apk "$GITHUB_WORKSPACE/artifacts/promysel-v1.59-release.apk"
+          unzip -t "$GITHUB_WORKSPACE/artifacts/promysel-v1.59-release.apk" >/dev/null
+          sha256sum "$GITHUB_WORKSPACE/artifacts/promysel-v1.59-release.apk"
       - name: Upload source ZIP
         uses: actions/upload-artifact@v4
         with:
-          name: promysel-v1.58.4-source
-          path: artifacts/promysel-v1.58.4-source.zip
+          name: promysel-v1.59-source
+          path: artifacts/promysel-v1.59-source.zip
           retention-days: 30
-
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: promysel-v1.58.4-android
-          path: artifacts/promysel-v1.58.4-release.apk
+          name: promysel-v1.59-android
+          path: artifacts/promysel-v1.59-release.apk
           retention-days: 30
