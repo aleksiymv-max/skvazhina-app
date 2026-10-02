@@ -67,7 +67,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail;cd "${{ steps.project.outputs.project_dir }}"
-          flutter build apk --release --split-per-abi --tree-shake-icons --dart-define=PROMYSEL_SYNC_URL=https://quumapafagul.beget.app
+          rm -rf "$GITHUB_WORKSPACE/artifacts/symbols";mkdir -p "$GITHUB_WORKSPACE/artifacts/symbols"
+          flutter build apk --release --split-per-abi --tree-shake-icons --obfuscate --split-debug-info="$GITHUB_WORKSPACE/artifacts/symbols" --dart-define=PROMYSEL_SYNC_URL=https://quumapafagul.beget.app
           mkdir -p "$GITHUB_WORKSPACE/artifacts/apk"
           cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk "$GITHUB_WORKSPACE/artifacts/apk/promysel-v1.61-arm64.apk"
           cp build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk "$GITHUB_WORKSPACE/artifacts/apk/promysel-v1.61-arm32.apk"
@@ -75,9 +76,14 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
           baseline=27634136;limit=int(baseline*.70)
+          failed=[]
           for p in Path('/home/runner/work/skvazhina-app/skvazhina-app/artifacts/apk').glob('*.apk'):
-           n=p.stat().st_size;print(p.name,n,'bytes; reduction',round((1-n/baseline)*100,1),'%');assert n<=limit,(p.name,n,limit)
+           n=p.stat().st_size; reduction=round((1-n/baseline)*100,1);print(p.name,n,'bytes; reduction',reduction,'%')
+           if n>limit: failed.append((p.name,n,limit))
+          assert not failed,failed
           PY
           sha256sum "$GITHUB_WORKSPACE"/artifacts/apk/*.apk
       - uses: actions/upload-artifact@v4
         with: {name: promysel-v1.61-compact-android, path: artifacts/apk/*.apk, retention-days: 30}
+      - uses: actions/upload-artifact@v4
+        with: {name: promysel-v1.61-debug-symbols, path: artifacts/symbols/**, retention-days: 30}
