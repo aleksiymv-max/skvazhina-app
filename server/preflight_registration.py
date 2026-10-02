@@ -54,5 +54,8 @@ assert "/registration/fields" in api
 assert "/registration/pending" in api
 assert "/auth/login" in api
 assert "/auth/first-password" in api
+assert "except PermissionError as e:raise HTTPException(401" in api
+assert "except PermissionError as e:raise HTTPException(403" in api
+assert "except ValueError as e:raise HTTPException(409" in api
 assert "formatdate" in mailer and "make_msgid" in mailer
 print("registration production-schema/field-wide preflight gates passed")
