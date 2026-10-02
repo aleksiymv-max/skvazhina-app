@@ -23,9 +23,9 @@ class RegistrationService:
   if not may_decide(actor,req): self.repo.rollback(); raise PermissionError('Нет прав на обработку заявки')
   if not approve:
    self.repo.reject(req,actor); self.repo.commit(); return {'status':'rejected'}
-  requested_role=req['role']
-  final_role=role or requested_role
-  if requested_role!='shopChief' and final_role=='shopChief': self.repo.rollback(); raise PermissionError('Повышение до начальника этой заявкой запрещено')
+  application_role=req['role']
+  final_role=role or application_role
+  if application_role!='shopChief' and final_role=='shopChief': self.repo.rollback(); raise PermissionError('Повышение до начальника этой заявкой запрещено')
   password=self.passwords.generate()
   user=self.repo.approve(req,actor,final_role,subrole,password)
   self.repo.queue_mail(req,user,password)
