@@ -73,8 +73,14 @@ jobs:
           print('FULL SOURCE PREFLIGHT',checks);bad=[k for k,v in checks.items() if not v];assert not bad,bad
           PY
           mkdir -p "$GITHUB_WORKSPACE/artifacts"
-          zip -qr "$GITHUB_WORKSPACE/artifacts/promysel-v1.59-source.zip" . -x 'android/*' 'build/*' '.dart_tool/*'
-          unzip -t "$GITHUB_WORKSPACE/artifacts/promysel-v1.59-source.zip" >/dev/null
+          zip -qr "$GITHUB_WORKSPACE/artifacts/promysel-v1.61-source.zip" . -x 'android/*' 'build/*' '.dart_tool/*'
+          unzip -t "$GITHUB_WORKSPACE/artifacts/promysel-v1.61-source.zip" >/dev/null
+      - name: Upload generated source for verification
+        uses: actions/upload-artifact@v4
+        with:
+          name: promysel-v1.61-source
+          path: artifacts/promysel-v1.61-source.zip
+          retention-days: 30
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
@@ -113,18 +119,12 @@ jobs:
           set -euo pipefail
           cd "${{ steps.project.outputs.project_dir }}"
           flutter build apk --release --dart-define=PROMYSEL_SYNC_URL=https://quumapafagul.beget.app
-          cp build/app/outputs/flutter-apk/app-release.apk "$GITHUB_WORKSPACE/artifacts/promysel-v1.59-release.apk"
-          unzip -t "$GITHUB_WORKSPACE/artifacts/promysel-v1.59-release.apk" >/dev/null
-          sha256sum "$GITHUB_WORKSPACE/artifacts/promysel-v1.59-release.apk"
-      - name: Upload source ZIP
-        uses: actions/upload-artifact@v4
-        with:
-          name: promysel-v1.59-source
-          path: artifacts/promysel-v1.59-source.zip
-          retention-days: 30
+          cp build/app/outputs/flutter-apk/app-release.apk "$GITHUB_WORKSPACE/artifacts/promysel-v1.61-release.apk"
+          unzip -t "$GITHUB_WORKSPACE/artifacts/promysel-v1.61-release.apk" >/dev/null
+          sha256sum "$GITHUB_WORKSPACE/artifacts/promysel-v1.61-release.apk"
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: promysel-v1.59-android
-          path: artifacts/promysel-v1.59-release.apk
+          name: promysel-v1.61-android
+          path: artifacts/promysel-v1.61-release.apk
           retention-days: 30
