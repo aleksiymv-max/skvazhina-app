@@ -21,7 +21,7 @@ jobs:
           for p in sorted(d.get('paths',{})): print(p, ','.join(sorted(d['paths'][p])))
           print('SCHEMAS')
           for n,s in d.get('components',{}).get('schemas',{}).items():
-            if any(x in n.lower() for x in ['login','application','decision','password','sync','user']): print(n, 'required=',s.get('required'), 'props=',list(s.get('properties',{})))
+            if any(x in n.lower() for x in ['login','application','decision','password','sync','user']): print(n,'required=',s.get('required'),'props=',list(s.get('properties',{})))
           PY
       - name: Extract and generate current source
         run: |
@@ -29,12 +29,12 @@ jobs:
           mkdir /tmp/p && unzip -q neftyanik_v1.24.1_stable_hotfix.zip -d /tmp/p
           P="$(dirname "$(find /tmp/p -name pubspec.yaml -print -quit)")"; echo "P=$P" >> "$GITHUB_ENV"
           cd "$P"
-          for s in prepare_promysel_v125.py prepare_promysel_v126.py prepare_promysel_v127.py prepare_promysel_v128.py prepare_promysel_v129.py prepare_promysel_v129_walk.py prepare_promysel_v129_problems.py prepare_promysel_v130.py prepare_promysel_v131.py prepare_promysel_v132.py prepare_promysel_v133.py prepare_promysel_v134.py prepare_promysel_v135.py prepare_promysel_v136.py prepare_promysel_v136_fix.py prepare_promysel_v137.py prepare_promysel_v137_corrections.py prepare_promysel_v138_problem_actions.py prepare_promysel_v139_problem_layout.py prepare_promysel_v140_problem_card.py prepare_promysel_v140_closed_lists.py prepare_promysel_v141_parameter_sync.py prepare_promysel_v142_user_fixes.py prepare_promysel_v143_exact_walk_and_dispatcher.py prepare_promysel_v144_requested_fixes.py prepare_promysel_v145.py prepare_promysel_v146.py prepare_promysel_v147.py prepare_promysel_v148.py prepare_promysel_v149.py prepare_promysel_v150.py prepare_promysel_v151.py prepare_promysel_v152.py prepare_promysel_v153.py prepare_promysel_v154a.py prepare_promysel_v154b.py prepare_promysel_v154c.py prepare_promysel_v154d.py prepare_promysel_v154e.py prepare_promysel_v154f.py prepare_promysel_v154g.py prepare_promysel_v154h.py prepare_promysel_v155.py prepare_promysel_v156.py prepare_promysel_v157a.py prepare_promysel_v157b.py prepare_promysel_v157c.py prepare_promysel_v157d.py; do python3 "$GITHUB_WORKSPACE/tools/$s"; done
+          for s in prepare_promysel_v125.py prepare_promysel_v126.py prepare_promysel_v127.py prepare_promysel_v128.py prepare_promysel_v129.py prepare_promysel_v129_walk.py prepare_promysel_v129_problems.py prepare_promysel_v130.py prepare_promysel_v131.py prepare_promysel_v132.py prepare_promysel_v133.py prepare_promysel_v134.py prepare_promysel_v135.py prepare_promysel_v136.py prepare_promysel_v136_fix.py prepare_promysel_v137.py prepare_promysel_v137_corrections.py prepare_promysel_v138_problem_actions.py prepare_promysel_v139_problem_layout.py prepare_promysel_v140_problem_card.py prepare_promysel_v140_closed_lists.py prepare_promysel_v141_parameter_sync.py prepare_promysel_v142_user_fixes.py prepare_promysel_v143_exact_walk_and_dispatcher.py prepare_promysel_v144_requested_fixes.py prepare_promysel_v145.py prepare_promysel_v146.py prepare_promysel_v147.py prepare_promysel_v148.py prepare_promysel_v149.py prepare_promysel_v150.py prepare_promysel_v151.py prepare_promysel_v152.py prepare_promysel_v153.py prepare_promysel_v154a.py prepare_promysel_v154b.py prepare_promysel_v154c.py prepare_promysel_v154d.py prepare_promysel_v154e.py prepare_promysel_v154f.py prepare_promysel_v154g.py prepare_promysel_v154h.py prepare_promysel_v155.py prepare_promysel_v156.py prepare_promysel_v157a.py prepare_promysel_v157b.py prepare_promysel_v157c.py prepare_promysel_v157d.py prepare_promysel_v159.py; do python3 "$GITHUB_WORKSPACE/tools/$s"; done
       - name: Inspect persistence and sync surfaces
         run: |
           cd "$P"
           echo '--- app ---'; sed -n '1,220p' lib/app/app.dart
-          echo '--- session ---'; sed -n '1,280p' lib/core/services/session_service.dart
-          echo '--- hierarchy models ---'; grep -R -n -E 'demoAreas|demoPads|demoWells|structureRevision|notifyStructureChanged' lib | head -100 || true
-          echo '--- stores ---'; grep -R -n -E 'SharedPreferences|WorkTaskStore|class .*Store|List<.*Area|List<.*Well' lib/core lib/features | head -180 || true
-          echo '--- test/demo measurements ---'; grep -R -n -E 'Measurement\(|demo|test|Тест' lib | head -180 || true
+          echo '--- session ---'; sed -n '1,330p' lib/core/services/session_service.dart
+          echo '--- hierarchy models ---'; grep -R -n -E 'demoAreas|demoPads|demoWells|structureRevision|notifyStructureChanged' lib | head -120 || true
+          echo '--- stores ---'; grep -R -n -E 'SharedPreferences|WorkTaskStore|class .*Store|List<.*Area|List<.*Well' lib/core lib/features | head -220 || true
+          echo '--- test/demo measurements ---'; grep -R -n -E 'Measurement\(|demo|test|Тест' lib | head -220 || true
