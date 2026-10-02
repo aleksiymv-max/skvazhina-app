@@ -1,81 +1,95 @@
 from pathlib import Path
 import re
 r=Path.cwd()
-p=r/'lib/features/organization/profile_screen.dart'
-s=p.read_text()
 
-# Remove biometric dependency/state regardless of formatting.
-s=re.sub(r"^.*local_auth.*\n?",'',s,flags=re.M)
-s=re.sub(r"\s*final\s+auth\s*=\s*LocalAuthentication\(\)\s*;",'',s)
+# Repair the login structure produced by the previous transform.
+login_path=r/'lib/features/auth/login_screen.dart'
+login=login_path.read_text()
+login=login.replace("child:Text(register?'Отправить заявку':'Войти'))))],", "child:Text(register?'Отправить заявку':'Войти'))),")
+login=login.replace(";}\\n Future<void> _register", ";}\n Future<void> _register")
+login_path.write_text(login)
 
-# Balanced method removal supports arbitrary whitespace between name and parentheses.
-def remove_named_method(src,name):
-    m=re.search(r'(?:Future<[^>]+>|Future|void)\s+'+re.escape(name)+r'\s*\(',src)
-    if not m:return src
-    i=m.start();b=src.find('{',m.end())
-    if b<0:return src
-    depth=0;j=b;quote=None;esc=False
-    while j<len(src):
-        c=src[j]
-        if quote:
-            if esc:esc=False
-            elif c=='\\':esc=True
-            elif c==quote:quote=None
-        else:
-            if c in "'\"":quote=c
-            elif c=='{':depth+=1
-            elif c=='}':
-                depth-=1
-                if depth==0:return src[:i]+src[j+1:]
-        j+=1
-    raise RuntimeError('Unbalanced method '+name)
+# Replace ProfileScreen deterministically: keep photo/theme/work status/logout,
+# show field name, provide server-backed password change, and physically omit PIN/biometrics.
+profile=r'''import 'dart:io';
+import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import '../../core/models/user.dart';
+import '../../core/services/session_service.dart';
+import '../../app/theme_controller.dart';
 
-# Old PIN/biometric implementations must be physically absent.
-for name in ('_setPin','_bioLogin','_biometricLogin','_checkBiometrics','_testBiometrics','_bio'):
-    while re.search(r'(?:Future<[^>]+>|Future|void)\s+'+re.escape(name)+r'\s*\(',s):s=remove_named_method(s,name)
+class ProfileScreen extends StatefulWidget {
+  const ProfileScreen({super.key});
+  @override
+  State<ProfileScreen> createState()=>_ProfileScreenState();
+}
 
-# Remove complete ListTile/Card/SwitchListTile widgets containing PIN/biometric text/callback.
-def remove_call_containing(src,call,needles):
-    pos=0;needle=call+'('
-    while True:
-        i=src.find(needle,pos)
-        if i<0:return src
-        par=src.find('(',i);depth=0;j=par;quote=None;esc=False
-        while j<len(src):
-            c=src[j]
-            if quote:
-                if esc:esc=False
-                elif c=='\\':esc=True
-                elif c==quote:quote=None
-            else:
-                if c in "'\"":quote=c
-                elif c=='(':depth+=1
-                elif c==')':
-                    depth-=1
-                    if depth==0:
-                        end=j+1
-                        while end<len(src) and src[end] in ' \t':end+=1
-                        if end<len(src) and src[end]==',':end+=1
-                        block=src[i:end]
-                        if any(n.lower() in block.lower() for n in needles):
-                            src=src[:i]+src[end:];pos=max(0,i-1);break
-                        pos=end;break
-            j+=1
-        else:return src
+class _ProfileScreenState extends State<ProfileScreen> {
+  String? photoPath;
+  final picker=ImagePicker();
+  final secure=const FlutterSecureStorage();
 
-needles=['_setPin','PIN-код','PIN код','биометр','fingerprint','LocalAuthentication']
-for call in ('ListTile','SwitchListTile','Card'):
-    s=remove_call_containing(s,call,needles)
+  @override
+  void initState(){super.initState();_loadPhoto();}
+  Future<void> _loadPhoto() async {photoPath=await secure.read(key:'profile_photo');if(mounted)setState((){});}
 
-# Remove any residual standalone statements/lines from old quick-auth implementation.
-for pat in (r'^.*quick_pin.*\n?',r'^.*quick_user.*\n?',r'^.*Проверить биометрию.*\n?',r'^.*Настроить PIN-код.*\n?',r'^.*_setPin.*\n?',r'^.*LocalAuthentication.*\n?'):
-    s=re.sub(pat,'',s,flags=re.M)
+  @override
+  Widget build(BuildContext context){
+    final u=SessionService.instance.currentUser;
+    final position=u.role==UserRole.engineer?(u.itrSubrole?.label??'ИТР'):u.role.label;
+    final fieldId=SessionService.instance.currentFieldId;
+    final fieldName=fieldId==null?'—':SessionService.instance.fieldName(fieldId);
+    return Scaffold(
+      appBar:AppBar(title:const Text('Профиль')),
+      body:ListView(padding:const EdgeInsets.all(16),children:[
+        Center(child:Stack(children:[CircleAvatar(radius:58,backgroundImage:photoPath==null?null:FileImage(File(photoPath!)),child:photoPath==null?const Icon(Icons.person_outline,size:64):null),Positioned(right:0,bottom:0,child:IconButton.filled(onPressed:_changePhoto,icon:const Icon(Icons.photo_camera_outlined)))])),
+        const SizedBox(height:14),
+        Center(child:Text(u.name,style:const TextStyle(fontSize:21,fontWeight:FontWeight.w900))),
+        Center(child:Text(position)),
+        const SizedBox(height:20),
+        Card(child:Column(children:[
+          ListTile(leading:const Icon(Icons.badge_outlined),title:const Text('ФИО'),subtitle:Text(u.name)),
+          const Divider(height:1),
+          ListTile(leading:const Icon(Icons.work_outline),title:const Text('Должность'),subtitle:Text(position)),
+          const Divider(height:1),
+          const ListTile(leading:Icon(Icons.business_outlined),title:Text('Подразделение'),subtitle:Text('Добыча нефти и газа')),
+          const Divider(height:1),
+          ListTile(leading:const Icon(Icons.location_city_outlined),title:const Text('Месторождение'),subtitle:Text(fieldName)),
+        ])),
+        const SizedBox(height:12),
+        Card(child:ListTile(leading:const Icon(Icons.settings_outlined),title:const Text('Настройки',style:TextStyle(fontWeight:FontWeight.w800)),subtitle:const Text('Оформление и пароль'),trailing:const Icon(Icons.chevron_right),onTap:_settings)),
+        const SizedBox(height:12),
+        Card(child:SwitchListTile(secondary:const Icon(Icons.work_history_outlined),title:const Text('Статус на работе'),subtitle:Text(SessionService.instance.isAtWork(u.id)?'На работе':'Не на работе'),value:SessionService.instance.isAtWork(u.id),onChanged:(v)=>setState(()=>SessionService.instance.setAtWork(u.id,v)))),
+        const SizedBox(height:8),
+        OutlinedButton.icon(style:OutlinedButton.styleFrom(foregroundColor:Colors.red),onPressed:()async{await SessionService.instance.logout();if(context.mounted)context.go('/login');},icon:const Icon(Icons.logout),label:const Text('Выйти из приложения')),
+      ]),
+    );
+  }
 
-# Deterministically replace password method with server-backed old/new/confirm dialog.
-s=remove_named_method(s,'_changePassword')
-class_end=s.rfind('}')
-assert class_end>=0
-method=r'''  Future<void> _changePassword() async {
+  Future<void> _changePhoto() async {
+    final source=await showModalBottomSheet<ImageSource>(context:context,builder:(ctx)=>SafeArea(child:Wrap(children:[
+      ListTile(leading:const Icon(Icons.photo_library_outlined),title:const Text('Выбрать из галереи'),onTap:()=>Navigator.pop(ctx,ImageSource.gallery)),
+      ListTile(leading:const Icon(Icons.camera_alt_outlined),title:const Text('Сделать фотографию'),onTap:()=>Navigator.pop(ctx,ImageSource.camera)),
+    ])));
+    if(source==null)return;
+    final f=await picker.pickImage(source:source,imageQuality:82,maxWidth:1200);
+    if(f!=null){await secure.write(key:'profile_photo',value:f.path);if(mounted)setState(()=>photoPath=f.path);}
+  }
+
+  Future<void> _settings() async {
+    await showModalBottomSheet(context:context,isScrollControlled:true,builder:(ctx)=>SafeArea(child:Padding(
+      padding:EdgeInsets.fromLTRB(16,16,16,16+MediaQuery.of(ctx).viewInsets.bottom),
+      child:Column(mainAxisSize:MainAxisSize.min,children:[
+        const ListTile(title:Text('Настройки',style:TextStyle(fontSize:22,fontWeight:FontWeight.w900))),
+        ListenableBuilder(listenable:ThemeController.instance,builder:(context,_)=>SwitchListTile(secondary:const Icon(Icons.dark_mode_outlined),title:const Text('Тёмная тема'),value:ThemeController.instance.mode==ThemeMode.dark,onChanged:ThemeController.instance.setDark)),
+        ListTile(leading:const Icon(Icons.password_outlined),title:const Text('Изменить пароль'),trailing:const Icon(Icons.chevron_right),onTap:(){Navigator.pop(ctx);_changePassword();}),
+      ]),
+    )));
+  }
+
+  Future<void> _changePassword() async {
     final oldPassword=TextEditingController();
     final newPassword=TextEditingController();
     final confirmPassword=TextEditingController();
@@ -89,34 +103,40 @@ method=r'''  Future<void> _changePassword() async {
         const SizedBox(height:10),
         TextField(controller:confirmPassword,obscureText:!showConfirm,decoration:InputDecoration(labelText:'Подтвердите новый пароль',suffixIcon:IconButton(onPressed:()=>setDialog(()=>showConfirm=!showConfirm),icon:Icon(showConfirm?Icons.visibility_off:Icons.visibility)))),
       ]),
-      actions:[TextButton(onPressed:()=>Navigator.pop(dialogContext),child:const Text('Отмена')),FilledButton(onPressed:()async{
-        if(newPassword.text!=confirmPassword.text){ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content:Text('Пароли не совпадают')));return;}
-        try{await SessionService.instance.changePassword(oldPassword.text,newPassword.text);if(dialogContext.mounted)Navigator.pop(dialogContext);if(mounted)ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content:Text('Пароль изменён')));}
-        catch(e){if(mounted)ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text(e.toString())));}
-      },child:const Text('Сохранить'))]
+      actions:[
+        TextButton(onPressed:()=>Navigator.pop(dialogContext),child:const Text('Отмена')),
+        FilledButton(onPressed:()async{
+          if(newPassword.text!=confirmPassword.text){ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content:Text('Пароли не совпадают')));return;}
+          try{await SessionService.instance.changePassword(oldPassword.text,newPassword.text);if(dialogContext.mounted)Navigator.pop(dialogContext);if(mounted)ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content:Text('Пароль изменён')));}
+          catch(e){if(mounted)ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text(e.toString())));}
+        },child:const Text('Сохранить')),
+      ],
     )));
+    oldPassword.dispose();newPassword.dispose();confirmPassword.dispose();
   }
+}
 '''
-s=s[:class_end]+method+s[class_end:]
-p.write_text(s)
+profile_path=r/'lib/features/organization/profile_screen.dart'
+profile_path.write_text(profile)
 
-# Remove package dependency too.
+# Remove biometric package dependency.
 pub=r/'pubspec.yaml';q=pub.read_text();q=re.sub(r'^\s*local_auth:.*\n','',q,flags=re.M);pub.write_text(q)
 
-# Final functional gates inspect the produced Dart, not patch-script text.
-profile=p.read_text();login=(r/'lib/features/auth/login_screen.dart').read_text();pubtext=pub.read_text()
+profile=profile_path.read_text();login=login_path.read_text();pubtext=pub.read_text()
 forbidden=['_setPin','quick_pin','Проверить биометрию','Настроить PIN-код','LocalAuthentication','local_auth:']
 residual=[x for x in forbidden if x in profile+login+pubtext]
 checks={
  'pin_bio_physically_absent':not residual,
- 'password_old':"Текущий пароль" in profile,
- 'password_confirm':"Подтвердите новый пароль" in profile,
- 'password_match_guard':"newPassword.text!=confirmPassword.text" in profile,
- 'password_server_call':"SessionService.instance.changePassword(oldPassword.text,newPassword.text)" in profile,
+ 'password_old':'Текущий пароль' in profile,
+ 'password_confirm':'Подтвердите новый пароль' in profile,
+ 'password_match_guard':'newPassword.text!=confirmPassword.text' in profile,
+ 'password_server_call':'SessionService.instance.changePassword(oldPassword.text,newPassword.text)' in profile,
  'password_visibility':profile.count('Icons.visibility')>=6,
- 'field_visible':"fieldName(SessionService.instance.currentFieldId!)" in profile,
+ 'field_visible':'fieldName(fieldId)' in profile,
+ 'password_settings_entry':"title:const Text('Изменить пароль')" in profile,
+ 'login_no_literal_newline':'\\n Future<void> _register' not in login,
 }
-print('V161 RESIDUAL',residual,flush=True);print('V161 FINAL PROFILE GATES',checks,flush=True)
+print('V161 RESIDUAL',residual,flush=True);print('V161 FINAL GATES',checks,flush=True)
 bad=[k for k,v in checks.items() if not v]
-assert not bad,'v1.61 final profile gate failed: '+', '.join(bad)
-print('v1.61 deterministic profile auth cleanup passed',flush=True)
+assert not bad,'v1.61 final gate failed: '+', '.join(bad)
+print('v1.61 deterministic login/profile repair passed',flush=True)
