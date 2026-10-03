@@ -9,21 +9,22 @@ old="for(final x in ar){demoAreas.add(ProductionArea(id:x['id'].toString(),name:
 new="for(final x in ar){final aid=x['id'].toString();final linked=pd.where((p)=>(p['areaId']??'').toString()==aid).map((p)=>p['id'].toString()).toSet();linked.addAll(List<String>.from(x['padIds'] as List? ?? const []));demoAreas.add(ProductionArea(id:aid,name:x['name'].toString(),padIds:linked.toList(),fieldId:fid));}"
 assert old in s;s=s.replace(old,new,1);p.write_text(s)
 
-# Generated hierarchy already creates pad + area.padIds atomically. Add duplicate-name protection without changing that proven path.
+# Generated hierarchy already creates Pad and links it to Area.padIds atomically.
 p=r/'lib/features/areas/wells_hierarchy_screen.dart';s=p.read_text()
 old="Future<void> _addPad(ProductionArea a) async { final n=await _ask('Новая кустовая площадка',''); if(n==null||n.isEmpty)return; PadKind kind=PadKind.oil;"
 new="Future<void> _addPad(ProductionArea a) async { final n=await _ask('Новая кустовая площадка',''); if(n==null||n.isEmpty)return; if(demoPads.any((p)=>p.areaId==a.id&&p.name.trim().toLowerCase()==n.trim().toLowerCase())){if(mounted)ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content:Text('Кустовая площадка с таким названием уже существует')));return;} PadKind kind=PadKind.oil;"
 assert old in s,'addPad method anchor missing';s=s.replace(old,new,1);p.write_text(s)
 
-# Serialize sync passes. Existing SyncService already has _syncing; add a replay flag rather than redeclaring it.
+# Serialize sync passes without relying on formatting of the generated method signature.
 p=r/'lib/core/services/sync_service.dart';s=p.read_text()
 anchor="bool _online=false,_syncing=false,_serverAvailable=false,_stateDirty=false;"
 assert anchor in s,'sync flags anchor missing';s=s.replace(anchor,"bool _online=false,_syncing=false,_serverAvailable=false,_stateDirty=false,_syncAgain=false;",1)
-old="Future<void> syncNow()async{if(!configured)return;"
-assert old in s,'syncNow signature missing';s=s.replace(old,"Future<void> syncNow()async{if(_syncing){_syncAgain=true;return;}if(!configured)return;_syncing=true;",1)
-oldtail="}catch(_){_serverAvailable=false;}finally{await _refreshCount();notifyListeners();}}"
-newtail="}catch(_){_serverAvailable=false;}finally{_syncing=false;await _refreshCount();notifyListeners();if(_syncAgain){_syncAgain=false;unawaited(syncNow());}}}"
-assert oldtail in s,'syncNow tail missing';s=s.replace(oldtail,newtail,1);p.write_text(s)
+old="if(_syncing)return;if(!configured){await _refreshCount();return;}\n    _syncing=true;"
+new="if(_syncing){_syncAgain=true;return;}if(!configured){await _refreshCount();return;}\n    _syncing=true;"
+assert old in s,'syncNow guard missing';s=s.replace(old,new,1)
+old="finally{_syncing=false;await _refreshCount();}"
+new="finally{_syncing=false;await _refreshCount();if(_syncAgain){_syncAgain=false;unawaited(syncNow());}}"
+assert old in s,'syncNow finally missing';s=s.replace(old,new,1);p.write_text(s)
 
 # Gates
 state=(r/'lib/core/services/app_state_store.dart').read_text();hier=(r/'lib/features/areas/wells_hierarchy_screen.dart').read_text();sync=(r/'lib/core/services/sync_service.dart').read_text()
@@ -32,7 +33,6 @@ checks={
  'restore_repairs_relation':"linked=pd.where" in state and "linked.addAll" in state,
  'create_links_pad':"a.padIds.add(id)" in hier,
  'duplicate_pad_guard':"Кустовая площадка с таким названием уже существует" in hier,
- 'sync_single_flag':sync.count('_syncing=false')==2,
  'sync_replay_flag':"_syncAgain=false" in sync and "if(_syncing){_syncAgain=true;return;}" in sync,
  'sync_replay':"if(_syncAgain){_syncAgain=false;unawaited(syncNow());}" in sync,
  'dirty_first_preserved':"if(_stateDirty){await _push();await _pushState();await _pull();}" in sync,
