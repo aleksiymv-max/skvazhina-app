@@ -5,12 +5,13 @@ p=r/'lib/features/areas/wells_hierarchy_screen.dart';s=p.read_text()
 old="Future<void> _addWell(Pad p) async { final n=await _ask('Новая скважина',''); if(n!=null&&n.isNotEmpty)setState(()=>p.wells.add(Well(id:'well-${DateTime.now().millisecondsSinceEpoch}',number:n,type:p.kind==PadKind.oil?WellType.oil:p.kind==PadKind.gas?WellType.gasCondensate:WellType.absorbing,status:WellStatus.working))); }"
 new="Future<void> _addWell(Pad p) async { final padId=p.id; final n=await _ask('Новая скважина',''); if(n==null||n.isEmpty||!mounted)return; final idx=demoPads.indexWhere((x)=>x.id==padId); if(idx<0){ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content:Text('Кустовая площадка была обновлена. Откройте её и повторите добавление.')));return;} final current=demoPads[idx]; if(current.wells.any((w)=>w.number.trim().toLowerCase()==n.trim().toLowerCase())){ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content:Text('Скважина с таким номером уже существует')));return;} setState(()=>current.wells.add(Well(id:'well-${DateTime.now().millisecondsSinceEpoch}',number:n,type:current.kind==PadKind.oil?WellType.oil:current.kind==PadKind.gas?WellType.gasCondensate:WellType.absorbing,status:WellStatus.working))); }"
 assert old in s,'add well method anchor missing';s=s.replace(old,new,1)
-old="if(v=='addWell'){await _addWell(p);await commitStructureNow();}"
-new="if(v=='addWell'){await _addWell(p);await commitStructureNow();}"
-assert old in s,'add well commit anchor missing'
-old2="await config.save(id,draft);if(sheetContext.mounted)Navigator.pop(sheetContext);"
-new2="await config.save(id,draft);await commitStructureNow();if(sheetContext.mounted)Navigator.pop(sheetContext);"
-assert old2 in s,'parameter save anchor missing';s=s.replace(old2,new2,1)
+# v1.68 already converts the menu action to awaited durable commit. Do not require the obsolete pre-v1.68 anchor.
+commit_anchor="if(v=='addWell'){await _addWell(p);await commitStructureNow();}"
+assert commit_anchor in s,'durable add well commit missing'
+param_old="await config.save(id,draft);if(sheetContext.mounted)Navigator.pop(sheetContext);"
+param_new="await config.save(id,draft);await commitStructureNow();if(sheetContext.mounted)Navigator.pop(sheetContext);"
+if param_old in s:s=s.replace(param_old,param_new,1)
+assert param_new in s,'durable parameter commit missing'
 p.write_text(s)
 state=(r/'lib/core/services/app_state_store.dart').read_text();sync=(r/'lib/core/services/sync_service.dart').read_text();hier=p.read_text()
 checks={
@@ -19,8 +20,8 @@ checks={
  'well_current_pad_lookup':"demoPads.indexWhere((x)=>x.id==padId)" in hier and "final current=demoPads[idx]" in hier,
  'well_mutates_current_pad':"setState(()=>current.wells.add(Well" in hier,
  'well_duplicate_guard':"current.wells.any((w)=>w.number.trim().toLowerCase()==n.trim().toLowerCase())" in hier,
- 'well_awaited_commit':"if(v=='addWell'){await _addWell(p);await commitStructureNow();}" in hier,
- 'parameter_awaited_commit':"await config.save(id,draft);await commitStructureNow();" in hier,
+ 'well_awaited_commit':commit_anchor in hier,
+ 'parameter_awaited_commit':param_new in hier,
  'dirty_push':"_pushState" in sync and "_stateDirty" in sync,
  'field_state':"'fieldId':fieldId" in state and "walkConfig" in state,
 }
