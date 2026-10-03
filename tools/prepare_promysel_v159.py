@@ -25,5 +25,5 @@ s=p.read_text();a=app.read_text();m=main.read_text();d=db.read_text();checks={'p
 v160=(Path(__file__).with_name('prepare_promysel_v160.py')).read_text()
 v160=v160.replace("bad=[k for k,v in checks.items() if not v];assert not bad,'v1.60 gate failed: '+', '.join(bad);print('v1.60 functional PIN/biometric removal + production auth/personnel cleanup passed')","bad=[k for k,v in checks.items() if not v and k not in ('no_pin_bio','password_confirm','password_eyes')];assert not bad,'v1.60 non-profile gate failed: '+', '.join(bad);print('v1.60 production transforms applied; profile finalized by v1.61')")
 exec(v160,{'__name__':'__main__','__file__':str(Path(__file__).with_name('prepare_promysel_v160.py'))})
-for v in ('161','162','163','164','165','166','167','168'):
+for v in ('161','162','163','164','165','166','167','168','169'):
  exec((Path(__file__).with_name(f'prepare_promysel_v{v}.py')).read_text(),{'__name__':'__main__','__file__':str(Path(__file__).with_name(f'prepare_promysel_v{v}.py'))})
