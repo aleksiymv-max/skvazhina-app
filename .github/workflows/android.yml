@@ -48,12 +48,16 @@ jobs:
           from pathlib import Path
           import re,base64,os
           s=(Path(os.environ['GITHUB_WORKSPACE'])/'assets/promysel_icon_modern.svg').read_text()
-          m=re.search(r'data:image/(?:jpeg|jpg|png);base64,([^"\']+)',s)
+          m=re.search(r'base64,([^"<]+)',s)
           assert m,'approved emblem payload not found'
-          raw=base64.b64decode(m.group(1)); Path('assets/icon/approved_source.img').write_bytes(raw)
+          b=''.join(m.group(1).split()).replace('&#10;','').replace('&#13;','')
+          b=b[:len(b)-(len(b)%4)]
+          raw=base64.b64decode(b,validate=False)
+          assert raw[:2]==b'\xff\xd8' or raw[:8]==b'\x89PNG\r\n\x1a\n','approved emblem is not JPEG/PNG'
+          Path('assets/icon/approved_source.jpg').write_bytes(raw)
           print('Approved emblem extracted directly:',len(raw),'bytes')
           PY
-          convert assets/icon/approved_source.img -resize 1024x1024 assets/icon/app_icon.png
+          convert assets/icon/approved_source.jpg -resize 1024x1024 assets/icon/app_icon.png
           cp assets/icon/app_icon.png assets/icon/app_icon_foreground.png
           identify assets/icon/app_icon.png
           test "$(identify -format '%w' assets/icon/app_icon.png)" = 1024
