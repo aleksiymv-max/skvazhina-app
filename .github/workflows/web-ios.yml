@@ -22,8 +22,7 @@ jobs:
           curl --fail --silent --show-error --retry 3 --connect-timeout 10 "$BASE/health" -o /tmp/h.json
           python3 - <<'PY'
           import json
-          h=json.load(open('/tmp/h.json'))
-          assert h.get('status')=='ok' and h.get('database') is True
+          h=json.load(open('/tmp/h.json'));assert h.get('status')=='ok' and h.get('database') is True
           print('Production backend healthy')
           PY
       - name: Extract base source
@@ -31,79 +30,64 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          DIR="$RUNNER_TEMP/promysel"; rm -rf "$DIR"; mkdir -p "$DIR"
+          DIR="$RUNNER_TEMP/promysel";rm -rf "$DIR";mkdir -p "$DIR"
           unzip -q "$GITHUB_WORKSPACE/neftyanik_v1.24.1_stable_hotfix.zip" -d "$DIR"
           PROJECT="$(dirname "$(find "$DIR" -name pubspec.yaml -print -quit)")"
           echo "project_dir=$PROJECT" >> "$GITHUB_OUTPUT"
+      - name: Install image tools
+        run: sudo apt-get update && sudo apt-get install -y imagemagick librsvg2-bin
       - name: Apply current Promysel updates
         shell: bash
         run: |
-          set -euo pipefail; cd "${{ steps.project.outputs.project_dir }}"
-          for s in prepare_promysel_v125.py prepare_promysel_v126.py prepare_promysel_v127.py prepare_promysel_v128.py prepare_promysel_v129.py prepare_promysel_v129_walk.py prepare_promysel_v129_problems.py prepare_promysel_v130.py prepare_promysel_v131.py prepare_promysel_v132.py prepare_promysel_v133.py prepare_promysel_v134.py prepare_promysel_v135.py prepare_promysel_v136.py prepare_promysel_v136_fix.py prepare_promysel_v137.py prepare_promysel_v137_corrections.py prepare_promysel_v138_problem_actions.py prepare_promysel_v139_problem_layout.py prepare_promysel_v140_problem_card.py prepare_promysel_v140_closed_lists.py prepare_promysel_v141_parameter_sync.py prepare_promysel_v142_user_fixes.py prepare_promysel_v143_exact_walk_and_dispatcher.py prepare_promysel_v144_requested_fixes.py prepare_promysel_v145.py prepare_promysel_v146.py prepare_promysel_v147.py prepare_promysel_v148.py prepare_promysel_v149.py prepare_promysel_v150.py prepare_promysel_v151.py prepare_promysel_v152.py prepare_promysel_v153.py prepare_promysel_v154a.py prepare_promysel_v154b.py prepare_promysel_v154c.py prepare_promysel_v154d.py prepare_promysel_v154e.py prepare_promysel_v154f.py prepare_promysel_v154g.py prepare_promysel_v154h.py prepare_promysel_v155.py prepare_promysel_v156.py prepare_promysel_v157a.py prepare_promysel_v157b.py prepare_promysel_v157c.py prepare_promysel_v157d.py prepare_promysel_v159.py; do python3 "$GITHUB_WORKSPACE/tools/$s"; done
+          set -euo pipefail;cd "${{ steps.project.outputs.project_dir }}"
+          for s in prepare_promysel_v125.py prepare_promysel_v126.py prepare_promysel_v127.py prepare_promysel_v128.py prepare_promysel_v129.py prepare_promysel_v129_walk.py prepare_promysel_v129_problems.py prepare_promysel_v130.py prepare_promysel_v131.py prepare_promysel_v132.py prepare_promysel_v133.py prepare_promysel_v134.py prepare_promysel_v135.py prepare_promysel_v136.py prepare_promysel_v136_fix.py prepare_promysel_v137.py prepare_promysel_v137_corrections.py prepare_promysel_v138_problem_actions.py prepare_promysel_v139_problem_layout.py prepare_promysel_v140_problem_card.py prepare_promysel_v140_closed_lists.py prepare_promysel_v141_parameter_sync.py prepare_promysel_v142_user_fixes.py prepare_promysel_v143_exact_walk_and_dispatcher.py prepare_promysel_v144_requested_fixes.py prepare_promysel_v145.py prepare_promysel_v146.py prepare_promysel_v147.py prepare_promysel_v148.py prepare_promysel_v149.py prepare_promysel_v150.py prepare_promysel_v151.py prepare_promysel_v152.py prepare_promysel_v153.py prepare_promysel_v154a.py prepare_promysel_v154b.py prepare_promysel_v154c.py prepare_promysel_v154d.py prepare_promysel_v154e.py prepare_promysel_v154f.py prepare_promysel_v154g.py prepare_promysel_v154h.py prepare_promysel_v155.py prepare_promysel_v156.py prepare_promysel_v157a.py prepare_promysel_v157b.py prepare_promysel_v157c.py prepare_promysel_v157d.py prepare_promysel_v159.py prepare_promysel_v170.py;do python3 "$GITHUB_WORKSPACE/tools/$s";done
+          mkdir -p assets/icon
+          rsvg-convert -w 1024 -h 1024 "$GITHUB_WORKSPACE/assets/promysel_icon_modern.svg" -o assets/icon/app_icon.png
+          cp assets/icon/app_icon.png assets/icon/app_icon_foreground.png
       - uses: subosito/flutter-action@v2
         with: {channel: stable, cache: true}
       - name: Create web platform and configure iPhone PWA
         shell: bash
         run: |
-          set -euo pipefail; cd "${{ steps.project.outputs.project_dir }}"
+          set -euo pipefail;cd "${{ steps.project.outputs.project_dir }}"
           flutter pub get
           flutter create --platforms=web --project-name promysel --org ru.promysel .
           flutter pub add sqflite_common_ffi_web:^1.2.0
           dart run sqflite_common_ffi_web:setup --force
+          mkdir -p web/icons
+          rsvg-convert -w 192 -h 192 "$GITHUB_WORKSPACE/assets/promysel_icon_modern.svg" -o web/icons/Icon-192.png
+          rsvg-convert -w 512 -h 512 "$GITHUB_WORKSPACE/assets/promysel_icon_modern.svg" -o web/icons/Icon-512.png
+          cp web/icons/Icon-192.png web/icons/Icon-maskable-192.png
+          cp web/icons/Icon-512.png web/icons/Icon-maskable-512.png
+          rsvg-convert -w 64 -h 64 "$GITHUB_WORKSPACE/assets/promysel_icon_modern.svg" -o web/favicon.png
+          rsvg-convert -w 180 -h 180 "$GITHUB_WORKSPACE/assets/promysel_icon_modern.svg" -o web/apple-touch-icon.png
           python3 - <<'PY'
           from pathlib import Path
-          import re
-          p=Path('web/index.html'); s=p.read_text()
-          s=s.replace('<title>promysel</title>','<title>Промысел</title>')
-          if 'apple-mobile-web-app-capable' not in s:
-              s=s.replace('</head>','  <meta name="apple-mobile-web-app-capable" content="yes">\n  <meta name="apple-mobile-web-app-status-bar-style" content="default">\n  <meta name="apple-mobile-web-app-title" content="Промысел">\n</head>')
+          import re,json
+          p=Path('web/index.html');s=p.read_text();s=s.replace('<title>promysel</title>','<title>Промысел</title>')
+          if 'apple-mobile-web-app-capable' not in s:s=s.replace('</head>','  <meta name="apple-mobile-web-app-capable" content="yes">\n  <meta name="apple-mobile-web-app-status-bar-style" content="default">\n  <meta name="apple-mobile-web-app-title" content="Промысел">\n  <link rel="apple-touch-icon" href="apple-touch-icon.png">\n</head>')
+          elif 'apple-touch-icon' not in s:s=s.replace('</head>','  <link rel="apple-touch-icon" href="apple-touch-icon.png">\n</head>')
           p.write_text(s)
-          m=Path('web/manifest.json'); x=m.read_text(); x=x.replace('"name": "promysel"','"name": "Промысел"').replace('"short_name": "promysel"','"short_name": "Промысел"'); m.write_text(x)
-
-          main=Path('lib/main.dart')
-          src=main.read_text()
-          web_import="import 'package:sqflite_common_ffi_web/sqflite_ffi_web.dart';\n"
-          sq_import="import 'package:sqflite/sqflite.dart';\n"
-          foundation_import="import 'package:flutter/foundation.dart';\n"
-          if web_import not in src:
-              src=web_import+sq_import+foundation_import+src
-          pattern=r'((?:Future<\s*void\s*>|void)\s+main\s*\([^)]*\)\s*(?:async\s*)?\{)'
-          match=re.search(pattern,src)
-          if not match:
-              raise SystemExit('ERROR: main() not found')
+          m=Path('web/manifest.json');x=json.loads(m.read_text());x['name']='Промысел';x['short_name']='Промысел';x['display']='standalone';x['background_color']='#071425';x['theme_color']='#0B4F91';m.write_text(json.dumps(x,ensure_ascii=False,indent=2))
+          main=Path('lib/main.dart');src=main.read_text();web_import="import 'package:sqflite_common_ffi_web/sqflite_ffi_web.dart';\n";sq_import="import 'package:sqflite/sqflite.dart';\n";foundation_import="import 'package:flutter/foundation.dart';\n"
+          if web_import not in src:src=web_import+sq_import+foundation_import+src
+          pattern=r'((?:Future<\s*void\s*>|void)\s+main\s*\([^)]*\)\s*(?:async\s*)?\{)';match=re.search(pattern,src)
+          if not match:raise SystemExit('ERROR: main() not found')
           init="\n  if (kIsWeb) {\n    databaseFactory = databaseFactoryFfiWeb;\n  }\n"
-          if 'databaseFactory = databaseFactoryFfiWeb;' not in src:
-              src=src[:match.end()]+init+src[match.end():]
+          if 'databaseFactory = databaseFactoryFfiWeb;' not in src:src=src[:match.end()]+init+src[match.end():]
           main.write_text(src)
-          print('WEB SQLITE PATCH:', main)
-          print('DATABASE CALLS:')
-          for f in Path('lib').rglob('*.dart'):
-              t=f.read_text(errors='ignore')
-              if 'openDatabase(' in t or 'getDatabasesPath(' in t:
-                  print(f)
           PY
-          test -f web/sqlite3.wasm
-          test -f web/sqflite_sw.js
+          test -f web/sqlite3.wasm;test -f web/sqflite_sw.js;test -f web/apple-touch-icon.png
       - name: Analyze and build web release
         shell: bash
         run: |
-          set -euo pipefail; cd "${{ steps.project.outputs.project_dir }}"
+          set -euo pipefail;cd "${{ steps.project.outputs.project_dir }}"
           flutter analyze --no-fatal-infos --no-fatal-warnings
           flutter build web --release --pwa-strategy=offline-first --dart-define=PROMYSEL_SYNC_URL=https://quumapafagul.beget.app
-          test -f build/web/index.html
-          test -f build/web/flutter_bootstrap.js
-          test -f build/web/manifest.json
-          test -f build/web/sqlite3.wasm
-          test -f build/web/sqflite_sw.js
+          test -f build/web/index.html;test -f build/web/flutter_bootstrap.js;test -f build/web/manifest.json;test -f build/web/sqlite3.wasm;test -f build/web/sqflite_sw.js;test -f build/web/apple-touch-icon.png
       - name: Package iPhone web app
         shell: bash
         run: |
-          set -euo pipefail; cd "${{ steps.project.outputs.project_dir }}"
-          mkdir -p "$GITHUB_WORKSPACE/artifacts"
-          zip -qr "$GITHUB_WORKSPACE/artifacts/promysel-web-iphone.zip" build/web
-          sha256sum "$GITHUB_WORKSPACE/artifacts/promysel-web-iphone.zip"
+          set -euo pipefail;cd "${{ steps.project.outputs.project_dir }}";mkdir -p "$GITHUB_WORKSPACE/artifacts";zip -qr "$GITHUB_WORKSPACE/artifacts/promysel-web-iphone-v1.70.zip" build/web;sha256sum "$GITHUB_WORKSPACE/artifacts/promysel-web-iphone-v1.70.zip"
       - uses: actions/upload-artifact@v4
-        with:
-          name: promysel-web-iphone
-          path: artifacts/promysel-web-iphone.zip
-          retention-days: 30
+        with: {name: promysel-web-iphone-v1.70, path: artifacts/promysel-web-iphone-v1.70.zip, retention-days: 30}
