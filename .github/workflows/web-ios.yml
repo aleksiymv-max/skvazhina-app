@@ -1,0 +1,80 @@
+name: Build Promysel Web for iPhone
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+concurrency:
+  group: promysel-web-ios-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  build:
+    name: Build Promysel Web/PWA for iPhone
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Production endpoint preflight
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE="https://quumapafagul.beget.app"
+          curl --fail --silent --show-error --retry 3 --connect-timeout 10 "$BASE/health" -o /tmp/h.json
+          python3 - <<'PY'
+          import json
+          h=json.load(open('/tmp/h.json'))
+          assert h.get('status')=='ok' and h.get('database') is True
+          print('Production backend healthy')
+          PY
+      - name: Extract base source
+        id: project
+        shell: bash
+        run: |
+          set -euo pipefail
+          DIR="$RUNNER_TEMP/promysel"; rm -rf "$DIR"; mkdir -p "$DIR"
+          unzip -q "$GITHUB_WORKSPACE/neftyanik_v1.24.1_stable_hotfix.zip" -d "$DIR"
+          PROJECT="$(dirname "$(find "$DIR" -name pubspec.yaml -print -quit)")"
+          echo "project_dir=$PROJECT" >> "$GITHUB_OUTPUT"
+      - name: Apply current Promysel updates
+        shell: bash
+        run: |
+          set -euo pipefail; cd "${{ steps.project.outputs.project_dir }}"
+          for s in prepare_promysel_v125.py prepare_promysel_v126.py prepare_promysel_v127.py prepare_promysel_v128.py prepare_promysel_v129.py prepare_promysel_v129_walk.py prepare_promysel_v129_problems.py prepare_promysel_v130.py prepare_promysel_v131.py prepare_promysel_v132.py prepare_promysel_v133.py prepare_promysel_v134.py prepare_promysel_v135.py prepare_promysel_v136.py prepare_promysel_v136_fix.py prepare_promysel_v137.py prepare_promysel_v137_corrections.py prepare_promysel_v138_problem_actions.py prepare_promysel_v139_problem_layout.py prepare_promysel_v140_problem_card.py prepare_promysel_v140_closed_lists.py prepare_promysel_v141_parameter_sync.py prepare_promysel_v142_user_fixes.py prepare_promysel_v143_exact_walk_and_dispatcher.py prepare_promysel_v144_requested_fixes.py prepare_promysel_v145.py prepare_promysel_v146.py prepare_promysel_v147.py prepare_promysel_v148.py prepare_promysel_v149.py prepare_promysel_v150.py prepare_promysel_v151.py prepare_promysel_v152.py prepare_promysel_v153.py prepare_promysel_v154a.py prepare_promysel_v154b.py prepare_promysel_v154c.py prepare_promysel_v154d.py prepare_promysel_v154e.py prepare_promysel_v154f.py prepare_promysel_v154g.py prepare_promysel_v154h.py prepare_promysel_v155.py prepare_promysel_v156.py prepare_promysel_v157a.py prepare_promysel_v157b.py prepare_promysel_v157c.py prepare_promysel_v157d.py prepare_promysel_v159.py; do python3 "$GITHUB_WORKSPACE/tools/$s"; done
+      - uses: subosito/flutter-action@v2
+        with: {channel: stable, cache: true}
+      - name: Create web platform and configure iPhone PWA
+        shell: bash
+        run: |
+          set -euo pipefail; cd "${{ steps.project.outputs.project_dir }}"
+          flutter pub get
+          flutter create --platforms=web --project-name promysel --org ru.promysel .
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('web/index.html'); s=p.read_text()
+          s=s.replace('<title>promysel</title>','<title>Промысел</title>')
+          if 'apple-mobile-web-app-capable' not in s:
+              s=s.replace('</head>','  <meta name="apple-mobile-web-app-capable" content="yes">\n  <meta name="apple-mobile-web-app-status-bar-style" content="default">\n  <meta name="apple-mobile-web-app-title" content="Промысел">\n</head>')
+          p.write_text(s)
+          m=Path('web/manifest.json'); x=m.read_text(); x=x.replace('"name": "promysel"','"name": "Промысел"').replace('"short_name": "promysel"','"short_name": "Промысел"'); m.write_text(x)
+          PY
+      - name: Analyze and build web release
+        shell: bash
+        run: |
+          set -euo pipefail; cd "${{ steps.project.outputs.project_dir }}"
+          flutter analyze --no-fatal-infos --no-fatal-warnings
+          flutter build web --release --pwa-strategy=offline-first --dart-define=PROMYSEL_SYNC_URL=https://quumapafagul.beget.app
+          test -f build/web/index.html
+          test -f build/web/flutter_bootstrap.js
+          test -f build/web/manifest.json
+      - name: Package iPhone web app
+        shell: bash
+        run: |
+          set -euo pipefail; cd "${{ steps.project.outputs.project_dir }}"
+          mkdir -p "$GITHUB_WORKSPACE/artifacts"
+          zip -qr "$GITHUB_WORKSPACE/artifacts/promysel-web-iphone.zip" build/web
+          sha256sum "$GITHUB_WORKSPACE/artifacts/promysel-web-iphone.zip"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: promysel-web-iphone
+          path: artifacts/promysel-web-iphone.zip
+          retention-days: 30
