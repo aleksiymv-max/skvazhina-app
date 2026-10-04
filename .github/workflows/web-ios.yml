@@ -48,15 +48,42 @@ jobs:
           set -euo pipefail; cd "${{ steps.project.outputs.project_dir }}"
           flutter pub get
           flutter create --platforms=web --project-name promysel --org ru.promysel .
+          flutter pub add sqflite_common_ffi_web:^1.2.0
+          dart run sqflite_common_ffi_web:setup --force
           python3 - <<'PY'
           from pathlib import Path
+          import re
           p=Path('web/index.html'); s=p.read_text()
           s=s.replace('<title>promysel</title>','<title>Промысел</title>')
           if 'apple-mobile-web-app-capable' not in s:
               s=s.replace('</head>','  <meta name="apple-mobile-web-app-capable" content="yes">\n  <meta name="apple-mobile-web-app-status-bar-style" content="default">\n  <meta name="apple-mobile-web-app-title" content="Промысел">\n</head>')
           p.write_text(s)
           m=Path('web/manifest.json'); x=m.read_text(); x=x.replace('"name": "promysel"','"name": "Промысел"').replace('"short_name": "promysel"','"short_name": "Промысел"'); m.write_text(x)
+
+          main=Path('lib/main.dart')
+          src=main.read_text()
+          web_import="import 'package:sqflite_common_ffi_web/sqflite_ffi_web.dart';\n"
+          sq_import="import 'package:sqflite/sqflite.dart';\n"
+          foundation_import="import 'package:flutter/foundation.dart';\n"
+          if web_import not in src:
+              src=web_import+sq_import+foundation_import+src
+          pattern=r'((?:Future<\s*void\s*>|void)\s+main\s*\([^)]*\)\s*(?:async\s*)?\{)'
+          match=re.search(pattern,src)
+          if not match:
+              raise SystemExit('ERROR: main() not found')
+          init="\n  if (kIsWeb) {\n    databaseFactory = databaseFactoryFfiWeb;\n  }\n"
+          if 'databaseFactory = databaseFactoryFfiWeb;' not in src:
+              src=src[:match.end()]+init+src[match.end():]
+          main.write_text(src)
+          print('WEB SQLITE PATCH:', main)
+          print('DATABASE CALLS:')
+          for f in Path('lib').rglob('*.dart'):
+              t=f.read_text(errors='ignore')
+              if 'openDatabase(' in t or 'getDatabasesPath(' in t:
+                  print(f)
           PY
+          test -f web/sqlite3.wasm
+          test -f web/sqflite_sw.js
       - name: Analyze and build web release
         shell: bash
         run: |
@@ -66,6 +93,8 @@ jobs:
           test -f build/web/index.html
           test -f build/web/flutter_bootstrap.js
           test -f build/web/manifest.json
+          test -f build/web/sqlite3.wasm
+          test -f build/web/sqflite_sw.js
       - name: Package iPhone web app
         shell: bash
         run: |
