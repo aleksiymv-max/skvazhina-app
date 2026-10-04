@@ -37,43 +37,57 @@ jobs:
         run: |
           set -euo pipefail; DIR="$RUNNER_TEMP/promysel";rm -rf "$DIR";mkdir -p "$DIR";unzip -q "$GITHUB_WORKSPACE/neftyanik_v1.24.1_stable_hotfix.zip" -d "$DIR";PROJECT="$(dirname "$(find "$DIR" -name pubspec.yaml -print -quit)")";echo "project_dir=$PROJECT" >> "$GITHUB_OUTPUT"
       - name: Install image tools
-        run: sudo apt-get update && sudo apt-get install -y imagemagick librsvg2-bin
-      - name: Apply Promysel updates
+        run: sudo apt-get update && sudo apt-get install -y imagemagick
+      - name: Apply Promysel updates and exact approved emblem
         shell: bash
         run: |
           set -euo pipefail;cd "${{ steps.project.outputs.project_dir }}"
           for s in prepare_promysel_v125.py prepare_promysel_v126.py prepare_promysel_v127.py prepare_promysel_v128.py prepare_promysel_v129.py prepare_promysel_v129_walk.py prepare_promysel_v129_problems.py prepare_promysel_v130.py prepare_promysel_v131.py prepare_promysel_v132.py prepare_promysel_v133.py prepare_promysel_v134.py prepare_promysel_v135.py prepare_promysel_v136.py prepare_promysel_v136_fix.py prepare_promysel_v137.py prepare_promysel_v137_corrections.py prepare_promysel_v138_problem_actions.py prepare_promysel_v139_problem_layout.py prepare_promysel_v140_problem_card.py prepare_promysel_v140_closed_lists.py prepare_promysel_v141_parameter_sync.py prepare_promysel_v142_user_fixes.py prepare_promysel_v143_exact_walk_and_dispatcher.py prepare_promysel_v144_requested_fixes.py prepare_promysel_v145.py prepare_promysel_v146.py prepare_promysel_v147.py prepare_promysel_v148.py prepare_promysel_v149.py prepare_promysel_v150.py prepare_promysel_v151.py prepare_promysel_v152.py prepare_promysel_v153.py prepare_promysel_v154a.py prepare_promysel_v154b.py prepare_promysel_v154c.py prepare_promysel_v154d.py prepare_promysel_v154e.py prepare_promysel_v154f.py prepare_promysel_v154g.py prepare_promysel_v154h.py prepare_promysel_v155.py prepare_promysel_v156.py prepare_promysel_v157a.py prepare_promysel_v157b.py prepare_promysel_v157c.py prepare_promysel_v157d.py prepare_promysel_v159.py prepare_promysel_v170.py;do python3 "$GITHUB_WORKSPACE/tools/$s";done
           mkdir -p assets/icon
-          rsvg-convert -w 1024 -h 1024 "$GITHUB_WORKSPACE/assets/promysel_icon_modern.svg" -o assets/icon/app_icon.png
+          python3 - <<'PY'
+          from pathlib import Path
+          import re,base64
+          s=Path("$GITHUB_WORKSPACE/assets/promysel_icon_modern.svg").read_text()
+          m=re.search(r'data:image/(?:jpeg|jpg|png);base64,([^"\']+)',s)
+          assert m,'approved emblem payload not found'
+          raw=base64.b64decode(m.group(1)); Path('assets/icon/approved_source.img').write_bytes(raw)
+          print('Approved emblem extracted directly:',len(raw),'bytes')
+          PY
+          convert assets/icon/approved_source.img -resize 1024x1024 assets/icon/app_icon.png
           cp assets/icon/app_icon.png assets/icon/app_icon_foreground.png
+          identify assets/icon/app_icon.png
+          test "$(identify -format '%w' assets/icon/app_icon.png)" = 1024
+          test "$(identify -format '%h' assets/icon/app_icon.png)" = 1024
       - name: Full generated source preflight
         shell: bash
         run: |
-          set -euo pipefail;cd "${{ steps.project.outputs.project_dir }}";mkdir -p "$GITHUB_WORKSPACE/artifacts";zip -qr "$GITHUB_WORKSPACE/artifacts/promysel-v1.70-source.zip" . -x 'android/*' 'build/*' '.dart_tool/*';unzip -t "$GITHUB_WORKSPACE/artifacts/promysel-v1.70-source.zip" >/dev/null
+          set -euo pipefail;cd "${{ steps.project.outputs.project_dir }}";mkdir -p "$GITHUB_WORKSPACE/artifacts";zip -qr "$GITHUB_WORKSPACE/artifacts/promysel-v1.78-source.zip" . -x 'android/*' 'build/*' '.dart_tool/*';unzip -t "$GITHUB_WORKSPACE/artifacts/promysel-v1.78-source.zip" >/dev/null
       - uses: actions/upload-artifact@v4
-        with: {name: promysel-v1.70-source, path: artifacts/promysel-v1.70-source.zip, retention-days: 30}
+        with: {name: promysel-v1.78-source, path: artifacts/promysel-v1.78-source.zip, retention-days: 30}
       - uses: subosito/flutter-action@v2
         with: {channel: stable, cache: true}
       - name: Get dependencies and analyze
         shell: bash
         run: |
           cd "${{ steps.project.outputs.project_dir }}";flutter pub get;flutter analyze --no-fatal-infos --no-fatal-warnings
-      - name: Create Android project
+      - name: Create Android project with approved launcher icon
         shell: bash
         run: |
           set -euo pipefail;cd "${{ steps.project.outputs.project_dir }}";rm -rf android;flutter create --platforms=android --project-name promysel --org ru.promysel .
           M=android/app/src/main/AndroidManifest.xml;sed -i '/<manifest/a\\    <uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.CAMERA" />' "$M";sed -i 's/android:label="[^"]*"/android:label="Промысел"/' "$M"
           rm -f android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml android/app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml
-          declare -A z=([mdpi]=48 [hdpi]=72 [xhdpi]=96 [xxhdpi]=144 [xxxhdpi]=192);for d in mdpi hdpi xhdpi xxhdpi xxxhdpi;do o="android/app/src/main/res/mipmap-$d";mkdir -p "$o";convert assets/icon/app_icon.png -resize "${z[$d]}x${z[$d]}" "$o/ic_launcher.png";cp "$o/ic_launcher.png" "$o/ic_launcher_round.png";done;sed -i 's#android:icon="[^"]*"#android:icon="@mipmap/ic_launcher"#' "$M"
+          declare -A z=([mdpi]=48 [hdpi]=72 [xhdpi]=96 [xxhdpi]=144 [xxxhdpi]=192);for d in mdpi hdpi xhdpi xxhdpi xxxhdpi;do o="android/app/src/main/res/mipmap-$d";mkdir -p "$o";convert assets/icon/app_icon.png -resize "${z[$d]}x${z[$d]}" "$o/ic_launcher.png";cp "$o/ic_launcher.png" "$o/ic_launcher_round.png";done
+          sed -i 's#android:icon="[^"]*"#android:icon="@mipmap/ic_launcher"#' "$M"
+          test "$(identify -format '%w' android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png)" = 192
       - name: Build optimized ARM64 APK and report size
         shell: bash
         run: |
           set -euo pipefail;cd "${{ steps.project.outputs.project_dir }}"
           rm -rf "$GITHUB_WORKSPACE/artifacts/symbols";mkdir -p "$GITHUB_WORKSPACE/artifacts/symbols" "$GITHUB_WORKSPACE/artifacts/apk"
           flutter build apk --release --target-platform android-arm64 --tree-shake-icons --obfuscate --split-debug-info="$GITHUB_WORKSPACE/artifacts/symbols" --dart-define=PROMYSEL_SYNC_URL=https://quumapafagul.beget.app
-          cp build/app/outputs/flutter-apk/app-release.apk "$GITHUB_WORKSPACE/artifacts/apk/promysel-v1.70-arm64.apk"
-          sha256sum "$GITHUB_WORKSPACE/artifacts/apk/promysel-v1.70-arm64.apk"
+          cp build/app/outputs/flutter-apk/app-release.apk "$GITHUB_WORKSPACE/artifacts/apk/promysel-v1.78-arm64.apk"
+          sha256sum "$GITHUB_WORKSPACE/artifacts/apk/promysel-v1.78-arm64.apk"
       - uses: actions/upload-artifact@v4
-        with: {name: promysel-v1.70-arm64-android, path: artifacts/apk/promysel-v1.70-arm64.apk, retention-days: 30}
+        with: {name: promysel-v1.78-arm64-android, path: artifacts/apk/promysel-v1.78-arm64.apk, retention-days: 30}
       - uses: actions/upload-artifact@v4
-        with: {name: promysel-v1.70-debug-symbols, path: artifacts/symbols/**, retention-days: 30}
+        with: {name: promysel-v1.78-debug-symbols, path: artifacts/symbols/**, retention-days: 30}
