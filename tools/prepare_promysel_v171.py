@@ -1,0 +1,101 @@
+from pathlib import Path
+import re
+r=Path.cwd()
+
+# v1.71: stable problem history, cross-user tasks, bulk operator assignment, synced avatars.
+
+# 1) All production employees can issue/receive/complete/confirm their own tasks.
+p=r/'lib/core/models/user.dart';s=p.read_text()
+s=s.replace("bool get canCreateTask => isItr || role == UserRole.shopChief;","bool get canCreateTask => role != UserRole.admin;")
+s=s.replace("bool get canConfirmTask => isItr || role == UserRole.shopChief;","bool get canConfirmTask => role != UserRole.admin;")
+s=s.replace("bool get canCompleteTask => role == UserRole.operator || isItr || role == UserRole.shopChief;","bool get canCompleteTask => role != UserRole.admin;")
+p.write_text(s)
+
+# 2) Task UI: everyone can choose any employee; master/chief can create one personal task for every operator.
+p=r/'lib/features/tasks/tasks_screen.dart';s=p.read_text()
+s=s.replace("final people=SessionService.instance.approvedWorkers.where((x)=>SessionService.instance.isAtWork(x.id)).toList();","final people=SessionService.instance.approvedWorkers.where((x)=>x.role!=UserRole.admin).toList();final me=SessionService.instance.currentUser;final canAllOperators=me.role==UserRole.shopChief||(me.role==UserRole.engineer&&me.itrSubrole==ItrSubrole.master);const allOperatorsId='__all_operators__';")
+s=s.replace("items:_targets(type,people).map((x)=>DropdownMenuItem(value:x.$1,child:Text(x.$2,overflow:TextOverflow.ellipsis))).toList()","items:[if(type==WorkTaskTarget.personal&&canAllOperators)const DropdownMenuItem(value:allOperatorsId,child:Text('Все операторы')), ..._targets(type,people).map((x)=>DropdownMenuItem(value:x.$1,child:Text(x.$2,overflow:TextOverflow.ellipsis)))]")
+s=s.replace("onChanged:(v)=>setD((){targetId=v!;targetName=_targets(type,people).firstWhere((x)=>x.$1==v).$2;})","onChanged:(v)=>setD((){targetId=v!;targetName=v==allOperatorsId?'Все операторы':_targets(type,people).firstWhere((x)=>x.$1==v).$2;})")
+old="store.add(WorkTask(id:DateTime.now().microsecondsSinceEpoch.toString(),title:title.text.trim(),description:desc.text.trim(),createdBy:SessionService.instance.currentUser.name,createdById:SessionService.instance.currentUser.id,createdAt:DateTime.now(),targetType:type,targetId:targetId,targetName:targetName));Navigator.pop(c);"
+new="if(type==WorkTaskTarget.personal&&targetId==allOperatorsId&&canAllOperators){final ops=people.where((x)=>x.role==UserRole.operator).toList();final batch=DateTime.now().microsecondsSinceEpoch;for(var i=0;i<ops.length;i++){final op=ops[i];store.add(WorkTask(id:'${batch}_$i',title:title.text.trim(),description:desc.text.trim(),createdBy:me.name,createdById:me.id,createdAt:DateTime.now(),targetType:WorkTaskTarget.personal,targetId:op.id,targetName:op.name));}}else{store.add(WorkTask(id:DateTime.now().microsecondsSinceEpoch.toString(),title:title.text.trim(),description:desc.text.trim(),createdBy:me.name,createdById:me.id,createdAt:DateTime.now(),targetType:type,targetId:targetId,targetName:targetName));}Navigator.pop(c);"
+if old not in s: raise SystemExit('v171 task create anchor missing')
+s=s.replace(old,new)
+# Ensure initial personal switch has a valid employee and never crashes on an empty target list.
+s=s.replace("final x=_targets(type,people).first;targetId=x.$1;targetName=x.$2;","final xs=_targets(type,people);if(xs.isNotEmpty){final x=xs.first;targetId=x.$1;targetName=x.$2;}")
+p.write_text(s)
+
+# 3) History: cache resolved-problem Future instead of recreating it on every rebuild (removes empty-state flashing).
+p=r/'lib/features/history/history_screen.dart';s=p.read_text()
+s=s.replace("final taskSearch=TextEditingController(),problemSearch=TextEditingController();","final taskSearch=TextEditingController(),problemSearch=TextEditingController();\n  late Future<List<Measurement>> _resolvedProblemsFuture;")
+s=s.replace("void _refreshHistory(){if(mounted)setState((){});}","void _refreshHistory(){if(mounted)setState((){_resolvedProblemsFuture=repo.resolvedProblems();});}")
+s=s.replace("super.initState();padId=demoPads.first.id;_setWell();WorkTaskStore.instance.addListener(_refreshHistory);MeasurementRepository.problemRevision.addListener(_refreshHistory);_load();","super.initState();padId=demoPads.first.id;_setWell();_resolvedProblemsFuture=repo.resolvedProblems();WorkTaskStore.instance.addListener(_refreshHistory);MeasurementRepository.problemRevision.addListener(_refreshHistory);_load();")
+s=s.replace("FutureBuilder<List<Measurement>>(future:repo.resolvedProblems()","FutureBuilder<List<Measurement>>(future:_resolvedProblemsFuture")
+p.write_text(s)
+
+# 4) Cross-platform avatar store: bytes/base64, not device-local file paths. Included in app_state server sync.
+av=r/'lib/core/services/avatar_store.dart'
+av.write_text(r'''import 'dart:convert';
+import 'dart:typed_data';
+import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+class AvatarStore extends ChangeNotifier{
+ AvatarStore._();static final instance=AvatarStore._();static const _key='promysel_avatars_v1';
+ final Map<String,String> data={};bool _loaded=false;
+ Future<void> ensureLoaded()async{if(_loaded)return;_loaded=true;final p=await SharedPreferences.getInstance();final raw=p.getString(_key);if(raw!=null&&raw.isNotEmpty){try{final m=jsonDecode(raw);if(m is Map)for(final e in m.entries){if(e.value is String)data[e.key.toString()]=e.value;}}catch(_){}}notifyListeners();}
+ Uint8List? bytes(String userId){final x=data[userId];if(x==null||x.isEmpty)return null;try{return base64Decode(x);}catch(_){return null;}}
+ Future<void> setBytes(String userId,List<int> bytes)async{data[userId]=base64Encode(bytes);await _save();notifyListeners();}
+ Future<void> apply(Map raw)async{data.clear();for(final e in raw.entries){if(e.value is String)data[e.key.toString()]=e.value;}await _save();notifyListeners();}
+ Future<void> _save()async{final p=await SharedPreferences.getInstance();await p.setString(_key,jsonEncode(data));}
+}
+''')
+
+# Profile: use XFile bytes/MemoryImage on Android and Web/iPhone, then mark shared state dirty.
+p=r/'lib/features/organization/profile_screen.dart';s=p.read_text()
+s=s.replace("import 'dart:io';\n","")
+s=s.replace("import '../../core/services/session_service.dart';","import '../../core/services/session_service.dart';\nimport '../../core/services/avatar_store.dart';\nimport '../../core/services/sync_service.dart';")
+s=s.replace(" String? photoPath; final picker=ImagePicker(); final secure=const FlutterSecureStorage();"," final picker=ImagePicker(); final secure=const FlutterSecureStorage();")
+s=s.replace("Future<void> _loadPhoto()async{photoPath=await secure.read(key:'profile_photo');if(mounted)setState((){});}","Future<void> _loadPhoto()async{await AvatarStore.instance.ensureLoaded();if(mounted)setState((){});}")
+s=s.replace("CircleAvatar(radius:58,backgroundImage:photoPath==null?null:FileImage(File(photoPath!)),child:photoPath==null?const Icon(Icons.person_outline,size:64):null)","ListenableBuilder(listenable:AvatarStore.instance,builder:(context,_){final b=AvatarStore.instance.bytes(u.id);return CircleAvatar(radius:58,backgroundImage:b==null?null:MemoryImage(b),child:b==null?const Icon(Icons.person_outline,size:64):null);})")
+s=s.replace("if(f!=null){await secure.write(key:'profile_photo',value:f.path);if(mounted)setState(()=>photoPath=f.path);}","if(f!=null){final bytes=await f.readAsBytes();await AvatarStore.instance.setBytes(SessionService.instance.currentUser.id,bytes);SyncService.instance.markStateDirty();if(mounted)setState((){});}")
+p.write_text(s)
+
+# Personnel: render synced bytes rather than local File paths.
+p=r/'lib/features/organization/personnel_screen.dart';s=p.read_text()
+s=s.replace("import 'dart:io';\n","")
+s=s.replace("import '../../core/services/session_service.dart';","import '../../core/services/session_service.dart';\nimport '../../core/services/avatar_store.dart';")
+old="final path=SessionService.instance.avatarPathFor(u.id);\n    if(path!=null&&path.isNotEmpty&&File(path).existsSync())return CircleAvatar(backgroundImage:FileImage(File(path)));"
+new="final bytes=AvatarStore.instance.bytes(u.id);\n    if(bytes!=null)return CircleAvatar(backgroundImage:MemoryImage(bytes));"
+s=s.replace(old,new)
+# Rebuild personnel when remote/local avatar changes.
+s=s.replace("super.initState(){super.initState();SessionService.instance.addListener(_changed);}","super.initState(){super.initState();SessionService.instance.addListener(_changed);AvatarStore.instance.addListener(_changed);AvatarStore.instance.ensureLoaded();}")
+s=s.replace("SessionService.instance.removeListener(_changed);super.dispose();","SessionService.instance.removeListener(_changed);AvatarStore.instance.removeListener(_changed);super.dispose();")
+p.write_text(s)
+
+# App state: avatars travel through the existing server-synchronized app_state payload.
+p=r/'lib/core/services/app_state_store.dart';s=p.read_text()
+s=s.replace("import 'problem_application_store.dart';","import 'problem_application_store.dart';\nimport 'avatar_store.dart';")
+s=s.replace("'problemApplications':apps};","'problemApplications':apps,'avatars':AvatarStore.instance.data};")
+anchor="final pa=s['problemApplications'];if(pa is Map){ProblemApplicationStore.instance.data.clear();for(final e in pa.entries){final v=Map<String,dynamic>.from(e.value as Map);ProblemApplicationStore.instance.data[int.parse(e.key.toString())]=((v['name']??'—').toString(),DateTime.tryParse((v['date']??'').toString())??DateTime.now());}ProblemApplicationStore.instance.notifyListeners();}"
+if anchor not in s: raise SystemExit('v171 app-state anchor missing')
+s=s.replace(anchor,anchor+"\n  final avatars=s['avatars'];if(avatars is Map)await AvatarStore.instance.apply(avatars);")
+p.write_text(s)
+
+# Sync reacts to avatar changes exactly like tasks/config/problems.
+p=r/'lib/core/services/sync_service.dart';s=p.read_text()
+s=s.replace("import 'problem_application_store.dart';","import 'problem_application_store.dart';\nimport 'avatar_store.dart';")
+s=s.replace("ProblemApplicationStore.instance.addListener(_stateChanged); if(_online", "ProblemApplicationStore.instance.addListener(_stateChanged);AvatarStore.instance.addListener(_stateChanged); if(_online")
+s=s.replace("ProblemApplicationStore.instance.removeListener(_stateChanged);super.dispose();", "ProblemApplicationStore.instance.removeListener(_stateChanged);AvatarStore.instance.removeListener(_stateChanged);super.dispose();")
+p.write_text(s)
+
+# Version.
+p=r/'pubspec.yaml';s=p.read_text();s=re.sub(r'version:\s*[^\n]+','version: 1.71.0+175',s,count=1);p.write_text(s)
+
+# Gates.
+user=(r/'lib/core/models/user.dart').read_text();tasks=(r/'lib/features/tasks/tasks_screen.dart').read_text();hist=(r/'lib/features/history/history_screen.dart').read_text();state=(r/'lib/core/services/app_state_store.dart').read_text();sync=(r/'lib/core/services/sync_service.dart').read_text();prof=(r/'lib/features/organization/profile_screen.dart').read_text()
+assert 'role != UserRole.admin' in user
+assert "allOperatorsId='__all_operators__'" in tasks and "x.role==UserRole.operator" in tasks
+assert 'future:_resolvedProblemsFuture' in hist
+assert "'avatars':AvatarStore.instance.data" in state and "AvatarStore.instance.apply" in state
+assert 'AvatarStore.instance.addListener(_stateChanged)' in sync
+assert 'f.readAsBytes()' in prof and 'MemoryImage' in prof
+print('v1.71 tasks/history/avatar server-sync gates passed')
