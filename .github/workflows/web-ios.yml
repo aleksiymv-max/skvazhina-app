@@ -91,3 +91,43 @@ jobs:
           set -euo pipefail;cd "${{ steps.project.outputs.project_dir }}";mkdir -p "$GITHUB_WORKSPACE/artifacts";zip -qr "$GITHUB_WORKSPACE/artifacts/promysel-web-iphone-v1.70.zip" build/web;sha256sum "$GITHUB_WORKSPACE/artifacts/promysel-web-iphone-v1.70.zip"
       - uses: actions/upload-artifact@v4
         with: {name: promysel-web-iphone-v1.70, path: artifacts/promysel-web-iphone-v1.70.zip, retention-days: 30}
+      - name: Configure production SSH
+        shell: bash
+        env:
+          DEPLOY_KEY: ${{ secrets.PROMYSEL_DEPLOY_SSH_KEY }}
+          DEPLOY_HOST: ${{ secrets.PROMYSEL_DEPLOY_HOST }}
+        run: |
+          set -euo pipefail
+          test -n "$DEPLOY_KEY";test -n "$DEPLOY_HOST"
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$DEPLOY_KEY" > ~/.ssh/promysel_deploy
+          chmod 600 ~/.ssh/promysel_deploy
+          ssh-keyscan -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts
+      - name: Deploy Web/PWA to production
+        shell: bash
+        env:
+          DEPLOY_HOST: ${{ secrets.PROMYSEL_DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.PROMYSEL_DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          PROJECT="${{ steps.project.outputs.project_dir }}"
+          SSH="ssh -i $HOME/.ssh/promysel_deploy -o BatchMode=yes"
+          SCP="scp -i $HOME/.ssh/promysel_deploy -o BatchMode=yes"
+          $SCP "$PROJECT/build/web.tar.gz" "$DEPLOY_USER@$DEPLOY_HOST:/tmp/promysel-web.tar.gz" 2>/dev/null || {
+            tar -C "$PROJECT/build/web" -czf /tmp/promysel-web.tar.gz .
+            $SCP /tmp/promysel-web.tar.gz "$DEPLOY_USER@$DEPLOY_HOST:/tmp/promysel-web.tar.gz"
+          }
+          $SSH "$DEPLOY_USER@$DEPLOY_HOST" 'set -e; rm -rf /var/www/promysel.new; mkdir -p /var/www/promysel.new; tar -xzf /tmp/promysel-web.tar.gz -C /var/www/promysel.new; test -f /var/www/promysel.new/index.html; test -f /var/www/promysel.new/sqlite3.wasm; test -f /var/www/promysel.new/sqflite_sw.js; rm -rf /var/www/promysel.prev; if [ -d /var/www/promysel ]; then mv /var/www/promysel /var/www/promysel.prev; fi; mv /var/www/promysel.new /var/www/promysel; chown -R www-data:www-data /var/www/promysel; nginx -t; systemctl reload nginx; rm -f /tmp/promysel-web.tar.gz'
+      - name: Verify production deployment
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE="https://quumapafagul.beget.app"
+          curl --fail --silent --show-error --retry 5 --retry-delay 2 "$BASE/" -o /tmp/index.html
+          grep -q 'flutter_bootstrap.js' /tmp/index.html
+          curl --fail --silent --show-error "$BASE/health" -o /tmp/health.json
+          python3 - <<'PY'
+          import json
+          h=json.load(open('/tmp/health.json'));assert h.get('status')=='ok' and h.get('database') is True
+          print('Production Web/PWA deployment verified')
+          PY
