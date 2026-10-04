@@ -12,5 +12,5 @@ method=r''' Future<void> _create()async{
 s=s[:start]+method+s[end:];p.write_text(s)
 p=r/'pubspec.yaml';v=p.read_text();v=re.sub(r'version:\s*[^\n]+','version: 1.72.0+176',v,count=1);p.write_text(v)
 t=(r/'lib/features/tasks/tasks_screen.dart').read_text();assert "value:'allOperators',child:Text('Всем операторам')" in t;assert "key:ValueKey('target-$mode-$targetId')" in t;assert "'personal'=>people.map" in t;print('v1.72 task assignment flow gates passed')
-# Chain v1.73 into every existing release workflow.
-v173=(Path(__file__).with_name('prepare_promysel_v173.py')).read_text();exec(compile(v173,'prepare_promysel_v173.py','exec'),{'__name__':'__main__','__file__':str(Path(__file__).with_name('prepare_promysel_v173.py'))})
+# Chain deterministic v1.74 patch; v1.73 was superseded after its profile anchors failed CI.
+v174=(Path(__file__).with_name('prepare_promysel_v174.py')).read_text();exec(compile(v174,'prepare_promysel_v174.py','exec'),{'__name__':'__main__','__file__':str(Path(__file__).with_name('prepare_promysel_v174.py'))})
