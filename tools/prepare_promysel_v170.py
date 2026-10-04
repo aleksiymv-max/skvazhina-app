@@ -35,6 +35,8 @@ checks={'home_uses_human_field_name':'fieldName(' in h or 'displayFieldName(' in
 print('V170 FIELD/PWA PERFORMANCE GATES',checks,flush=True);bad=[k for k,v in checks.items() if not v];assert not bad,'v1.70 gate failed: '+', '.join(bad)
 print('v1.70 human field labels + nonblocking PWA startup passed')
 
-# Apply v1.71 to every workflow that already ends with v1.70.
+# Apply the current release patch chain, then the compile hotfix.
 v171=(Path(__file__).with_name('prepare_promysel_v171.py')).read_text()
 exec(compile(v171,'prepare_promysel_v171.py','exec'),{'__name__':'__main__','__file__':str(Path(__file__).with_name('prepare_promysel_v171.py'))})
+vfix=(Path(__file__).with_name('prepare_promysel_v176_fix.py')).read_text()
+exec(compile(vfix,'prepare_promysel_v176_fix.py','exec'),{'__name__':'__main__','__file__':str(Path(__file__).with_name('prepare_promysel_v176_fix.py'))})
