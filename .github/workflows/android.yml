@@ -46,8 +46,8 @@ jobs:
           mkdir -p assets/icon
           python3 - <<'PY'
           from pathlib import Path
-          import re,base64
-          s=Path("$GITHUB_WORKSPACE/assets/promysel_icon_modern.svg").read_text()
+          import re,base64,os
+          s=(Path(os.environ['GITHUB_WORKSPACE'])/'assets/promysel_icon_modern.svg').read_text()
           m=re.search(r'data:image/(?:jpeg|jpg|png);base64,([^"\']+)',s)
           assert m,'approved emblem payload not found'
           raw=base64.b64decode(m.group(1)); Path('assets/icon/approved_source.img').write_bytes(raw)
