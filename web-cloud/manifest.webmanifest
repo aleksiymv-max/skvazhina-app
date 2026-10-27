@@ -1,1 +1,10 @@
-{"name":"Промысел Cloud","short_name":"Промысел","start_url":"https://xptmcufhuvtcunqzlsme.supabase.co/functions/v1/promysel-web/","scope":"https://xptmcufhuvtcunqzlsme.supabase.co/functions/v1/promysel-web/","display":"standalone","background_color":"#f3f6fb","theme_color":"#0b2441","lang":"ru"}
+{
+  "name": "Промысел Cloud",
+  "short_name": "Промысел",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f3f6fb",
+  "theme_color": "#0b2441",
+  "lang": "ru"
+}
