@@ -1,31 +1,53 @@
-# Promysel → Supabase (isolated migration)
+# Promysel → isolated Supabase deployment
 
-**Target:** project `promysel-app` in organization Promysel; ref `xptmcufhuvtcunqzlsme`.
-**Do not use:** `sambo-academy` or `nabdooqbunipkwkmdufn`.
+**Target:** `promysel-app` / project ref `xptmcufhuvtcunqzlsme`. Do not alter `sambo-academy`.
 
-## Current verified state (27 October 2026)
+## URLs for the iPhone
 
-- Applied Postgres migrations: `20261027113734_promysel_secure_initial_schema`, `20261027113849_promysel_security_and_indexes`.
-- Database: 10 tables in public, RLS enabled on all. Auth user, field, and membership counts are zero. No production data has been imported.
-- Edge function: `promysel-sync`, HTTP endpoints `GET /health`, `POST /v1/sync/push`, and `GET /v1/sync/pull`.
-- JWT is verified in the function using `supabase.auth.getUser` and a field membership check; platform `verify_jwt` is off only to allow browser CORS preflight and in-function authentication. Anonymous requests to push/pull return 401.
-- Field, well, personnel, and measurements are isolated by `field_id`. An employee must have an approved, non-blocked membership before accessing field data.
-- Raw `app_state` snapshots can only be written by `engineer`, `shopChief`, or `admin`; operators cannot modify all field structures via an unvalidated snapshot.
-- The existing Flutter PWA still uses `PROMYSEL_SYNC_URL=https://quumapafagul.beget.app`. **It is NOT yet connected to Supabase for login or saving live user data.**
+- **Supabase-backed preview:** https://xptmcufhuvtcunqzlsme.supabase.co/functions/v1/promysel-web/
+- **Existing production Flutter web on Beget:** https://quumapafagul.beget.app/
+- The preview is a separately authored mobile-first cloud client. It does **not** claim full feature or visual parity with the Flutter release. Existing production users and data are not migrated.
+- The last GitHub Actions run that verified publication of Flutter web was 2026-10-04 (run 37204055554). On 2026-10-09 Flutter built successfully but artifact upload quota blocked deployment. On 2026-10-27 new jobs failed before starting any runner steps; this is a GitHub Actions infrastructure/account blocker, not a successful new Flutter test.
 
-## Blockers before production cutover
+## Supabase: current verified state (27 October 2026)
 
-1. The legacy production server uses custom password hashes and opaque sessions, not Supabase Auth JWTs. Do not redirect the Flutter client to `promysel-sync` without provisioning/migrating real users and modifying login/token refresh and role handling.
-2. Transfer the real PostgreSQL data and map legacy user IDs to new `auth.users.id` records. Do not commit password hashes, tokens, production database dumps, SMTP keys, or service-role secrets.
-3. Implement the whole existing registration and chief/admin-approval lifecycle against Supabase Auth/Edge Functions and preserve role matrix. The existing remote Beget server must stay as an unchanged fallback.
-4. Refactor monolithic `app_state` writes into per-entity changes before operator-level writes are enabled; otherwise an operator could replace field-wide hierarchies.
-5. Check actual production-to-cloud record counts, data integrity and deduplication, RLS for each role, and web + Android builds before switching the URL.
-6. GitHub Actions jobs created 27 October 2026 were marked failed **before any steps were started**; investigate GitHub account/Actions runner billing/quota. The iPhone deploy workflow has been changed to continue deployment even if optional artifact upload hits its storage quota.
+- **12 RLS-protected public tables**: oil_fields, field_memberships, production_areas, pads, wells, walk_measurements, measurement_corrections, field_records, sync_events, registration_requests, personnel_audit, record_action_audit.
+- **6 applied schema migrations** under `supabase/migrations/` in this repository.
+- **3 ACTIVE Edge Functions** under `supabase/functions/`: `promysel-sync`, `promysel-web`, `promysel-admin`.
+- Security advisor: zero outstanding lint findings on last inspection.
+- **No actual user/field/well/measurement production records are in this project yet.** Temporary SQL test data was rolled back.
+- Browser client uses only a public Supabase publishable API key. `service_role` remains on server-side Edge Functions only.
+- The original production Beget server has not been changed or replaced.
 
-## Deployment
+### Verified database workflows (transactional tests with rollback)
 
-The existing iPhone PWA target is `https://quumapafagul.beget.app/` on Beget. A GitHub Pages site has not been configured by these changes. The last verified successful website deployment was 4 October 2026 (Actions run `37204055554`).
+1. Operators only see their field and can create walk measurements; cannot modify structure or historic measurements.
+2. Masters can manage tasks and staff but cannot change structure or correct history.
+3. Geologists can add/edit structure and correct measurements, but cannot delete areas/pads/wells.
+4. Leading geologists/technologists and the shop chief have deletion rights.
+5. Dispatchers cannot enter walks, but can file a problem application; it generates an audit row.
+6. Operators can mark tasks done through protected RPC, generating a record-action audit row.
+7. Historic corrections require a reason and generate immutable `measurement_corrections` audit rows.
+8. Approved applicant receives a field membership, request decision, and personnel audit atomically.
+9. Database security advisor returned no findings after changes.
 
-Supabase cloud health endpoint (diagnostic, not the app): `https://xptmcufhuvtcunqzlsme.supabase.co/functions/v1/promysel-sync/health`.
+These verify database authorization *logic*, **not** full mobile device end-to-end operation.
 
-Do not treat a successful HTTP health result as authentication, role, synchronization, or iPhone PWA end-to-end test.
+## Registration and admin bootstrap
+
+The cloud preview supports Supabase Auth email+password sign-up and sign-in, followed by a pending application. A new field is not auto-approved.
+
+The first system admin must sign up with an email they control, confirm it, and have `auth.users.raw_app_meta_data.system_admin` set to `true` by an authorized Supabase administrator. Never trust editable user metadata or promote arbitrary unverified accounts. Once this administrator exists, the cloud app can approve the first new-field chief request. A chief can subsequently approve staff in their own field.
+
+People with authorized roles can change employee roles or block access without deleting their work history. The server enforces the authoritative 2026 access matrix.
+
+## Remaining requirements before full production migration
+
+1. **Export the real Beget PostgreSQL data** through an authorized secure channel, including fields, employees, wells, historical measurements, tasks, problems, annulus readings and user-ID mapping. Never push database dumps, password hashes or secret tokens into GitHub.
+2. Migrate users through Supabase Auth with secure invitation/password-reset flow. Legacy opaque bearer tokens/password hashes cannot simply be reused as Supabase JWTs.
+3. Modify the existing **Flutter app's** authentication, session refresh and sync transport. Its current `PROMYSEL_SYNC_URL` still points to Beget; redirecting that URL now will break logins.
+4. Restore GitHub Actions runner availability and re-run Flutter web + Android validations. The workflow now treats artifact upload quota as nonfatal for web deployment, but no new runner executed yet.
+5. Compare imported record counts, unique IDs and history snapshots; test all roles and data privacy; verify the actual iPhone Safari/PWA experience.
+6. Only after these gates pass, perform cutover from Beget with a rollback plan.
+
+**Do not call the Flutter migration completed until the original app is wired to Supabase, production data is reconciled, and the new web release is successfully built and verified.**
