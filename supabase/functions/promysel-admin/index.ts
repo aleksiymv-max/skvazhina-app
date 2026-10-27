@@ -45,6 +45,14 @@ Deno.serve(async (request:Request)=>{
   if(request.method!=="POST")return json({detail:"Метод не поддерживается"},405);
   const body=await request.json();
   if(!body||typeof body!=="object"||Array.isArray(body))return json({detail:"Некорректный запрос"},400);
+  if(route==="task-complete"||route==="problem-application"){
+    const recordId=String(body.recordId??"").trim();
+    if(!recordId||recordId.length>300)return json({detail:"Некорректный номер записи"},400);
+    const operation=route==="task-complete"?"promysel_mark_task_done":"promysel_submit_problem_application";
+    const {data,error}=await admin.rpc(operation,{p_record:recordId,p_actor:actor.id});
+    if(error)return json({detail:error.message},403);
+    return json(data);
+  }
   if(route==="approve"||route==="reject"){
    const n=Number(body.requestId);
    if(!Number.isSafeInteger(n)||n<=0)return json({detail:"Некорректный номер заявки"},400);
