@@ -1,6 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2.57.0";
 const project="https://xptmcufhuvtcunqzlsme.supabase.co";
-const cors={"Access-Control-Allow-Origin":project,"Vary":"Origin","Access-Control-Allow-Headers":"authorization,apikey,content-type,x-client-info","Access-Control-Allow-Methods":"GET,POST,OPTIONS","Content-Type":"application/json; charset=utf-8","Cache-Control":"no-store"};
+const cors={"Access-Control-Allow-Origin":"*","Vary":"Origin","Access-Control-Allow-Headers":"authorization,apikey,content-type,x-client-info","Access-Control-Allow-Methods":"GET,POST,OPTIONS","Content-Type":"application/json; charset=utf-8","Cache-Control":"no-store"};
 const json=(v:unknown,status=200)=>new Response(JSON.stringify(v),{status,headers:cors});
 type AuthUser={id:string,app_metadata?:Record<string,unknown>,email?:string};
 Deno.serve(async (request:Request)=>{
