@@ -25,6 +25,18 @@ jobs:
           h=json.load(open('/tmp/h.json'));assert h.get('status')=='ok' and h.get('database') is True
           print('Production backend healthy')
           PY
+      - name: Verify independent Supabase foundation
+        shell: bash
+        run: |
+          set -euo pipefail
+          CLOUD="https://xptmcufhuvtcunqzlsme.supabase.co/functions/v1/promysel-sync"
+          curl --fail --silent --show-error --retry 3 --connect-timeout 10 "$CLOUD/health" -o /tmp/promysel-cloud.json
+          python3 - <<'PY'
+          import json
+          j=json.load(open('/tmp/promysel-cloud.json'))
+          assert j.get('status')=='ok' and j.get('service')=='promysel-sync',j
+          print('Independent Supabase foundation is available')
+          PY
       - name: Extract base source
         id: project
         shell: bash
@@ -89,8 +101,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail;cd "${{ steps.project.outputs.project_dir }}";mkdir -p "$GITHUB_WORKSPACE/artifacts";zip -qr "$GITHUB_WORKSPACE/artifacts/promysel-web-iphone-v1.70.zip" build/web;sha256sum "$GITHUB_WORKSPACE/artifacts/promysel-web-iphone-v1.70.zip"
+      # Artifacts are optional: exhausted artifact storage must not block the live iPhone deployment.
       - uses: actions/upload-artifact@v4
-        with: {name: promysel-web-iphone-v1.70, path: artifacts/promysel-web-iphone-v1.70.zip, retention-days: 30}
+        continue-on-error: true
+        with: {name: promysel-web-iphone-v1.70, path: artifacts/promysel-web-iphone-v1.70.zip, retention-days: 3}
       - name: Configure production SSH
         shell: bash
         env:
