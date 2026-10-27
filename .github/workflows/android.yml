@@ -37,20 +37,20 @@ jobs:
         run: |
           set -euo pipefail; DIR="$RUNNER_TEMP/promysel";rm -rf "$DIR";mkdir -p "$DIR";unzip -q "$GITHUB_WORKSPACE/neftyanik_v1.24.1_stable_hotfix.zip" -d "$DIR";PROJECT="$(dirname "$(find "$DIR" -name pubspec.yaml -print -quit)")";echo "project_dir=$PROJECT" >> "$GITHUB_OUTPUT"
       - name: Install image tools
-        run: sudo apt-get update && sudo apt-get install -y imagemagick
+        run: sudo apt-get update && sudo apt-get install -y imagemagick librsvg2-bin
       - name: Apply Promysel updates and approved raster emblem
         shell: bash
         run: |
           set -euo pipefail;cd "${{ steps.project.outputs.project_dir }}"
           for s in prepare_promysel_v125.py prepare_promysel_v126.py prepare_promysel_v127.py prepare_promysel_v128.py prepare_promysel_v129.py prepare_promysel_v129_walk.py prepare_promysel_v129_problems.py prepare_promysel_v130.py prepare_promysel_v131.py prepare_promysel_v132.py prepare_promysel_v133.py prepare_promysel_v134.py prepare_promysel_v135.py prepare_promysel_v136.py prepare_promysel_v136_fix.py prepare_promysel_v137.py prepare_promysel_v137_corrections.py prepare_promysel_v138_problem_actions.py prepare_promysel_v139_problem_layout.py prepare_promysel_v140_problem_card.py prepare_promysel_v140_closed_lists.py prepare_promysel_v141_parameter_sync.py prepare_promysel_v142_user_fixes.py prepare_promysel_v143_exact_walk_and_dispatcher.py prepare_promysel_v144_requested_fixes.py prepare_promysel_v145.py prepare_promysel_v146.py prepare_promysel_v147.py prepare_promysel_v148.py prepare_promysel_v149.py prepare_promysel_v150.py prepare_promysel_v151.py prepare_promysel_v152.py prepare_promysel_v153.py prepare_promysel_v154a.py prepare_promysel_v154b.py prepare_promysel_v154c.py prepare_promysel_v154d.py prepare_promysel_v154e.py prepare_promysel_v154f.py prepare_promysel_v154g.py prepare_promysel_v154h.py prepare_promysel_v155.py prepare_promysel_v156.py prepare_promysel_v157a.py prepare_promysel_v157b.py prepare_promysel_v157c.py prepare_promysel_v157d.py prepare_promysel_v159.py prepare_promysel_v170.py;do python3 "$GITHUB_WORKSPACE/tools/$s";done
           mkdir -p assets/icon
-          base64 -d "$GITHUB_WORKSPACE/assets/promysel_approved_512.png.b64" > assets/icon/approved_source.jpg
-          identify assets/icon/approved_source.jpg
-          convert assets/icon/approved_source.jpg -resize 1024x1024 assets/icon/app_icon.png
+          # The legacy base64 JPEG is corrupt (SOS before SOF). Use the approved SVG,
+          # which is already rendered and validated by the iPhone web pipeline.
+          rsvg-convert -w 1024 -h 1024 "$GITHUB_WORKSPACE/assets/promysel_icon_modern.svg" -o assets/icon/app_icon.png
           cp assets/icon/app_icon.png assets/icon/app_icon_foreground.png
           test "$(identify -format '%w' assets/icon/app_icon.png)" = 1024
           test "$(identify -format '%h' assets/icon/app_icon.png)" = 1024
-          echo "Approved raster emblem decoded and validated"
+          echo "Approved SVG emblem rendered and validated"
       - name: Full generated source preflight
         shell: bash
         run: |
