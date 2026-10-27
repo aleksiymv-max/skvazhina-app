@@ -45,6 +45,15 @@ Deno.serve(async (request:Request)=>{
   if(request.method!=="POST")return json({detail:"Метод не поддерживается"},405);
   const body=await request.json();
   if(!body||typeof body!=="object"||Array.isArray(body))return json({detail:"Некорректный запрос"},400);
+  // First-run bootstrap: no user gets administrator privileges by self-registration.
+  // The service-only PostgreSQL RPC verifies the one-time invite and confirmed e-mail atomically.
+  if(route==="claim-bootstrap"){
+    const setupCode=typeof body.code==="string"?body.code:"";
+    if(setupCode.length<20||setupCode.length>200)return json({detail:"Некорректный код настройки"},400);
+    const {data,error}=await admin.rpc("promysel_claim_initial_admin",{p_actor:actor.id,p_code:setupCode});
+    if(error)return json({detail:error.message},403);
+    return json(data);
+  }
   if(route==="task-complete"||route==="problem-application"){
     const recordId=String(body.recordId??"").trim();
     if(!recordId||recordId.length>300)return json({detail:"Некорректный номер записи"},400);
