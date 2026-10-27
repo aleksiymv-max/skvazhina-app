@@ -55,17 +55,23 @@ Deno.serve(async (req:Request)=>{
    const deviceId=String(body.deviceId??"").trim();
    if(!deviceId||deviceId.length>200)return response({detail:"Некорректное устройство"},400);
    if(JSON.stringify(body).length>1024*1024)return response({detail:"Максимальный размер запроса — 1 МБ"},413);
-   const role=String(membership.role);
+   const role=String(membership.role),subrole=String(membership.subrole??"");
+   const specialist=role==="engineer"&&["geologist","technologist","leadingGeologist","leadingTechnologist"].includes(subrole);
    const canWalk=["shopChief","engineer","operator"].includes(role);
-   const canEditStructure=["shopChief","engineer","admin"].includes(role);
+   const canEditStructure=["shopChief","admin"].includes(role)||specialist;
+   const canTasks=["shopChief","admin","engineer"].includes(role);
+   const canProblem=canWalk||role==="dispatcher";
    const events=[];
    for(const item of body.items){
       if(!fieldsOnly(item)||!fieldsOnly(item.payload))return response({detail:"Некорректный формат изменения"},400);
       const type=String(item.type??""),key=String(item.key??"");
       if(!supported.has(type)||!key||key.length>300)return response({detail:"Некорректный тип или ключ изменения"},400);
       if(type==="measurement"&&!canWalk)return response({detail:"Нет права записывать обход"},403);
-      // A full organization snapshot includes structures and personnel and must not be writable by an operator.
-      if(type==="app_state"&&!canEditStructure)return response({detail:"Состояние месторождения изменяет только ИТР/начальник"},403);
+      if(type==="app_state"&&!canEditStructure)return response({detail:"Нет права менять структуру месторождения"},403);
+      if(type==="task"&&!canTasks)return response({detail:"Нет права создавать или изменять задания"},403);
+      if(type==="problem"&&!canProblem)return response({detail:"Нет права изменять проблемы"},403);
+      if(type==="annulus_pressure"&&!canWalk)return response({detail:"Нет права вносить межколонные давления"},403);
+      if(["equipment","repair"].includes(type)&&!canEditStructure)return response({detail:"Недостаточно прав для оборудования"},403);
       if(type==="app_state"&&item.payload.fieldId!==fieldId)return response({detail:"Снимок другого месторождения"},400);
       events.push({event_key:key,field_id:fieldId,device_id:deviceId,event_type:type,
         payload:item.payload,actor_id:auth.user.id,client_updated_at:item.updatedAt??null});
