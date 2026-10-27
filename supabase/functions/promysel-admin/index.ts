@@ -54,6 +54,28 @@ Deno.serve(async (request:Request)=>{
     if(error)return json({detail:error.message},403);
     return json(data);
   }
+  if(route==="first-password"){
+    // Never trust user-editable metadata for access; use Auth's app_metadata and re-check
+    // the current temporary password before setting the new password server-side.
+    if(request.method!=="POST")return json({detail:"Метод не поддерживается"},405);
+    if(actor.app_metadata?.must_change_password!==true)return json({detail:"Первичная смена пароля уже выполнена"},409);
+    const oldPassword=typeof body.currentPassword==="string"?body.currentPassword:"";
+    const newPassword=typeof body.newPassword==="string"?body.newPassword:"";
+    if(oldPassword.length<8||newPassword.length<12||newPassword.length>128||oldPassword===newPassword)
+      return json({detail:"Новый пароль должен отличаться от временного и содержать 12–128 символов"},400);
+    if(!actor.email)return json({detail:"Не указан адрес учётной записи"},400);
+    const verifier=createClient(url,anon,{auth:{persistSession:false,autoRefreshToken:false}});
+    const {error:verificationError}=await verifier.auth.signInWithPassword({email:actor.email,password:oldPassword});
+    if(verificationError)return json({detail:"Неверный временный пароль"},401);
+    const metadata={...actor.app_metadata,must_change_password:false,password_changed_at:new Date().toISOString()};
+    const {error:changeError}=await admin.auth.admin.updateUserById(actor.id,{
+      password:newPassword,app_metadata:metadata
+    });
+    if(changeError)return json({detail:"Пароль не изменён. Проверьте требования безопасности: "+changeError.message},400);
+    return json({status:"password_changed",mustChangePassword:false});
+  }
+  if(actor.app_metadata?.must_change_password===true)
+    return json({detail:"Сначала необходимо изменить временный пароль"},403);
   if(route==="task-complete"||route==="problem-application"){
     const recordId=String(body.recordId??"").trim();
     if(!recordId||recordId.length>300)return json({detail:"Некорректный номер записи"},400);
