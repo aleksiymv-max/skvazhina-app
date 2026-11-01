@@ -155,6 +155,29 @@ Deno.serve(async(req:Request)=>{
    if(error)return reply({detail:error.message},403);
    return reply({status:"blocked",userId:target,record:data});
   }
+
+  const padWellsRoute=route.match(new RegExp("^/api/v1/pads/([^/]+)/wells$"));
+  if(req.method==="GET"&&(padWellsRoute||route==="/api/v1/pads")){
+    const allowed=memberships.map((m:J)=>String(m.field_id));
+    if(!allowed.length)return reply({detail:"Нет доступа к месторождению"},403);
+    const {data:stateEvents,error:stateError}=await admin.from("sync_events").select("field_id,payload")
+      .in("field_id",allowed).eq("event_type","app_state").order("sequence",{ascending:false}).limit(100);
+    if(stateError)throw stateError;
+    const seen=new Set<string>(),pads:J[]=[];
+    for(const event of stateEvents??[]){
+      if(seen.has(event.field_id))continue;seen.add(event.field_id);
+      const p=event.payload as J;
+      if(good(p)&&Array.isArray(p.pads))for(const item of p.pads)if(good(item))pads.push(item as J);
+    }
+    if(route==="/api/v1/pads")
+      return reply(pads.map(p=>({id:p.id,name:p.name,type:p.type??p.kind??"oil",field_id:p.fieldId??null})));
+    const padId=decodeURIComponent(padWellsRoute?.[1]??""),pad=pads.find(p=>String(p.id)===padId);
+    if(!pad)return reply({detail:"Куст ещё не синхронизирован"},404);
+    const wells=Array.isArray(pad.wells)?pad.wells.filter(good) as J[]:[];
+    return reply(wells.map(w=>({id:w.id,number:w.number,
+      type:w.type==="gasCondensate"?"gas_condensate":"oil",
+      status:w.status==="stopped"?"Остановлена":w.status==="workover"?"ВНР":"В работе"})));
+  }
   if(route==="/v1/sync/push"&&req.method==="POST"||
      route==="/v1/sync/pull"&&req.method==="GET"){
    const url=new URL(req.url);
