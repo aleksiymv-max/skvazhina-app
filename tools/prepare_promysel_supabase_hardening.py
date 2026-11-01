@@ -26,6 +26,16 @@ s=s.replace(old,new,1)
 old="prefs.setString('sync_cursor',_cursor)"
 assert old in s, "Global cursor persistence anchor changed"
 s=s.replace(old,"prefs.setString('sync_cursor_${fieldId}',_cursor)",1)
+# Applying remote structure must not mark the local state dirty again.
+old="_syncAgain=false;"
+assert old in s, "Sync state flags changed"
+s=s.replace(old,"_syncAgain=false,_applyingRemote=false;",1)
+old="void _stateChanged(){markStateDirty();}"
+assert old in s, "Sync change listener changed"
+s=s.replace(old,"void _stateChanged(){if(!_applyingRemote)markStateDirty();}",1)
+old="await AppStateStore.instance.apply(latestState);_lastState="
+assert old in s, "Remote snapshot update changed"
+s=s.replace(old,"_applyingRemote=true;try{await AppStateStore.instance.apply(latestState);}finally{_applyingRemote=false;}_lastState=",1)
 sync.write_text(s)
 
 cfg=root/'lib/core/network/api_config.dart'
