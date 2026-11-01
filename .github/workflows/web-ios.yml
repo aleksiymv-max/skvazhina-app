@@ -87,6 +87,29 @@ jobs:
           flutter analyze --no-fatal-infos --no-fatal-warnings
           flutter build web --release --pwa-strategy=offline-first --dart-define=PROMYSEL_SYNC_URL=https://xptmcufhuvtcunqzlsme.supabase.co/functions/v1/promysel-compat
           test -f build/web/index.html;test -f build/web/flutter_bootstrap.js;test -f build/web/manifest.json;test -f build/web/sqlite3.wasm;test -f build/web/sqflite_sw.js;test -f build/web/apple-touch-icon.png
+      - name: Add first-run account setup and Cloudflare hosting metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="${{ steps.project.outputs.project_dir }}/build/web"
+          test -f "$GITHUB_WORKSPACE/docs/index.html"
+          # The original Flutter UI remains at /; the setup page is used only
+          # to register the first administrator and manage account onboarding.
+          cp "$GITHUB_WORKSPACE/docs/index.html" "$OUT/setup.html"
+          cat > "$OUT/_headers" <<'EOF'
+          /*
+            X-Content-Type-Options: nosniff
+            Referrer-Policy: strict-origin-when-cross-origin
+            X-Frame-Options: DENY
+          /index.html
+            Cache-Control: no-cache
+          /main.dart.js
+            Cache-Control: no-cache
+          /setup.html
+            Cache-Control: no-cache
+          EOF
+          test -f "$OUT/index.html"
+          test -f "$OUT/setup.html"
       - name: Package iPhone web app
         shell: bash
         run: |
@@ -95,6 +118,19 @@ jobs:
       - uses: actions/upload-artifact@v4
         continue-on-error: true
         with: {name: promysel-original-flutter-supabase-web, path: artifacts/promysel-original-flutter-supabase-web.zip, retention-days: 3}
+      - name: Deploy original Flutter Web to Cloudflare Pages if authorized
+        shell: bash
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -euo pipefail
+          if [[ -z "${CLOUDFLARE_API_TOKEN:-}" || -z "${CLOUDFLARE_ACCOUNT_ID:-}" ]]; then
+            echo "::notice::Cloudflare credentials not configured; download the web artifact and deploy via Cloudflare Pages Direct Upload."
+            exit 0
+          fi
+          npx --yes wrangler@4 pages deploy "${{ steps.project.outputs.project_dir }}/build/web" --project-name=promysel-web --branch=main
+          echo "Original Flutter web published through Cloudflare Pages"
       - name: Confirm Cloudflare-ready root structure
         shell: bash
         run: |
@@ -102,4 +138,5 @@ jobs:
           unzip -Z1 artifacts/promysel-original-flutter-supabase-web.zip | grep -qx index.html
           unzip -Z1 artifacts/promysel-original-flutter-supabase-web.zip | grep -qx main.dart.js
           unzip -Z1 artifacts/promysel-original-flutter-supabase-web.zip | grep -qx sqflite_sw.js
+          unzip -Z1 artifacts/promysel-original-flutter-supabase-web.zip | grep -qx setup.html
           echo 'Manual Cloudflare Pages direct upload is ready'
