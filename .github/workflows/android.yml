@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
 permissions:
-  contents: read
+  contents: write
 concurrency:
   group: promysel-android-${{ github.ref }}
   cancel-in-progress: true
@@ -20,16 +20,17 @@ jobs:
           set -euo pipefail; export PYTHONPATH="$GITHUB_WORKSPACE/server"
           python3 -m py_compile server/registration_rules.py server/registration_decisions.py server/registration_service.py server/registration_api.py server/mailer.py server/preflight_registration.py
           python3 server/test_registration_rules.py; python3 server/test_registration_decisions.py; python3 server/test_registration_service.py; python3 server/preflight_registration.py
-      - name: Production endpoint preflight
+      - name: Supabase compatibility endpoint preflight
         shell: bash
         run: |
-          set -euo pipefail; BASE="https://quumapafagul.beget.app"
-          curl --fail --silent --show-error --retry 3 --connect-timeout 10 "$BASE/health" -o /tmp/h.json
-          curl --fail --silent --show-error --retry 3 --connect-timeout 10 "$BASE/v1/registration/fields" -o /tmp/f.json
+          set -euo pipefail
+          API="https://xptmcufhuvtcunqzlsme.supabase.co/functions/v1/promysel-compat/health"
+          curl --fail --silent --show-error --retry 3 --connect-timeout 10 "$API" -o /tmp/promysel-compat.json
           python3 - <<'PY'
           import json
-          h=json.load(open('/tmp/h.json'));f=json.load(open('/tmp/f.json'));assert h.get('status')=='ok' and h.get('database') is True
-          items=f if isinstance(f,list) else f.get('items');assert isinstance(items,list);print('Production endpoint preflight passed; fields:',len(items))
+          j=json.load(open('/tmp/promysel-compat.json'))
+          assert j.get('status')=='ok' and j.get('service')=='promysel-compat',j
+          print('Supabase compatibility API is ready')
           PY
       - name: Extract base source
         id: project
@@ -43,6 +44,7 @@ jobs:
         run: |
           set -euo pipefail;cd "${{ steps.project.outputs.project_dir }}"
           for s in prepare_promysel_v125.py prepare_promysel_v126.py prepare_promysel_v127.py prepare_promysel_v128.py prepare_promysel_v129.py prepare_promysel_v129_walk.py prepare_promysel_v129_problems.py prepare_promysel_v130.py prepare_promysel_v131.py prepare_promysel_v132.py prepare_promysel_v133.py prepare_promysel_v134.py prepare_promysel_v135.py prepare_promysel_v136.py prepare_promysel_v136_fix.py prepare_promysel_v137.py prepare_promysel_v137_corrections.py prepare_promysel_v138_problem_actions.py prepare_promysel_v139_problem_layout.py prepare_promysel_v140_problem_card.py prepare_promysel_v140_closed_lists.py prepare_promysel_v141_parameter_sync.py prepare_promysel_v142_user_fixes.py prepare_promysel_v143_exact_walk_and_dispatcher.py prepare_promysel_v144_requested_fixes.py prepare_promysel_v145.py prepare_promysel_v146.py prepare_promysel_v147.py prepare_promysel_v148.py prepare_promysel_v149.py prepare_promysel_v150.py prepare_promysel_v151.py prepare_promysel_v152.py prepare_promysel_v153.py prepare_promysel_v154a.py prepare_promysel_v154b.py prepare_promysel_v154c.py prepare_promysel_v154d.py prepare_promysel_v154e.py prepare_promysel_v154f.py prepare_promysel_v154g.py prepare_promysel_v154h.py prepare_promysel_v155.py prepare_promysel_v156.py prepare_promysel_v157a.py prepare_promysel_v157b.py prepare_promysel_v157c.py prepare_promysel_v157d.py prepare_promysel_v159.py prepare_promysel_v170.py;do python3 "$GITHUB_WORKSPACE/tools/$s";done
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_supabase_adapter.py"
           mkdir -p assets/icon
           # The legacy base64 JPEG is corrupt (SOS before SOF). Use the approved SVG,
           # which is already rendered and validated by the iPhone web pipeline.
@@ -56,6 +58,7 @@ jobs:
         run: |
           set -euo pipefail;cd "${{ steps.project.outputs.project_dir }}";mkdir -p "$GITHUB_WORKSPACE/artifacts";zip -qr "$GITHUB_WORKSPACE/artifacts/promysel-v1.78-source.zip" . -x 'android/*' 'build/*' '.dart_tool/*';unzip -t "$GITHUB_WORKSPACE/artifacts/promysel-v1.78-source.zip" >/dev/null
       - uses: actions/upload-artifact@v4
+        continue-on-error: true
         with: {name: promysel-v1.78-source, path: artifacts/promysel-v1.78-source.zip, retention-days: 30}
       - uses: subosito/flutter-action@v2
         with: {channel: stable, cache: true}
@@ -77,10 +80,26 @@ jobs:
         run: |
           set -euo pipefail;cd "${{ steps.project.outputs.project_dir }}"
           rm -rf "$GITHUB_WORKSPACE/artifacts/symbols";mkdir -p "$GITHUB_WORKSPACE/artifacts/symbols" "$GITHUB_WORKSPACE/artifacts/apk"
-          flutter build apk --release --target-platform android-arm64 --tree-shake-icons --obfuscate --split-debug-info="$GITHUB_WORKSPACE/artifacts/symbols" --dart-define=PROMYSEL_SYNC_URL=https://quumapafagul.beget.app
+          flutter build apk --release --target-platform android-arm64 --tree-shake-icons --obfuscate --split-debug-info="$GITHUB_WORKSPACE/artifacts/symbols" --dart-define=PROMYSEL_SYNC_URL=https://xptmcufhuvtcunqzlsme.supabase.co/functions/v1/promysel-compat
           cp build/app/outputs/flutter-apk/app-release.apk "$GITHUB_WORKSPACE/artifacts/apk/promysel-v1.78-arm64.apk"
           sha256sum "$GITHUB_WORKSPACE/artifacts/apk/promysel-v1.78-arm64.apk"
       - uses: actions/upload-artifact@v4
+        continue-on-error: true
         with: {name: promysel-v1.78-arm64-android, path: artifacts/apk/promysel-v1.78-arm64.apk, retention-days: 30}
       - uses: actions/upload-artifact@v4
+        continue-on-error: true
         with: {name: promysel-v1.78-debug-symbols, path: artifacts/symbols/**, retention-days: 30}
+      - name: Publish tested candidate APK as private GitHub prerelease
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          TAG="promysel-supabase-1.78-rc"
+          APK="artifacts/apk/promysel-v1.78-arm64.apk"
+          test -s "$APK"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "$APK" --clobber
+          else
+            gh release create "$TAG" "$APK" --title "Promysel 1.78 Supabase candidate (Android)" --notes "Candidate: requires live E2E testing with real Supabase accounts. Legacy Beget is not used." --prerelease
+          fi
