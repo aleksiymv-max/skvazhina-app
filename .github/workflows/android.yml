@@ -64,6 +64,7 @@ jobs:
           python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_supabase_hardening.py"
           python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_approval_performance_hotfix.py"
           python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_history_init.py"
+          python3 "$GITHUB_WORKSPACE/tools/test_promysel_history_keyset.py"
           mkdir -p assets/icon
           # The legacy base64 JPEG is corrupt (SOS before SOF). Use the approved SVG,
           # which is already rendered and validated by the iPhone web pipeline.
