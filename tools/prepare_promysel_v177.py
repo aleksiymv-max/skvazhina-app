@@ -18,7 +18,7 @@ if icon.exists():
     z=icon.read_text()
     if 'data:image/jpeg;base64,' in z:
         if 'xmlns:xlink=' not in z:
-    z=z.replace('<svg xmlns="http://www.w3.org/2000/svg"','<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"',1)
+            z=z.replace('<svg xmlns="http://www.w3.org/2000/svg"','<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"',1)
         z=z.replace(' href="data:image/jpeg;base64,',' xlink:href="data:image/jpeg;base64,',1)
         icon.write_text(z)
 h=p.read_text();assert 'm.capturedParameters.contains(key)' in h and 'WalkParameterConfig.instance.on(m.padId,key)' not in h;assert "add('Давления'" in h and "add('Температуры'" in h and "add('Дросселирование'" in h and "add('Параметры ЭЦН'" in h
