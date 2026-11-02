@@ -36,7 +36,7 @@ Deno.serve(async (request:Request)=>{
    }
    let q=admin.from("registration_requests")
     .select("id,requested_by,field_id,proposed_field_name,requested_role,requested_subrole,full_name,email,state,created_at")
-    .or("state.eq.pending,and(state.eq.approved,invitation_sent_at.is.null)").order("created_at",{ascending:true}).limit(100);
+    .or("state.eq.pending,and(state.eq.approved,approved_field_id.not.is.null,invitation_sent_at.is.null)").order("created_at",{ascending:true}).limit(100);
    if(!elevated)q=q.eq("field_id",fieldId);
    const {data,error}=await q;
    if(error)throw error;
