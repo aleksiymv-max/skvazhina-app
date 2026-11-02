@@ -139,19 +139,24 @@ jobs:
       - uses: actions/upload-artifact@v4
         continue-on-error: true
         with: {name: promysel-original-flutter-supabase-web, path: artifacts/promysel-original-flutter-supabase-web.zip, retention-days: 3}
-      - name: Deploy original Flutter Web to Cloudflare Pages if authorized
+      - name: Publish Flutter Web automatically to existing Cloudflare Pages project
         shell: bash
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
           set -euo pipefail
-          if [[ -z "${CLOUDFLARE_API_TOKEN:-}" || -z "${CLOUDFLARE_ACCOUNT_ID:-}" ]]; then
-            echo "::notice::Cloudflare credentials not configured; download the web artifact and deploy via Cloudflare Pages Direct Upload."
-            exit 0
+          if [[ -z "${CLOUDFLARE_API_TOKEN:-}" ]]; then
+            echo "::error title=Cloudflare not configured::Add GitHub Actions secret CLOUDFLARE_API_TOKEN (Pages Edit permission)."
+            exit 1
           fi
+          if [[ -z "${CLOUDFLARE_ACCOUNT_ID:-}" ]]; then
+            echo "::error title=Cloudflare not configured::Add GitHub Actions secret CLOUDFLARE_ACCOUNT_ID."
+            exit 1
+          fi
+          test -f "${{ steps.project.outputs.project_dir }}/build/web/finish-registration.html"
           npx --yes wrangler@4 pages deploy "${{ steps.project.outputs.project_dir }}/build/web" --project-name=promysel-web --branch=main
-          echo "Original Flutter web published through Cloudflare Pages"
+          echo "::notice title=Cloudflare Pages deployed::Published commit ${GITHUB_SHA} to promysel-web.pages.dev."
       - name: Confirm Cloudflare-ready root structure
         shell: bash
         run: |
