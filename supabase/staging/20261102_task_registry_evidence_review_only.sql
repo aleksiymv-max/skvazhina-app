@@ -265,7 +265,7 @@ create policy work_task_assignee_events_read
 
 create function public.promysel_revoke_task_assignee(
   p_field text,p_task text,p_user uuid
-) returns jsonb language plpgsql security definer set search_path='' as $
+) returns jsonb language plpgsql security definer set search_path='' as $$
 declare
   t public.work_tasks%rowtype;
   v_actor uuid := (select auth.uid());
@@ -291,7 +291,7 @@ begin
     ) values(p_field,p_task,v_actor,p_user,'revoked');
   end if;
   return jsonb_build_object('taskId',p_task,'revoked',v_removed>0);
-end $;
+end $$;
 revoke all on function public.promysel_revoke_task_assignee(text,text,uuid)
   from public,anon,authenticated;
 grant execute on function public.promysel_revoke_task_assignee(text,text,uuid)
