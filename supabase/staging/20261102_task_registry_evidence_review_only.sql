@@ -243,4 +243,58 @@ with check (bucket_id='promysel-task-evidence' and exists(
     and app_private.can_attach_task(e.field_id,e.task_id)));
 -- No client UPDATE/DELETE grant on tasks/evidence, no Storage UPDATE/DELETE policy.
 -- Backfill from legacy app_state and cutover require a separate, audited migration.
+-- Revocation is server-side only and audited; clients have no DELETE grant.
+create table public.work_task_assignee_events (
+  id bigint generated always as identity primary key,
+  field_id text not null,
+  task_id text not null,
+  actor_id uuid not null references auth.users(id) on delete restrict,
+  target_user_id uuid not null references auth.users(id) on delete restrict,
+  action text not null check (action='revoked'),
+  created_at timestamptz not null default now(),
+  foreign key(field_id,task_id) references public.work_tasks(field_id,id) on delete restrict
+);
+create index work_task_assignee_events_task_idx
+  on public.work_task_assignee_events(field_id,task_id,created_at desc);
+alter table public.work_task_assignee_events enable row level security;
+revoke all on public.work_task_assignee_events from anon,authenticated;
+grant select on public.work_task_assignee_events to authenticated;
+create policy work_task_assignee_events_read
+  on public.work_task_assignee_events for select to authenticated
+  using (app_private.can_manage_tasks(field_id));
+
+create function public.promysel_revoke_task_assignee(
+  p_field text,p_task text,p_user uuid
+) returns jsonb language plpgsql security definer set search_path='' as $
+declare
+  t public.work_tasks%rowtype;
+  v_actor uuid := (select auth.uid());
+  v_removed integer := 0;
+begin
+  if v_actor is null or not app_private.can_manage_tasks(p_field) then
+    raise exception 'Not allowed to revoke task assignee';
+  end if;
+  select * into t from public.work_tasks
+    where field_id=p_field and id=p_task for update;
+  if not found or t.target_type not in ('area','pad') then
+    raise exception 'Common task not found';
+  end if;
+  if t.status<>'active' then
+    raise exception 'Cannot revoke while task is awaiting review or confirmed';
+  end if;
+  delete from public.work_task_assignees
+    where field_id=p_field and task_id=p_task and user_id=p_user;
+  get diagnostics v_removed = row_count;
+  if v_removed>0 then
+    insert into public.work_task_assignee_events(
+      field_id,task_id,actor_id,target_user_id,action
+    ) values(p_field,p_task,v_actor,p_user,'revoked');
+  end if;
+  return jsonb_build_object('taskId',p_task,'revoked',v_removed>0);
+end $;
+revoke all on function public.promysel_revoke_task_assignee(text,text,uuid)
+  from public,anon,authenticated;
+grant execute on function public.promysel_revoke_task_assignee(text,text,uuid)
+  to authenticated;
+
 commit;
