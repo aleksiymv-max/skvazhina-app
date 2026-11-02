@@ -1,7 +1,7 @@
 import {createClient} from "npm:@supabase/supabase-js@2.57.0";
 // One-time initial administrator provisioner. Never accepts an arbitrary administrator e-mail.
 // Both privileged actions execute only on the server with the service-role key.
-const HEAD={"Content-Type":"application/json; charset=utf-8","Cache-Control":"no-store","Access-Control-Allow-Origin":"null","Access-Control-Allow-Methods":"POST,OPTIONS","Access-Control-Allow-Headers":"content-type"};
+const HEAD={"Content-Type":"application/json; charset=utf-8","Cache-Control":"no-store","Access-Control-Allow-Origin":"*","Access-Control-Allow-Methods":"POST,OPTIONS","Access-Control-Allow-Headers":"content-type"};
 const reply=(body:unknown,status=200)=>new Response(JSON.stringify(body),{status,headers:HEAD});
 Deno.serve(async (req:Request)=>{
  if(req.method==="OPTIONS")return new Response(null,{status:204,headers:HEAD});
