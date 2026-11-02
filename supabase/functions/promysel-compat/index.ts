@@ -56,7 +56,7 @@ Deno.serve(async(req:Request)=>{
   if(publicRoute&&route==="/v1/auth/forgot-password"){
    const email=txt(body.email).toLowerCase();
    if(!validEmail(email))return reply({detail:"Некорректная почта"},400);
-   const {error}=await guest.auth.resetPasswordForEmail(email,{redirectTo:"https://promysel-web.pages.dev/setup.html"});
+   const {error}=await guest.auth.resetPasswordForEmail(email,{redirectTo:"https://promysel-web.pages.dev/finish-registration.html"});
    if(error)console.error("resetPasswordForEmail:",error.message);
    return reply({status:"ok",detail:"Если почта зарегистрирована, письмо отправлено"});
   }
