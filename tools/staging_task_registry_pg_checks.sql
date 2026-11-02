@@ -125,7 +125,7 @@ values('field-a','area-revoke','00000000-0000-0000-0000-000000000003');
 reset role;
 set role authenticated;
 select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000003',false);
-do $ begin
+do $$ begin
   if not exists(select 1 from public.work_tasks where id='area-revoke')
   then raise exception 'Assigned operator cannot see common task'; end if;
   begin
@@ -135,7 +135,7 @@ do $ begin
   exception when others then
     if sqlerrm='Operator revoked own task assignment' then raise; end if;
   end;
-end $;
+end $$;
 reset role;
 set role authenticated;
 select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000001',false);
@@ -143,18 +143,18 @@ select public.promysel_revoke_task_assignee(
   'field-a','area-revoke','00000000-0000-0000-0000-000000000003');
 select public.promysel_revoke_task_assignee(
   'field-a','area-revoke','00000000-0000-0000-0000-000000000003');
-do $ begin
+do $$ begin
   if (select count(*) from public.work_task_assignee_events
       where task_id='area-revoke' and action='revoked')<>1
   then raise exception 'Revocation must be audited once'; end if;
-end $;
+end $$;
 reset role;
 set role authenticated;
 select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000003',false);
-do $ begin
+do $$ begin
   if exists(select 1 from public.work_tasks where id='area-revoke')
   then raise exception 'Revoked operator still sees common task'; end if;
-end $;
+end $$;
 reset role;
 
 select 'PASS: synthetic PostgreSQL task RLS, Storage, completion and revocation' as result;
