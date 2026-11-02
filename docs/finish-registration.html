@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="referrer" content="no-referrer"><meta name="robots" content="noindex,nofollow">
+<title>Промысел — завершение регистрации</title>
+<style>
+*{box-sizing:border-box}body{margin:0;min-height:100vh;padding:20px;display:grid;place-items:center;background:linear-gradient(145deg,#061a33,#0d427b 75%,#046fa3);color:#f3f9ff;font:16px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif}
+.card{max-width:520px;width:100%;background:#0a2949;border:1px solid #5095c9;border-radius:22px;padding:26px;box-shadow:0 22px 60px #0004}h1{font-size:28px;line-height:1.2;margin:0 0 14px}p{color:#c2deef;margin:0 0 15px}
+label{display:block;margin:15px 0 6px;font-weight:650}input{width:100%;padding:13px;border:1px solid #98bfdc;border-radius:10px;font:inherit}button,a.button{display:block;width:100%;padding:14px;margin-top:19px;text-align:center;border:0;border-radius:10px;background:#ff8a18;color:#10283f;font:inherit;font-weight:750;text-decoration:none;cursor:pointer}a.button{background:#dcefff}
+button:disabled{opacity:.6;cursor:wait}#status{padding:12px;border:1px solid #5694c1;border-radius:10px;margin:17px 0;white-space:pre-line}#status.error{background:#652536;border-color:#dd8595}#status.success{background:#155b49;border-color:#82d6b9}[hidden]{display:none!important}small{display:block;color:#a8cfe8;margin-top:14px}
+</style>
+</head>
+<body><main class="card">
+<h1>Промысел · Первый вход</h1>
+<p>После согласования заявки установите пароль для входа в приложение. Доступ к месторождению назначает администратор или начальник цеха.</p>
+<div id="status" role="status" aria-live="polite">Проверка ссылки из письма…</div>
+<form id="setPassword" hidden>
+<label for="password">Новый пароль (не менее 12 символов)</label>
+<input id="password" type="password" minlength="12" maxlength="128" autocomplete="new-password" required>
+<label for="repeat">Повторите новый пароль</label>
+<input id="repeat" type="password" minlength="12" maxlength="128" autocomplete="new-password" required>
+<button id="save" type="submit">Установить пароль</button>
+</form>
+<form id="recover" hidden>
+<p>Если ссылка истекла или уже использована, запросите новое письмо для установки пароля.</p>
+<label for="email">Электронная почта</label><input id="email" type="email" maxlength="254" autocomplete="email" required>
+<button id="send" type="submit">Отправить письмо</button>
+</form>
+<a class="button" href="/" id="login">Открыть «Промысел»</a>
+<small>Никому не отправляйте ссылку из письма или установленный пароль.</small>
+</main>
+<script>
+"use strict";
+const BASE="https://xptmcufhuvtcunqzlsme.supabase.co";
+const KEY="sb_publishable_lYXKa6cAOtCGaPBn8f55tw_A6wJ-yh0";
+const statusNode=document.getElementById("status");
+const passwordForm=document.getElementById("setPassword"), recoveryForm=document.getElementById("recover");
+const params=new URLSearchParams(location.hash.replace(/^#/,""));
+const query=new URLSearchParams(location.search);
+let token=null;
+function message(s,kind=""){statusNode.textContent=s;statusNode.className=kind;}
+function recovery(s){message(s||"Ссылка недействительна или истекла. Запросите новое письмо.","error");recoveryForm.hidden=false;passwordForm.hidden=true;}
+async function call(path,method,body,accessToken){
+ const headers={"apikey":KEY,"Content-Type":"application/json"};
+ if(accessToken)headers.Authorization="Bearer "+accessToken;
+ const response=await fetch(BASE+"/auth/v1/"+path,{method,headers,body:body?JSON.stringify(body):undefined,cache:"no-store"});
+ let result={};try{result=await response.json()}catch(_){}
+ if(!response.ok)throw Error(result.msg||result.error_description||result.message||result.error||("HTTP "+response.status));
+ return result;
+}
+(async function init(){
+ const possible=params.get("access_token");
+ const e=params.get("error_description")||query.get("error_description");
+ if(e){recovery("Ошибка приглашения: "+e);return;}
+ try{
+  if(possible){token=possible;}
+  else if(query.has("token_hash")&&query.has("type")){
+   const verified=await call("verify","POST",{token_hash:query.get("token_hash"),type:query.get("type")});
+   token=verified.access_token;
+  }
+  if(!token){recovery("Приглашение не найдено. Используйте ссылку из письма или запросите новую.");return;}
+  // Remove credentials from browser history as soon as they are read.
+  history.replaceState(null,"",location.pathname);
+  const profile=await call("user","GET",null,token);
+  if(!profile?.id)throw Error("Не удалось проверить учётную запись.");
+  message("Приглашение подтверждено. Задайте пароль для входа.","success");
+  passwordForm.hidden=false;
+ }catch(err){token=null;recovery("Не удалось подтвердить приглашение: "+err.message);}
+})();
+passwordForm.addEventListener("submit",async event=>{
+ event.preventDefault();const password=document.getElementById("password").value;
+ if(password!==document.getElementById("repeat").value){message("Пароли не совпадают.","error");return;}
+ if(password.length<12){message("Пароль должен содержать минимум 12 символов.","error");return;}
+ const button=document.getElementById("save");button.disabled=true;
+ try{
+   if(!token)throw Error("Сессия истекла.");
+   await call("user","PUT",{password},token);
+   token=null;document.getElementById("password").value="";document.getElementById("repeat").value="";
+   passwordForm.hidden=true;message("Пароль установлен. Откройте «Промысел» и войдите с указанной почтой и новым паролем.","success");
+ }catch(err){message("Не удалось установить пароль: "+err.message,"error");}finally{button.disabled=false;}
+});
+recoveryForm.addEventListener("submit",async event=>{
+ event.preventDefault();const email=document.getElementById("email").value.trim().toLowerCase();
+ const button=document.getElementById("send");button.disabled=true;
+ try{
+   const redirect=encodeURIComponent(location.origin+"/finish-registration.html");
+   await call("recover?redirect_to="+redirect,"POST",{email});
+   message("Если учётная запись уже одобрена и существует, на почту придёт письмо для установки пароля.","success");
+ }catch(err){message("Не удалось отправить письмо: "+err.message,"error");}finally{button.disabled=false;}
+});
+</script></body></html>
