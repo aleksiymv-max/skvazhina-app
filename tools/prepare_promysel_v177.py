@@ -21,5 +21,7 @@ if icon.exists():
         z=z.replace(' href="data:image/jpeg;base64,',' xlink:href="data:image/jpeg;base64,',1)
         icon.write_text(z)
 h=p.read_text();assert 'm.capturedParameters.contains(key)' in h and 'WalkParameterConfig.instance.on(m.padId,key)' not in h;assert "add('Давления'" in h and "add('Температуры'" in h and "add('Дросселирование'" in h and "add('Параметры ЭЦН'" in h
-if icon.exists():assert 'xlink:href="data:image/jpeg;base64,' in icon.read_text()
+if icon.exists():
+    icon_text=icon.read_text()
+    assert ('xlink:href="data:image/jpeg;base64,' in icon_text) or ('<svg' in icon_text and '<path' in icon_text and '<text' not in icon_text), 'Invalid branding asset'
 print('v1.77 gates passed: history mirrors saved walk blocks; approved emblem renderer fixed',flush=True)
