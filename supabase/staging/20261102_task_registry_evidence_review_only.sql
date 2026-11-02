@@ -143,6 +143,7 @@ begin
     raise exception 'Only the author or shop chief may review';
   end if;
   if t.status<>'awaitingConfirmation' then raise exception 'Task not awaiting review'; end if;
+  if p_approve is null then raise exception 'Review decision required'; end if;
   if not p_approve and (nullif(btrim(coalesce(p_note,'')),'') is null or length(p_note)>2000) then
     raise exception 'Rejection reason required';
   end if;
