@@ -14,6 +14,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Approval-first registration regression
+        run: python3 server/test_approval_before_invitation.py
       - name: Supabase compatibility endpoint preflight
         shell: bash
         run: |
