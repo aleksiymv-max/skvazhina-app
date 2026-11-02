@@ -114,4 +114,47 @@ do $$ begin
     raise exception 'Blocked assignee still sees Storage'; end if;
 end $$;
 reset role;
+-- A common-task assignment must be revocable only by a current manager.
+set role authenticated;
+select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000001',false);
+insert into public.work_tasks(field_id,id,title,target_type,target_id,created_by)
+values('field-a','area-revoke','Synthetic revocation task','area','area-a',
+'00000000-0000-0000-0000-000000000001');
+insert into public.work_task_assignees(field_id,task_id,user_id)
+values('field-a','area-revoke','00000000-0000-0000-0000-000000000003');
+reset role;
+set role authenticated;
+select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000003',false);
+do $ begin
+  if not exists(select 1 from public.work_tasks where id='area-revoke')
+  then raise exception 'Assigned operator cannot see common task'; end if;
+  begin
+    perform public.promysel_revoke_task_assignee(
+      'field-a','area-revoke','00000000-0000-0000-0000-000000000003');
+    raise exception 'Operator revoked own task assignment';
+  exception when others then
+    if sqlerrm='Operator revoked own task assignment' then raise; end if;
+  end;
+end $;
+reset role;
+set role authenticated;
+select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000001',false);
+select public.promysel_revoke_task_assignee(
+  'field-a','area-revoke','00000000-0000-0000-0000-000000000003');
+select public.promysel_revoke_task_assignee(
+  'field-a','area-revoke','00000000-0000-0000-0000-000000000003');
+do $ begin
+  if (select count(*) from public.work_task_assignee_events
+      where task_id='area-revoke' and action='revoked')<>1
+  then raise exception 'Revocation must be audited once'; end if;
+end $;
+reset role;
+set role authenticated;
+select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000003',false);
+do $ begin
+  if exists(select 1 from public.work_tasks where id='area-revoke')
+  then raise exception 'Revoked operator still sees common task'; end if;
+end $;
+reset role;
+
 select 'PASS: synthetic PostgreSQL task RLS, Storage, completion and revocation' as result;
