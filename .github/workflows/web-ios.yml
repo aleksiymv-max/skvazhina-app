@@ -26,6 +26,18 @@ jobs:
           assert j.get('status')=='ok' and j.get('service')=='promysel-compat',j
           print('Supabase compatibility API is ready')
           PY
+          # A healthy /health endpoint alone cannot prove that the backend has
+          # PostgreSQL service_role grants. This real read failed with HTTP 500
+          # when the initial administrator could authenticate but not enter.
+          curl --fail --silent --show-error --retry 3 --connect-timeout 10 \
+            "https://xptmcufhuvtcunqzlsme.supabase.co/functions/v1/promysel-compat/v1/registration/fields" \
+            -o /tmp/promysel-fields.json
+          python3 - <<'PY'
+          import json
+          response=json.load(open('/tmp/promysel-fields.json', encoding='utf-8'))
+          assert isinstance(response.get('items'), list), response
+          print('Supabase service-role data access is ready')
+          PY
       - name: Extract base source
         id: project
         shell: bash
