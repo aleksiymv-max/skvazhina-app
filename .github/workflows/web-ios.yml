@@ -110,6 +110,7 @@ jobs:
           # to register the first administrator and manage account onboarding.
           cp "$GITHUB_WORKSPACE/docs/index.html" "$OUT/setup.html"
           cp "$GITHUB_WORKSPACE/docs/admin-setup.html" "$OUT/activate-admin.html"
+          cp "$GITHUB_WORKSPACE/docs/finish-registration.html" "$OUT/finish-registration.html"
           cat > "$OUT/_headers" <<'EOF'
           /*
             X-Content-Type-Options: nosniff
@@ -121,10 +122,13 @@ jobs:
             Cache-Control: no-cache
           /setup.html
             Cache-Control: no-cache
+          /finish-registration.html
+            Cache-Control: no-store
           EOF
           test -f "$OUT/index.html"
           test -f "$OUT/setup.html"
           test -f "$OUT/activate-admin.html"
+          test -f "$OUT/finish-registration.html"
       - name: Package iPhone web app
         shell: bash
         run: |
@@ -155,4 +159,5 @@ jobs:
           unzip -Z1 artifacts/promysel-original-flutter-supabase-web.zip | grep -qx sqflite_sw.js
           unzip -Z1 artifacts/promysel-original-flutter-supabase-web.zip | grep -qx setup.html
           unzip -Z1 artifacts/promysel-original-flutter-supabase-web.zip | grep -qx activate-admin.html
+          unzip -Z1 artifacts/promysel-original-flutter-supabase-web.zip | grep -qx finish-registration.html
           echo 'Manual Cloudflare Pages direct upload is ready'
