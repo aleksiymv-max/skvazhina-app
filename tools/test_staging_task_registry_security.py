@@ -65,7 +65,11 @@ require("grant execute on function public.promysel_review_task(text,text,boolean
 require("create policy promysel_task_photo_upload" in low and
         "app_private.can_attach_task(e.field_id,e.task_id)" in low,
         "Storage upload must verify task authorization")
-require(not re.search(r"\b(drop table|truncate table|delete from public\.)\b", low),
+require(low.count("delete from public.work_task_assignees") == 1,
+        "Only the audited task assignee revocation may delete rows")
+sql_without_audited_revocation = low.replace("delete from public.work_task_assignees", "", 1)
+require(not re.search(r"\b(drop table|truncate table|delete from public\.)\b",
+                      sql_without_audited_revocation),
         "Staging proposal unexpectedly contains destructive statements")
 require(sql_path.parent.name == "staging", "SQL must remain outside auto-deployed migrations")
 
