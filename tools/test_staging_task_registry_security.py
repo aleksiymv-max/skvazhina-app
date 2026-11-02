@@ -69,5 +69,19 @@ require(not re.search(r"\b(drop table|truncate table|delete from public\.)\b", l
         "Staging proposal unexpectedly contains destructive statements")
 require(sql_path.parent.name == "staging", "SQL must remain outside auto-deployed migrations")
 
+require("create table public.work_task_assignee_events" in low,
+        "Revocation audit table missing")
+revoke_body = function_body("public.promysel_revoke_task_assignee")
+require("app_private.can_manage_tasks(p_field)" in revoke_body,
+        "Revocation must require current manager")
+require("delete from public.work_task_assignees" in revoke_body,
+        "Revocation must actually remove recipient")
+require("insert into public.work_task_assignee_events" in revoke_body,
+        "Revocation must create an audit event")
+require("grant execute on function public.promysel_revoke_task_assignee(text,text,uuid)" in low,
+        "Revocation must use authenticated RPC")
+require("grant select on public.work_task_assignee_events to authenticated" in low,
+        "Audit must be read-only to clients")
+
 print("PASS: staging-only static task audience, role, evidence and Storage guards")
 print("NOT TESTED: PostgreSQL parsing, actual RLS, Storage upload, two-account E2E, backfill, rollback")
