@@ -27,13 +27,46 @@ create index work_tasks_created_by_idx on public.work_tasks(created_by);
 create index work_tasks_assigned_idx on public.work_tasks(field_id,assigned_to,status) where assigned_to is not null;
 create index work_tasks_field_status_idx on public.work_tasks(field_id,status,created_at desc);
 
+-- Explicit common-task audience; field membership alone is insufficient.
+create table public.work_task_assignees (
+  field_id text not null,
+  task_id text not null,
+  user_id uuid not null,
+  assigned_by uuid not null default auth.uid(),
+  assigned_at timestamptz not null default now(),
+  primary key(field_id,task_id,user_id),
+  foreign key(field_id,task_id) references public.work_tasks(field_id,id) on delete restrict,
+  foreign key(user_id,field_id) references public.field_memberships(user_id,field_id) on delete restrict,
+  foreign key(assigned_by) references auth.users(id) on delete restrict
+);
+create index work_task_assignees_user_idx on public.work_task_assignees(user_id,field_id);
+alter table public.work_task_assignees enable row level security;
+revoke all on public.work_task_assignees from anon,authenticated;
+grant select,insert on public.work_task_assignees to authenticated;
+create policy work_task_assignees_read on public.work_task_assignees for select to authenticated
+using (app_private.is_member(field_id) and
+  (user_id=(select auth.uid()) or app_private.can_manage_tasks(field_id)));
+create policy work_task_assignees_insert on public.work_task_assignees for insert to authenticated
+with check (
+  assigned_by=(select auth.uid()) and app_private.can_manage_tasks(field_id)
+  and exists(select 1 from public.work_tasks t
+    where t.field_id=work_task_assignees.field_id and t.id=work_task_assignees.task_id
+      and t.target_type in ('area','pad') and t.status='active')
+  and exists(select 1 from public.field_memberships m
+    where m.field_id=work_task_assignees.field_id and m.user_id=work_task_assignees.user_id
+      and m.approved and not m.blocked
+      and m.role in ('operator','engineer','shopChief'))
+);
+
 create function app_private.can_view_task(p_field text,p_task text)
 returns boolean language sql stable security definer set search_path='' as $$
   select app_private.is_member(p_field) and exists (
     select 1 from public.work_tasks t where t.field_id=p_field and t.id=p_task
     and (app_private.can_manage_tasks(p_field)
       or (t.target_type='personal' and t.assigned_to=(select auth.uid()))
-      or (t.target_type in ('area','pad') and app_private.can_walk(p_field)))
+      or (t.target_type in ('area','pad') and app_private.can_walk(p_field)
+        and exists(select 1 from public.work_task_assignees a
+          where a.field_id=t.field_id and a.task_id=t.id and a.user_id=(select auth.uid()))))
   )
 $$;
 create function app_private.can_attach_task(p_field text,p_task text)
@@ -42,7 +75,9 @@ returns boolean language sql stable security definer set search_path='' as $$
     select 1 from public.work_tasks t where t.field_id=p_field and t.id=p_task
       and t.status in ('active','awaitingConfirmation')
       and ((t.target_type='personal' and t.assigned_to=(select auth.uid()))
-        or (t.target_type in ('area','pad') and app_private.can_walk(p_field)))
+        or (t.target_type in ('area','pad') and app_private.can_walk(p_field)
+          and exists(select 1 from public.work_task_assignees a
+            where a.field_id=t.field_id and a.task_id=t.id and a.user_id=(select auth.uid()))))
   )
 $$;
 revoke all on function app_private.can_view_task(text,text) from public,anon;
@@ -139,7 +174,8 @@ begin
   end if;
   select * into t from public.work_tasks where field_id=p_field and id=p_task for update;
   if not found then raise exception 'Task not found'; end if;
-  if t.created_by<>v_actor and app_private.member_role(p_field)<>'shopChief' then
+  if not app_private.can_manage_tasks(p_field)
+     or (t.created_by<>v_actor and app_private.member_role(p_field)<>'shopChief') then
     raise exception 'Only the author or shop chief may review';
   end if;
   if t.status<>'awaitingConfirmation' then raise exception 'Task not awaiting review'; end if;
