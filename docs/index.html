@@ -71,6 +71,14 @@ async function getCurrentUser(){
 }
 function clearSession(){localStorage.removeItem(LS);session=null;user=null;member=null;field=null;}
 function authScreen(mode="login"){
+ if(mode==="signup"){
+   TABS.hidden=true;document.getElementById("topAction").innerHTML="";
+   APP.innerHTML='<div class="card" style="max-width:520px;margin:28px auto">'+
+    '<h1>Регистрация сотрудника</h1><p>Заявка сначала поступает на согласование. Только после одобрения начальником цеха или системным администратором отправляется письмо для установки пароля.</p>'+
+    '<a class="btn" href="/" style="display:block;text-align:center;text-decoration:none">Открыть основное приложение и подать заявку</a>'+
+    '<p class="sub" style="margin-top:15px">Новое месторождение и первого начальника цеха утверждает системный администратор.</p></div>';
+   return;
+ }
  TABS.hidden=true;document.getElementById("topAction").innerHTML="";
  APP.innerHTML='<div style="max-width:470px;margin:28px auto"><div class="card">'+
  '<span class="pill">Защищённый вход</span><h1 style="margin-top:10px">'+(mode==="login"?"Вход в Промысел":"Регистрация")+'</h1>'+
@@ -86,7 +94,7 @@ function authScreen(mode="login"){
   e.preventDefault();if(busy)return;busy=true;
   try{
    const email=val("aemail"),password=val("apass");
-   const r=mode==="login"?await auth("token?grant_type=password","POST",{email,password}):await auth("signup","POST",{email,password,data:{full_name:val("aname")}});
+   const r=await auth("token?grant_type=password","POST",{email,password});
    if(!r.access_token){note("Подтверди электронную почту по ссылке из письма, затем войди.");authScreen("login");return}
    session=r;localStorage.setItem(LS,JSON.stringify(r));await enter();
   }catch(err){note("Не удалось войти: "+err.message,true)}finally{busy=false}
