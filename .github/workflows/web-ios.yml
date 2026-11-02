@@ -59,6 +59,7 @@ jobs:
           python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_supabase_adapter.py"
           python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_supabase_hardening.py"
           python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_approval_performance_hotfix.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_history_init.py"
           mkdir -p assets/icon
           rsvg-convert -w 1024 -h 1024 "$GITHUB_WORKSPACE/assets/promysel_icon_modern.svg" -o assets/icon/app_icon.png
           cp assets/icon/app_icon.png assets/icon/app_icon_foreground.png
