@@ -97,6 +97,7 @@ jobs:
           # The original Flutter UI remains at /; the setup page is used only
           # to register the first administrator and manage account onboarding.
           cp "$GITHUB_WORKSPACE/docs/index.html" "$OUT/setup.html"
+          cp "$GITHUB_WORKSPACE/docs/admin-setup.html" "$OUT/activate-admin.html"
           cat > "$OUT/_headers" <<'EOF'
           /*
             X-Content-Type-Options: nosniff
@@ -111,6 +112,7 @@ jobs:
           EOF
           test -f "$OUT/index.html"
           test -f "$OUT/setup.html"
+          test -f "$OUT/activate-admin.html"
       - name: Package iPhone web app
         shell: bash
         run: |
@@ -140,4 +142,5 @@ jobs:
           unzip -Z1 artifacts/promysel-original-flutter-supabase-web.zip | grep -qx main.dart.js
           unzip -Z1 artifacts/promysel-original-flutter-supabase-web.zip | grep -qx sqflite_sw.js
           unzip -Z1 artifacts/promysel-original-flutter-supabase-web.zip | grep -qx setup.html
+          unzip -Z1 artifacts/promysel-original-flutter-supabase-web.zip | grep -qx activate-admin.html
           echo 'Manual Cloudflare Pages direct upload is ready'
