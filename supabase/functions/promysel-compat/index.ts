@@ -71,21 +71,20 @@ Deno.serve(async(req:Request)=>{
      const {data}=await admin.from("oil_fields").select("id").eq("id",field).maybeSingle();
      if(!data)return reply({detail:"Месторождение не найдено"},404);
    }
-   // Invite email must be delivered through Supabase Auth SMTP. Never disclose an initial password.
-   const {data:invited,error:inviteError}=await admin.auth.admin.inviteUserByEmail(email,{
-     data:{full_name:name},redirectTo:"https://promysel-web.pages.dev/setup.html"
-   });
-   if(inviteError||!invited.user){
-     console.error("promysel invite:",inviteError?.message??"missing user");
-     return reply({detail:"Не удалось выслать приглашение. Для регистрации используйте страницу setup.html и затем подайте заявку."},503);
-   }
+   // APPLICATION ONLY: nobody is invited or created in Auth before approval.
+   const {data:existing,error:checkErr}=await admin.from("registration_requests")
+     .select("id").eq("email",email).eq("state","pending").limit(1);
+   if(checkErr)throw checkErr;
+   if(existing?.length)return reply({id:String(existing[0].id),
+     detail:"Заявка уже ожидает согласования. Письмо придёт после одобрения."});
    const {data,error}=await admin.from("registration_requests").insert({
-    requested_by:invited.user.id,field_id:field||null,proposed_field_name:newField||null,
-    requested_role:role,requested_subrole:role==="engineer"?subrole||null:null,
-    full_name:name,email,state:"pending"
+     requested_by:null,field_id:field||null,proposed_field_name:newField||null,
+     requested_role:role,requested_subrole:role==="engineer"?subrole||null:null,
+     full_name:name,email,state:"pending"
    }).select("id").single();
-   if(error){console.error("register:",error.message);return reply({detail:"Пользователь приглашён, но заявка не создана. Обратитесь к администратору."},409)}
-   return reply({id:String(data.id),detail:"Письмо-приглашение отправлено. Подтвердите адрес и задайте пароль."},201);
+   if(error)throw error;
+   return reply({id:String(data.id),
+      detail:"Заявка отправлена на согласование. После одобрения придёт письмо для установки пароля."},201);
   }
   if(!token)return reply({detail:"Необходимо войти в приложение"},401);
   const actorClient=createClient(base,publish,{global:{headers:{Authorization:"Bearer "+token}},
@@ -119,7 +118,7 @@ Deno.serve(async(req:Request)=>{
    return reply({status:"ok"});
   }
   if(req.method==="GET"&&route==="/v1/registration/pending"){
-   let query=admin.from("registration_requests").select("id,requested_by,field_id,proposed_field_name,requested_role,requested_subrole,full_name,email,state").eq("state","pending").order("created_at",{ascending:true}).limit(200);
+   let query=admin.from("registration_requests").select("id,requested_by,field_id,proposed_field_name,requested_role,requested_subrole,full_name,email,state").or("state.eq.pending,and(state.eq.approved,invitation_sent_at.is.null)").order("created_at",{ascending:true}).limit(200);
    if(!administrator){
      const chief=memberships.find((m:J)=>m.role==="shopChief");
      if(!chief)return reply({detail:"Нет права просматривать заявки"},403);
@@ -132,11 +131,48 @@ Deno.serve(async(req:Request)=>{
   const approval=route.match(/^\/v1\/registration\/(\d+)\/(approve|reject)$/);
   if(req.method==="POST"&&approval){
    const target=Number(approval[1]);if(!Number.isSafeInteger(target)||target<1)return reply({detail:"Неверный номер заявки"},400);
-   const rpc=approval[2]==="approve"?"promysel_approve_registration":"promysel_reject_registration";
-   const {data,error}=await admin.rpc(rpc,{p_request_id:target,p_actor:user.id,
-     ...(approval[2]==="reject"?{p_note:""}:{})});
-   if(error)return reply({detail:error.message},403);
-   return reply(data);
+   if(approval[2]==="reject"){
+     const {data,error}=await admin.rpc("promysel_reject_registration",{
+       p_request_id:target,p_actor:user.id,p_note:""});
+     if(error)return reply({detail:error.message},403);
+     return reply(data);
+   }
+   // A verified administrator or scoped shop chief APPROVES first.
+   const {data:decision,error:startError}=await admin.rpc("promysel_start_registration_approval",{
+      p_request_id:target,p_actor:user.id
+   });
+   if(startError)return reply({detail:startError.message},403);
+   let invitedId=txt(decision?.existingUserId);
+   let sent=false;
+   if(!invitedId){
+     const {data:invited,error:inviteError}=await admin.auth.admin.inviteUserByEmail(String(decision.email),{
+       data:{full_name:decision.fullName},
+       redirectTo:"https://promysel-web.pages.dev/finish-registration.html"
+     });
+     if(inviteError||!invited.user){
+       console.error("post-approval invite:",inviteError?.message??"missing user");
+       return reply({detail:"Заявка согласована, но письмо не отправлено. Повторите отправку из заявок."},503);
+     }
+     invitedId=invited.user.id;
+     sent=true;
+   }
+   const {data:finished,error:finishError}=await admin.rpc("promysel_finish_registration_approval",{
+       p_request_id:target,p_actor:user.id,p_user_id:invitedId
+   });
+   if(finishError){
+     console.error("approved invite finalization:",finishError.message);
+     return reply({detail:"Решение принято, но привязка учётной записи не завершена. Повторите действие."},409);
+   }
+   if(!sent){
+      const {error:mailErr}=await guest.auth.resetPasswordForEmail(String(decision.email),{
+        redirectTo:"https://promysel-web.pages.dev/finish-registration.html"
+      });
+      if(mailErr)console.error("approved existing user mail:",mailErr.message);
+      sent=!mailErr;
+   }
+   return reply({...finished,invitationSent:sent,detail:sent?
+     "Заявка согласована. Письмо для установки пароля отправлено.":
+     "Заявка согласована. Письмо отправить не удалось, обратитесь к администратору."});
   }
   if(req.method==="GET"&&(route==="/v1/users"||route==="/v1/registration/users")){
    if(!administrator&&memberships.length===0)return reply({detail:"Нет доступа"},403);
