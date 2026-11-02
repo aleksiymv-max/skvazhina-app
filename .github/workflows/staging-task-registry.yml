@@ -1,0 +1,21 @@
+name: Staging task registry security guard
+on:
+  pull_request:
+    paths:
+      - 'supabase/staging/**'
+      - 'tools/test_staging_task_registry_security.py'
+      - '.github/workflows/staging-task-registry.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  static-security-guard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check staging task audience, RLS and Storage guardrails
+        run: python3 tools/test_staging_task_registry_security.py
+      - name: Explicit scope warning
+        run: |
+          echo 'Static checks only. No PostgreSQL/RLS, Storage or two-account E2E.'
+          echo 'Do not merge or deploy the staging SQL on this result alone.'
