@@ -118,7 +118,7 @@ Deno.serve(async(req:Request)=>{
    return reply({status:"ok"});
   }
   if(req.method==="GET"&&route==="/v1/registration/pending"){
-   let query=admin.from("registration_requests").select("id,requested_by,field_id,proposed_field_name,requested_role,requested_subrole,full_name,email,state").or("state.eq.pending,and(state.eq.approved,invitation_sent_at.is.null)").order("created_at",{ascending:true}).limit(200);
+   let query=admin.from("registration_requests").select("id,requested_by,field_id,proposed_field_name,requested_role,requested_subrole,full_name,email,state").or("state.eq.pending,and(state.eq.approved,approved_field_id.not.is.null,invitation_sent_at.is.null)").order("created_at",{ascending:true}).limit(200);
    if(!administrator){
      const chief=memberships.find((m:J)=>m.role==="shopChief");
      if(!chief)return reply({detail:"Нет права просматривать заявки"},403);
