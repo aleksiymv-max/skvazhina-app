@@ -89,6 +89,7 @@ jobs:
           python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_launcher_badge.py"
           cp "$GITHUB_WORKSPACE/tools/task_notification_onboarding.dart" lib/core/services/task_notification_onboarding.dart
           python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_device_notification_onboarding.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_push_logout.py"
           python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_pull_refresh.py"
           mkdir -p test
           cp "$GITHUB_WORKSPACE/tools/task_permission_test.dart" test/task_permission_test.dart
