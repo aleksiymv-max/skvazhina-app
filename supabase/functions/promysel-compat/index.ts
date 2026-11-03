@@ -34,6 +34,23 @@ function mergeRows(oldV:unknown,newV:unknown,k:string):J[]{
 function mergeState(a:J,b:J):J{
  const o:J={...a,...b};
  for(const k of ["areas","pads","tasks","annulus","training","notifications"])o[k]=mergeRows(a[k],b[k],k);
+ const removed=new Set<string>([
+   ...(Array.isArray(a.trainingDeletedIds)?a.trainingDeletedIds:[]).map(String),
+   ...(Array.isArray(b.trainingDeletedIds)?b.trainingDeletedIds:[]).map(String),
+ ]);
+ o.trainingDeletedIds=[...removed];
+ o.training=(o.training as J[]).filter(x=>!removed.has(String(x.id??"")));
+ const oldSchedules=good(a.workSchedules)?a.workSchedules as J:{};
+ const newSchedules=good(b.workSchedules)?b.workSchedules as J:{};
+ const schedules:J={...oldSchedules};
+ for(const [id,value] of Object.entries(newSchedules)){
+   const prev=oldSchedules[id];
+   const prevDate=good(prev)?Date.parse(String((prev as J).updated??"")):0;
+   const nextDate=good(value)?Date.parse(String((value as J).updated??"")):0;
+   if(!prev||Number.isFinite(nextDate)&&(!Number.isFinite(prevDate)||nextDate>=prevDate))
+     schedules[id]=value;
+ }
+ o.workSchedules=schedules;
  for(const k of ["avatars","problemApplications"])
    o[k]={...(good(a[k])?a[k] as J:{}),...(good(b[k])?b[k] as J:{})};
  const x=good(a.walkConfig)?a.walkConfig as J:{},y=good(b.walkConfig)?b.walkConfig as J:{};
@@ -142,7 +159,7 @@ Deno.serve(async(req:Request)=>{
     let acc:J={};
     for(const row of [...data].reverse())if(good(row.payload))acc=mergeState(acc,row.payload as J);
     const last=data[0].payload as J;
-    const names=["areas","pads","tasks","annulus","training","notifications","walkConfig","avatars","problemApplications"];
+    const names=["areas","pads","tasks","annulus","training","trainingDeletedIds","workSchedules","notifications","walkConfig","avatars","problemApplications"];
     return {snapshot:acc,seq:Number(data[0].sequence),
       changed:names.some(k=>JSON.stringify(acc[k])!==JSON.stringify(last?.[k]))};
   }
