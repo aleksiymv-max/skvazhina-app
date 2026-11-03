@@ -74,7 +74,8 @@ Future<bool> showTaskCompletionDialog(BuildContext context, WorkTask task) async
                 try {
                   if (selected.photos.isNotEmpty) {
                     // Same photo client IDs survive retries in this dialog.
-                    await TaskPhotoService.instance.register(task);
+                    // Existing task is already registered by its issuer; a recipient
+                    // must not re-register it (server returns HTTP 409).
                     await TaskPhotoService.instance.upload(task, 'completion', selected.photos);
                   }
                   final ok = WorkTaskStore.instance.complete(
