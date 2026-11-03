@@ -39,9 +39,11 @@ with tempfile.TemporaryDirectory() as temp:
     chief_script.write_text(f"""
 \\set ON_ERROR_STOP on
 begin;
+-- The synthetic lock holder starts as the test database owner because
+-- clients deliberately have no direct UPDATE/FOR UPDATE permission.
+select id from public.work_tasks where field_id='field-a' and id='area-race' for update;
 set role authenticated;
 select set_config('request.jwt.claim.sub','{CHIEF}',false);
-select id from public.work_tasks where field_id='field-a' and id='area-race' for update;
 \\echo TASK_LOCKED
 select pg_sleep(3);
 select public.promysel_revoke_task_assignee('field-a','area-race','{OPERATOR}');
