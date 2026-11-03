@@ -26,8 +26,15 @@ require("foreign key(field_id,task_id) references public.work_tasks(field_id,id)
 require("foreign key(user_id,field_id) references public.field_memberships(user_id,field_id)" in low,
         "Recipients must be field members")
 require("alter table public.work_task_assignees enable row level security" in low, "Recipients RLS missing")
-require("grant select,insert on public.work_task_assignees to authenticated" in low,
-        "Recipient grants must be limited to read/create")
+require("revoke insert on public.work_task_assignees from authenticated" in low,
+        "Clients must not insert recipients directly")
+require("grant execute on function public.promysel_assign_task_assignee(text,text,uuid)" in low,
+        "Assignment must use authenticated RPC")
+assign = function_body("public.promysel_assign_task_assignee")
+require(assign.index("for update;") < assign.index("insert into public.work_task_assignees"),
+        "Assignment must lock task before inserting recipient")
+require("t.status<>'active'" in assign and "m.approved and not m.blocked" in assign,
+        "Assignment must check status and membership")
 require("m.field_id=work_task_assignees.field_id" in low and
         "m.user_id=work_task_assignees.user_id" in low,
         "Recipient membership must use qualified field and user identifiers")
