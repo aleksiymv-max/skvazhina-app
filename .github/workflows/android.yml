@@ -112,6 +112,12 @@ jobs:
           python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_calendar_russian.py"
           python3 "$GITHUB_WORKSPACE/tools/prepare_profile_single_pencil.py"
           python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_menu_navigation.py"
+          cp "$GITHUB_WORKSPACE/tools/training_store_events.dart" lib/core/services/training_store.dart
+          cp "$GITHUB_WORKSPACE/tools/training_screen_actions.dart" lib/features/organization/training_screen.dart
+          cp "$GITHUB_WORKSPACE/tools/work_schedule_events_screen.dart" lib/features/organization/work_schedule_screen.dart
+          python3 "$GITHUB_WORKSPACE/tools/prepare_work_schedule_day_editor.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_training_merge_safety.py"
+          cp "$GITHUB_WORKSPACE/tools/training_calendar_test.dart" test/training_calendar_test.dart
           cp "$GITHUB_WORKSPACE/tools/work_schedule_test.dart" test/work_schedule_test.dart
           mkdir -p test
           cp "$GITHUB_WORKSPACE/tools/task_permission_test.dart" test/task_permission_test.dart
@@ -137,7 +143,7 @@ jobs:
       - name: Get dependencies and analyze
         shell: bash
         run: |
-          cd "${{ steps.project.outputs.project_dir }}";flutter pub get;flutter pub add --dev sqflite_common_ffi:^2.3.6;flutter analyze --no-fatal-infos --no-fatal-warnings;flutter test test/task_permission_test.dart test/history_empty_widget_test.dart test/task_photo_widget_test.dart test/work_schedule_test.dart
+          cd "${{ steps.project.outputs.project_dir }}";flutter pub get;flutter pub add --dev sqflite_common_ffi:^2.3.6;flutter analyze --no-fatal-infos --no-fatal-warnings;flutter test test/task_permission_test.dart test/history_empty_widget_test.dart test/task_photo_widget_test.dart test/work_schedule_test.dart test/training_calendar_test.dart
       - name: Create Android project with approved launcher icon
         shell: bash
         run: |
