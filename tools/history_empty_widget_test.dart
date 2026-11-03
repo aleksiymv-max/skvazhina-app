@@ -31,11 +31,13 @@ void main() {
     expect(find.text('Для выбранной скважины замеров пока нет.'), findsOneWidget);
 
     await tester.tap(find.text('Проблемы').first);
+    await tester.pump();
     await tester.pump(const Duration(milliseconds: 350));
     expect(tester.takeException(), isNull);
     expect(find.text('История решённых проблем'), findsOneWidget);
 
     await tester.tap(find.text('Задания').first);
+    await tester.pump();
     await tester.pump(const Duration(milliseconds: 350));
     expect(tester.takeException(), isNull);
     expect(find.text('История выполнения заданий'), findsOneWidget);
