@@ -100,6 +100,12 @@ jobs:
           python3 "$GITHUB_WORKSPACE/tools/prepare_profile_layout.py"
           python3 "$GITHUB_WORKSPACE/tools/prepare_profile_avatar.py"
           python3 "$GITHUB_WORKSPACE/tools/prepare_profile_training_delete.py"
+          cp "$GITHUB_WORKSPACE/tools/work_schedule_store.dart" lib/core/services/work_schedule_store.dart
+          cp "$GITHUB_WORKSPACE/tools/work_schedule_screen.dart" lib/features/organization/work_schedule_screen.dart
+          python3 "$GITHUB_WORKSPACE/tools/prepare_personnel_access.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_work_schedule_integration.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_personnel_ui.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_profile_name_edit.py"
           mkdir -p test
           cp "$GITHUB_WORKSPACE/tools/task_permission_test.dart" test/task_permission_test.dart
           cp "$GITHUB_WORKSPACE/tools/history_empty_widget_test.dart" test/history_empty_widget_test.dart
