@@ -5,8 +5,8 @@ import '../../core/services/work_schedule_store.dart';
 import '../../core/services/training_store.dart';
 import '../../core/services/sync_service.dart';
 
-String _dayLabel(DateTime d)=>DateFormat('dd.MM.yyyy','ru').format(d);
-String _monthLabel(DateTime d)=>DateFormat('LLLL yyyy','ru').format(d);
+String _dayLabel(DateTime d)=>'${d.day.toString().padLeft(2,'0')}.${d.month.toString().padLeft(2,'0')}.${d.year}';
+String _monthLabel(DateTime d)=>'${const ['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'][d.month-1]} ${d.year}';
 DateTime _onlyDate(DateTime d)=>DateTime(d.year,d.month,d.day);
 
 class WorkScheduleScreen extends StatefulWidget {
