@@ -216,6 +216,6 @@ assert "import '../../core/models/work_task.dart';" in h
 h=h.replace("import '../../core/models/work_task.dart';","import '../../core/models/work_task.dart';\nimport '../tasks/task_photo_widgets.dart';",1)
 anchor="isThreeLine:true)))]);"
 assert h.count(anchor)==1,'History confirmed task card changed'
-h=h.replace(anchor,"isThreeLine:true,trailing:IconButton(tooltip:'Фотографии',icon:const Icon(Icons.photo_library_outlined),onPressed:()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>TaskPhotoGallery(task:t))))))]);",1)
+h=h.replace(anchor,"isThreeLine:true,trailing:IconButton(tooltip:'Фотографии',icon:const Icon(Icons.photo_library_outlined),onPressed:()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>TaskPhotoGallery(task:t)))))))]);",1)
 history.write_text(h)
 print('PASS: task photos on creation, completion, issued cards and confirmed history')
