@@ -52,5 +52,7 @@ jobs:
         run: psql -v ON_ERROR_STOP=1 -f supabase/staging/20261102_task_registry_evidence_review_only.sql
       - name: Verify role isolation, evidence RLS, RPC and revocation
         run: psql -v ON_ERROR_STOP=1 -f tools/staging_task_registry_pg_checks.sql
+      - name: Verify concurrent assignment revocation and completion
+        run: python3 tools/test_staging_task_registry_race.py
       - name: Scope
         run: echo 'Synthetic PostgreSQL only; not full Supabase Storage API or production E2E.'
