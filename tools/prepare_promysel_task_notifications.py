@@ -62,26 +62,18 @@ s=p.read_text()
 anchor="import '../../core/services/problem_application_store.dart';"
 assert s.count(anchor)==1
 s=s.replace(anchor,anchor+"\nimport '../../core/services/notification_store.dart';\nimport '../tasks/task_notifications_screen.dart';",1)
-anchor="appBar:AppBar(title:Text("
+anchor="actions:[IconButton(onPressed:()=>context.push('/profile')"
 assert s.count(anchor)==1
-# Add bell to home, so unread notifications are visible without opening Tasks.
-start=s.index(anchor)
-end=s.index("),",start) if False else -1
-# The existing AppBar has a title expression followed by a style.
-old="style:const TextStyle(fontWeight:FontWeight.w800))),"
-assert s.count(old)==1
-new="""style:const TextStyle(fontWeight:FontWeight.w800)),actions:[
-  ListenableBuilder(listenable:NotificationStore.instance,builder:(context,_){
-    final n=NotificationStore.instance.unread(SessionService.instance.currentUser.id);
-    return IconButton(
-      tooltip:n==0?'Уведомления':'Уведомления: $n новых',
-      icon:Badge(isLabelVisible:n>0,label:Text(n>99?'99+':'$n'),
-        child:const Icon(Icons.notifications_outlined)),
-      onPressed:()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>const TaskNotificationsScreen())),
-    );
-  })
-]),"""
-s=s.replace(old,new,1)
+bell="""actions:[ListenableBuilder(listenable:NotificationStore.instance,builder:(context,_){
+  final n=NotificationStore.instance.unread(SessionService.instance.currentUser.id);
+  return IconButton(
+    tooltip:n==0?'Уведомления':'Уведомления: $n новых',
+    icon:Badge(isLabelVisible:n>0,label:Text(n>99?'99+':'$n'),
+      child:const Icon(Icons.notifications_outlined)),
+    onPressed:()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>const TaskNotificationsScreen())),
+  );
+}),IconButton(onPressed:()=>context.push('/profile')"""
+s=s.replace(anchor,bell,1)
 p.write_text(s)
 
 assert 'TaskNotificationService.process' in (r/'lib/core/services/app_state_store.dart').read_text()
