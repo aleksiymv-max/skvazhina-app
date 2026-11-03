@@ -82,6 +82,11 @@ jobs:
           cp "$GITHUB_WORKSPACE/tools/task_completion_dialog.dart" lib/features/tasks/task_completion_dialog.dart
           python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_unified_task_completion.py"
           python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_task_badge_login.py"
+          cp "$GITHUB_WORKSPACE/tools/task_launcher_badge.dart" lib/core/services/task_launcher_badge.dart
+          cp "$GITHUB_WORKSPACE/tools/task_badge_platform_stub.dart" lib/core/services/task_badge_platform_stub.dart
+          cp "$GITHUB_WORKSPACE/tools/task_badge_platform_mobile.dart" lib/core/services/task_badge_platform_mobile.dart
+          cp "$GITHUB_WORKSPACE/tools/task_badge_platform_web.dart" lib/core/services/task_badge_platform_web.dart
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_launcher_badge.py"
           mkdir -p test
           cp "$GITHUB_WORKSPACE/tools/task_permission_test.dart" test/task_permission_test.dart
           cp "$GITHUB_WORKSPACE/tools/history_empty_widget_test.dart" test/history_empty_widget_test.dart
@@ -111,6 +116,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail;cd "${{ steps.project.outputs.project_dir }}";rm -rf android;flutter create --platforms=android --project-name promysel --org ru.promysel .
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_launcher_badge_android.py"
           M=android/app/src/main/AndroidManifest.xml;sed -i '/<manifest/a\\    <uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.CAMERA" />' "$M";sed -i 's/android:label="[^"]*"/android:label="Промысел"/' "$M"
           rm -f android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml android/app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml
           declare -A z=([mdpi]=48 [hdpi]=72 [xhdpi]=96 [xxhdpi]=144 [xxxhdpi]=192);for d in mdpi hdpi xhdpi xxhdpi xxxhdpi;do o="android/app/src/main/res/mipmap-$d";mkdir -p "$o";convert assets/icon/app_icon.png -resize "${z[$d]}x${z[$d]}" "$o/ic_launcher.png";cp "$o/ic_launcher.png" "$o/ic_launcher_round.png";done
