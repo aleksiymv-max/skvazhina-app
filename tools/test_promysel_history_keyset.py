@@ -11,6 +11,10 @@ ui = (root / 'lib/features/history/history_screen.dart').read_text(encoding='utf
 repo = (root / 'lib/core/repositories/measurement_repository.dart').read_text(encoding='utf-8')
 db = (root / 'lib/core/database/app_database.dart').read_text(encoding='utf-8')
 assert '_resolvedProblemsFuture=repo.resolvedProblems();' in ui
+assert 'canSeeField(p.fieldId)' in ui, 'A user must not browse another field'
+assert "value: pad==null?null:padId" in ui, 'Removed pads must not crash the dropdown'
+assert "value: wellId=='__annulus__'||well!=null?wellId:null" in ui, 'Removed wells must not crash the dropdown'
+assert 'Не удалось загрузить решённые проблемы' in ui, 'Problem-history errors must be visible'
 assert ui.index('_resolvedProblemsFuture=repo.resolvedProblems();') < ui.index('Widget build(BuildContext context)')
 assert '_historyPageSize = 60' in ui and '_load(append: true)' in ui
 assert 'generation != _loadGeneration' in ui
