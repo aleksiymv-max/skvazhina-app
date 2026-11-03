@@ -59,7 +59,7 @@ assert s.count(old)==1
 s=s.replace(old,"@override Widget build(BuildContext context)=>ListenableBuilder(listenable:SessionService.instance,builder:(context,_){final u=SessionService.instance.currentUser;",1)
 old="icon:const Icon(Icons.logout),label:const Text('Выйти из приложения'))]));}"
 assert s.count(old)==1
-s=s.replace(old,"icon:const Icon(Icons.logout),label:const Text('Выйти из приложения'))]));});}",1)
+s=s.replace(old,"icon:const Icon(Icons.logout),label:const Text('Выйти из приложения'))]));});",1)
 prof.write_text(s,encoding='utf-8')
 assert 'promysel_field_names_v1' in p.read_text() and 'unawaited(refreshFields()' in p.read_text()
 assert 'ListenableBuilder(listenable:SessionService.instance' in prof.read_text()
