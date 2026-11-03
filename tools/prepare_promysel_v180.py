@@ -57,7 +57,7 @@ edit(tasks,"appBar:AppBar(title:const Text('Задания'),actions:[",
    "appBar:AppBar(title:const Text('Задания'),leading:IconButton(tooltip:'Назад в меню',icon:const Icon(Icons.arrow_back),onPressed:()=>context.go('/menu')),actions:[")
 
 pub=Path('pubspec.yaml');t=pub.read_text();t=re.sub(r'(?m)^version:\s*[^\n]+','version: 1.80.0+186',t,count=1)
-for dep in ['file_picker: 12.3.0','record: 7.1.2','url_launcher: 6.3.2']:
+for dep in ['file_picker: 11.0.3','record: 7.1.2','url_launcher: 6.3.2']:
  if dep.split(':')[0]+':' not in t:t=t.replace('  shared_preferences: ^2.3.3','  shared_preferences: ^2.3.3\n  '+dep)
 pub.write_text(t)
 
