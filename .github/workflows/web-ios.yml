@@ -87,6 +87,7 @@ jobs:
           python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_launcher_badge.py"
           cp "$GITHUB_WORKSPACE/tools/task_notification_onboarding.dart" lib/core/services/task_notification_onboarding.dart
           python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_device_notification_onboarding.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_push_logout.py"
           python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_pull_refresh.py"
           mkdir -p test
           cp "$GITHUB_WORKSPACE/tools/task_permission_test.dart" test/task_permission_test.dart
@@ -138,6 +139,7 @@ jobs:
           flutter analyze --no-fatal-infos --no-fatal-warnings
           flutter test test/task_permission_test.dart test/history_empty_widget_test.dart test/task_photo_widget_test.dart
           flutter build web --release --pwa-strategy=offline-first --dart-define=PROMYSEL_SYNC_URL=https://xptmcufhuvtcunqzlsme.supabase.co/functions/v1/promysel-compat
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_web_push.py"
           test -f build/web/index.html;test -f build/web/flutter_bootstrap.js;test -f build/web/manifest.json;test -f build/web/sqlite3.wasm;test -f build/web/sqflite_sw.js;test -f build/web/apple-touch-icon.png
       - name: Add first-run account setup and Cloudflare hosting metadata
         shell: bash
