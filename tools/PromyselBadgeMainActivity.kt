@@ -91,7 +91,6 @@ class MainActivity : FlutterActivity() {
             .setNumber(unreadCount)
             .setBadgeIconType(Notification.BADGE_ICON_SMALL)
             .setOnlyAlertOnce(true)
-            .setSilent(true)
             .setAutoCancel(false)
         if (pending != null) notification.setContentIntent(pending)
         manager.notify(badgeId, notification.build())
