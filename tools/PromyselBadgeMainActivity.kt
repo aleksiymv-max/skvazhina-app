@@ -21,6 +21,9 @@ class MainActivity : FlutterActivity() {
     private val channel = "ru.promysel/task_launcher_badge"
     private val badgeChannel = "promysel_task_unread"
     private val badgeId = 19148
+    private val alertChannel = "promysel_task_new_v2"
+    private val alertId = 19150
+    private val prefName = "promysel_native_notifications"
     private val requestId = 19149
     private var unreadCount: Int = 0
 
@@ -30,7 +33,11 @@ class MainActivity : FlutterActivity() {
             when (call.method) {
                 "setCount" -> {
                     unreadCount = (call.argument<Int>("count") ?: 0).coerceAtLeast(0)
+                    val prefs = getSharedPreferences(prefName, Context.MODE_PRIVATE)
+                    val previous = prefs.getInt("lastUnread", 0)
                     showBadge()
+                    if (unreadCount > previous) showIncomingTaskAlert()
+                    prefs.edit().putInt("lastUnread", unreadCount).apply()
                     result.success(null)
                 }
                 "requestPermission" -> {
@@ -61,11 +68,43 @@ class MainActivity : FlutterActivity() {
         }
     }
 
+    /** Actual foreground system notification; launcher dots alone cannot alert the user. */
+    private fun showIncomingTaskAlert() {
+        if (Build.VERSION.SDK_INT < 26) return
+        if (Build.VERSION.SDK_INT >= 33 &&
+            checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) return
+        val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        val channel = NotificationChannel(
+            alertChannel, "Новые задания Промысел", NotificationManager.IMPORTANCE_HIGH
+        )
+        channel.setShowBadge(true)
+        manager.createNotificationChannel(channel)
+        val launchIntent = packageManager.getLaunchIntentForPackage(packageName)
+        val pending = launchIntent?.let {
+            PendingIntent.getActivity(
+                this, 0, it,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+        }
+        val notification = Notification.Builder(this, alertChannel)
+            .setSmallIcon(android.R.drawable.ic_dialog_info)
+            .setContentTitle("Промысел — новое задание")
+            .setContentText("Есть новые задания или выполненные задания для проверки")
+            .setNumber(unreadCount)
+            .setAutoCancel(true)
+            .setOnlyAlertOnce(false)
+            .setCategory(Notification.CATEGORY_MESSAGE)
+            .setPriority(Notification.PRIORITY_HIGH)
+        if (pending != null) notification.setContentIntent(pending)
+        manager.notify(alertId, notification.build())
+    }
+
     private fun showBadge() {
         if (Build.VERSION.SDK_INT < 26) return
         val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         if (unreadCount == 0) {
             manager.cancel(badgeId)
+            manager.cancel(alertId)
             return
         }
         if (Build.VERSION.SDK_INT >= 33 &&
