@@ -15,7 +15,7 @@ void main(){
     await tester.pumpWidget(MaterialApp(home:Scaffold(body:TaskPhotoPicker(photos:model))));
     expect(find.text('Камера'),findsOneWidget);
     expect(find.text('Галерея'),findsOneWidget);
-    expect(find.textContaining('Фотографии'),findsOneWidget);
+    expect(find.textContaining('фотографии'),findsOneWidget);
     model.dispose();
   });
 }
