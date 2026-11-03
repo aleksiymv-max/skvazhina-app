@@ -80,6 +80,11 @@ jobs:
           cp "$GITHUB_WORKSPACE/tools/task_completion_dialog.dart" lib/features/tasks/task_completion_dialog.dart
           python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_unified_task_completion.py"
           python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_task_badge_login.py"
+          cp "$GITHUB_WORKSPACE/tools/task_launcher_badge.dart" lib/core/services/task_launcher_badge.dart
+          cp "$GITHUB_WORKSPACE/tools/task_badge_platform_stub.dart" lib/core/services/task_badge_platform_stub.dart
+          cp "$GITHUB_WORKSPACE/tools/task_badge_platform_mobile.dart" lib/core/services/task_badge_platform_mobile.dart
+          cp "$GITHUB_WORKSPACE/tools/task_badge_platform_web.dart" lib/core/services/task_badge_platform_web.dart
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_launcher_badge.py"
           mkdir -p test
           cp "$GITHUB_WORKSPACE/tools/task_permission_test.dart" test/task_permission_test.dart
           cp "$GITHUB_WORKSPACE/tools/history_empty_widget_test.dart" test/history_empty_widget_test.dart
@@ -121,6 +126,7 @@ jobs:
           if 'databaseFactory = databaseFactoryFfiWeb;' not in src:src=src[:match.end()]+init+src[match.end():]
           main.write_text(src)
           PY
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_launcher_badge_web.py"
           test -f web/sqlite3.wasm;test -f web/sqflite_sw.js;test -f web/apple-touch-icon.png
       - name: Analyze and build web release
         shell: bash
