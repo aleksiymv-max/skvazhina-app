@@ -72,6 +72,8 @@ jobs:
           python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_sync_state_merge.py"
           python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_sync_recovery.py"
           python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_task_inbox_refresh.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_field_name_persistence.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_task_completion_comment.py"
           mkdir -p test
           cp "$GITHUB_WORKSPACE/tools/task_permission_test.dart" test/task_permission_test.dart
           cp "$GITHUB_WORKSPACE/tools/history_empty_widget_test.dart" test/history_empty_widget_test.dart
