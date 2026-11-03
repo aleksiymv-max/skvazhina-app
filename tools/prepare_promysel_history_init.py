@@ -18,6 +18,14 @@ source = source.replace(
     1,
 )
 
+# Respect field boundaries and recover safely if a pad was removed after a sync.
+source = source.replace("padId=demoPads.isEmpty?null:demoPads.first.id;", "padId=demoPads.where((p)=>SessionService.instance.canSeeField(p.fieldId)).firstOrNull?.id;", 1)
+source = source.replace("demoPads.where((p) => p.id == padId).firstOrNull", "demoPads.where((p) => p.id == padId && SessionService.instance.canSeeField(p.fieldId)).firstOrNull", 1)
+source = source.replace("value: padId, decoration:", "value: pad==null?null:padId, decoration:", 1)
+source = source.replace("items: demoPads.map((p) => DropdownMenuItem", "items: demoPads.where((p)=>SessionService.instance.canSeeField(p.fieldId)).map((p) => DropdownMenuItem", 1)
+source = source.replace("value: wellId, decoration:", "value: wellId=='__annulus__'||well!=null?wellId:null, decoration:", 1)
+
+
 old_load = '  Future<void> _load() async { setState(() => loading = true); items = wellId == null ? [] : await repo.history(wellId: wellId, limit: 500); if (mounted) setState(() => loading = false); }'
 new_load = """  int _loadGeneration = 0;
   static const int _historyPageSize = 60;
@@ -60,10 +68,14 @@ assert source.count(pad_anchor) == 1 and source.count(well_anchor) == 1, 'Histor
 source = source.replace(pad_anchor, 'padId = v; items = []; _hasMore = false; _setWell();', 1)
 source = source.replace(well_anchor, 'wellId = v; selectedDate = null; items = []; _hasMore = false;', 1)
 
+err_insert="if(snap.connectionState!=ConnectionState.waiting&&rows.isEmpty)"
+assert source.count(err_insert)==1, 'Problem-history empty state changed'
+source=source.replace(err_insert,"if(snap.hasError)Card(child:ListTile(leading:const Icon(Icons.error_outline),title:const Text('Не удалось загрузить решённые проблемы'),trailing:IconButton(icon:const Icon(Icons.refresh),onPressed:_refreshHistory))),if(!snap.hasError&&snap.connectionState!=ConnectionState.waiting&&rows.isEmpty)",1)
+
 path.write_text(source, encoding='utf-8')
 assert 'generation != _loadGeneration' in source
 assert '_resolvedProblemsFuture=repo.resolvedProblems();' in source
-print('PASS: history initialized, stale results ignored, errors handled, initial page 80')
+print('PASS: history initialized, field-scope selections, stale results ignored, errors handled, initial page 60')
 
 
 # Stable keyset pagination: repository API remains backward compatible.
