@@ -6,8 +6,8 @@ import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../core/network/api_config.dart';
-import '../core/services/session_service.dart';
+import '../network/api_config.dart';
+import 'session_service.dart';
 
 /// All requests are authorized by Supabase Auth and verified again on the server.
 /// No service-role key or raw chat tables are exposed to the Flutter client.

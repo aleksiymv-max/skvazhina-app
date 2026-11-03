@@ -65,7 +65,7 @@ class _PromyselChatScreenState extends State<PromyselChatScreen>{
        TextField(controller:title,maxLength:80,decoration:const InputDecoration(labelText:'Название группы',border:OutlineInputBorder())),
        const Align(alignment:Alignment.centerLeft,child:Text('Участники',style:TextStyle(fontWeight:FontWeight.w700))),
        Expanded(child:ListView(children:[for(final p in people)CheckboxListTile(dense:true,title:Text('${p['name']}'),
-         value:chosen.contains('${p['id']}'),onChanged:(v)=>refresh((){if(v==true)chosen.add('${p['id']}');else chosen.remove('${p['id']}');})]))
+         value:chosen.contains('${p['id']}'),onChanged:(v)=>refresh((){if(v==true)chosen.add('${p['id']}');else chosen.remove('${p['id']}');}))]))
      ])),actions:[TextButton(onPressed:()=>Navigator.pop(d),child:const Text('Отмена')),
        FilledButton(onPressed:(){if(title.text.trim().isEmpty||chosen.isEmpty)return;Navigator.pop(d);_create('group',ids:chosen.toList(),title:title.text.trim());},child:const Text('Создать'))],
    )));title.dispose();
@@ -159,7 +159,7 @@ class _PromyselChatRoomScreenState extends State<PromyselChatRoomScreen>{
  Future<void> _attachment(String kind,{bool camera=false})async{
    try{
      if(kind=='document'){
-       final picked=await FilePicker.platform.pickFiles(type:FileType.any,withData:true);
+       final picked=await FilePicker.pickFiles(type:FileType.any,withData:true);
        if(picked!=null){for(final f in picked.xFiles){await _media(f,'document');}}
      }else if(kind=='image'){
        if(camera){final x=await ImagePicker().pickImage(source:ImageSource.camera,imageQuality:80,maxWidth:2200);if(x!=null)await _media(x,'image');}
@@ -234,7 +234,7 @@ class _PromyselChatRoomScreenState extends State<PromyselChatRoomScreen>{
          if(!deleted&&'${m['body']??''}'.isNotEmpty)Text('${m['body']}',style:const TextStyle(fontSize:15)),
          Align(alignment:Alignment.centerRight,child:Text('${m['edited_at']!=null?'изменено · ':''}${_time(m['created_at'])}${mine?(read?' ✓✓':' ✓'):''}',style:Theme.of(context).textTheme.labelSmall)),
        ])),
-   ))));
+   )));
  }
  Future<void> _roomSettings()async{
    if(room==null)return;final r=room!;bool muted=r['muted']==true,sound=r['soundEnabled']!=false;
