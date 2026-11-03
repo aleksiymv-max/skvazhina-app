@@ -39,7 +39,7 @@ class TaskNotificationService {
           task.status != WorkTaskStatus.active) {
         final at = task.completedAt!;
         await notices.add(AppNotice(
-          id: 'task_completed_${task.id}_$userId_${at.toUtc().microsecondsSinceEpoch}',
+          id: 'task_completed_${task.id}_${userId}_${at.toUtc().microsecondsSinceEpoch}',
           userId: userId,
           title: 'Задание выполнено',
           body: '${task.title} · Выполнил: ${task.completedBy ?? "Сотрудник"}'
