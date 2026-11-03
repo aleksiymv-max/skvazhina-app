@@ -171,16 +171,28 @@ do $$ begin
 end $$;
 reset role;
 
--- Regression: even a manager cannot assign an employee after completion.
+-- Regression: a completed common task must reject new assignments.
+set role authenticated;
+select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000001',false);
+insert into public.work_tasks(field_id,id,title,target_type,target_id,created_by)
+values('field-a','area-done','Synthetic completed area task','area','area-a',
+'00000000-0000-0000-0000-000000000001');
+select public.promysel_assign_task_assignee(
+  'field-a','area-done','00000000-0000-0000-0000-000000000003');
+reset role;
+set role authenticated;
+select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000003',false);
+select public.promysel_complete_task('field-a','area-done');
+reset role;
 set role authenticated;
 select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000001',false);
 do $$ begin
   begin
     perform public.promysel_assign_task_assignee(
-      'field-a','personal-1','00000000-0000-0000-0000-000000000003');
-    raise exception 'Manager assigned employee to completed personal task';
+      'field-a','area-done','00000000-0000-0000-0000-000000000002');
+    raise exception 'Manager assigned employee to completed task';
   exception when others then
-    if sqlerrm='Manager assigned employee to completed personal task' then raise; end if;
+    if sqlerrm='Manager assigned employee to completed task' then raise; end if;
   end;
 end $$;
 reset role;
