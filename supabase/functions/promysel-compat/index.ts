@@ -34,6 +34,23 @@ function mergeRows(oldV:unknown,newV:unknown,k:string):J[]{
 function mergeState(a:J,b:J):J{
  const o:J={...a,...b};
  for(const k of ["areas","pads","tasks","annulus","training","notifications"])o[k]=mergeRows(a[k],b[k],k);
+ const removed=new Set<string>([
+   ...(Array.isArray(a.trainingDeletedIds)?a.trainingDeletedIds:[]).map(String),
+   ...(Array.isArray(b.trainingDeletedIds)?b.trainingDeletedIds:[]).map(String),
+ ]);
+ o.trainingDeletedIds=[...removed];
+ o.training=(o.training as J[]).filter(x=>!removed.has(String(x.id??"")));
+ const oldSchedules=good(a.workSchedules)?a.workSchedules as J:{};
+ const newSchedules=good(b.workSchedules)?b.workSchedules as J:{};
+ const schedules:J={...oldSchedules};
+ for(const [id,value] of Object.entries(newSchedules)){
+   const prev=oldSchedules[id];
+   const prevDate=good(prev)?Date.parse(String((prev as J).updated??"")):0;
+   const nextDate=good(value)?Date.parse(String((value as J).updated??"")):0;
+   if(!prev||Number.isFinite(nextDate)&&(!Number.isFinite(prevDate)||nextDate>=prevDate))
+     schedules[id]=value;
+ }
+ o.workSchedules=schedules;
  for(const k of ["avatars","problemApplications"])
    o[k]={...(good(a[k])?a[k] as J:{}),...(good(b[k])?b[k] as J:{})};
  const x=good(a.walkConfig)?a.walkConfig as J:{},y=good(b.walkConfig)?b.walkConfig as J:{};
@@ -142,7 +159,7 @@ Deno.serve(async(req:Request)=>{
     let acc:J={};
     for(const row of [...data].reverse())if(good(row.payload))acc=mergeState(acc,row.payload as J);
     const last=data[0].payload as J;
-    const names=["areas","pads","tasks","annulus","training","notifications","walkConfig","avatars","problemApplications"];
+    const names=["areas","pads","tasks","annulus","training","trainingDeletedIds","workSchedules","notifications","walkConfig","avatars","problemApplications"];
     return {snapshot:acc,seq:Number(data[0].sequence),
       changed:names.some(k=>JSON.stringify(acc[k])!==JSON.stringify(last?.[k]))};
   }
@@ -227,6 +244,47 @@ Deno.serve(async(req:Request)=>{
    const {data,error}=await query;if(error)throw error;
    return reply({items:(data??[]).map((m:J)=>({id:m.user_id,name:m.display_name,role:m.role,
       subrole:m.subrole,fieldId:m.field_id,approved:m.approved===true&&m.blocked!==true}))});
+  }
+  const roleChange=route.match(/^\/v1\/users\/([0-9a-f-]{36})\/role$/i);
+  if(req.method==="POST"&&roleChange){
+    const target=roleChange[1],newRole=txt(body.role),subrole=txt(body.subrole);
+    const chief=memberships.find((m:J)=>m.role==="shopChief");
+    if(!chief||!chief.field_id)return reply({detail:"Только начальник цеха может изменять роли"},403);
+    if(target===user.id)return reply({detail:"Изменять свою роль нельзя"},403);
+    if(!["operator","engineer","dispatcher"].includes(newRole))
+      return reply({detail:"Начальник может назначать только операторов, ИТР и диспетчеров"},400);
+    const subs=["leadingGeologist","leadingTechnologist","geologist","technologist","master"];
+    if(newRole==="engineer"&&!subs.includes(subrole))
+      return reply({detail:"Выберите должность ИТР"},400);
+    const {data:worker,error:findErr}=await admin.from("field_memberships")
+      .select("user_id,field_id,role,approved,blocked").eq("field_id",chief.field_id)
+      .eq("user_id",target).maybeSingle();
+    if(findErr)throw findErr;
+    if(!worker||worker.approved!==true||worker.blocked===true||
+       !["operator","engineer","dispatcher"].includes(String(worker.role)))
+      return reply({detail:"Сотрудник недоступен для изменения роли"},403);
+    const {error}=await admin.from("field_memberships").update({
+      role:newRole,subrole:newRole==="engineer"?subrole:null
+    }).eq("field_id",chief.field_id).eq("user_id",target);
+    if(error)throw error;
+    return reply({status:"updated",userId:target,role:newRole,
+      subrole:newRole==="engineer"?subrole:null});
+  }
+  if(req.method==="POST"&&route==="/v1/profile/name"){
+    const name=txt(body.fullName).replace(/\s+/g," ");
+    if(name.length<5||name.length>160||name.split(" ").length<2||
+       /[<>\r\n\t]/.test(name))
+      return reply({detail:"Укажите корректные ФИО (не менее двух слов)"},400);
+    if(memberships.length===0&&!elevated)return reply({detail:"Нет действующего допуска"},403);
+    const {error}=await admin.from("field_memberships").update({
+      display_name:name
+    }).eq("user_id",user.id);
+    if(error)throw error;
+    const {error:metaError}=await admin.auth.admin.updateUserById(user.id,{
+      user_metadata:{...user.user_metadata,full_name:name}
+    });
+    if(metaError)console.warn("Profile metadata sync:",metaError.message);
+    return reply({status:"updated",name});
   }
   const deleteUser=route.match(/^\/v1\/users\/([0-9a-f-]{36})$/i);
   if(req.method==="DELETE"&&deleteUser){
