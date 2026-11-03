@@ -67,9 +67,14 @@ jobs:
           python3 "$GITHUB_WORKSPACE/tools/test_promysel_history_keyset.py"
           python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_task_permissions.py"
           python3 "$GITHUB_WORKSPACE/tools/test_promysel_task_permissions.py"
+          cp "$GITHUB_WORKSPACE/tools/task_photo_service.dart" lib/core/services/task_photo_service.dart
+          cp "$GITHUB_WORKSPACE/tools/task_photo_widgets.dart" lib/features/tasks/task_photo_widgets.dart
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_task_photos.py"
+          python3 "$GITHUB_WORKSPACE/tools/test_promysel_task_photos.py"
           mkdir -p test
           cp "$GITHUB_WORKSPACE/tools/task_permission_test.dart" test/task_permission_test.dart
           cp "$GITHUB_WORKSPACE/tools/history_empty_widget_test.dart" test/history_empty_widget_test.dart
+          cp "$GITHUB_WORKSPACE/tools/task_photo_widget_test.dart" test/task_photo_widget_test.dart
           mkdir -p assets/icon
           # The legacy base64 JPEG is corrupt (SOS before SOF). Use the approved SVG,
           # which is already rendered and validated by the iPhone web pipeline.
@@ -90,7 +95,7 @@ jobs:
       - name: Get dependencies and analyze
         shell: bash
         run: |
-          cd "${{ steps.project.outputs.project_dir }}";flutter pub get;flutter pub add --dev sqflite_common_ffi:^2.3.6;flutter analyze --no-fatal-infos --no-fatal-warnings;flutter test test/task_permission_test.dart test/history_empty_widget_test.dart
+          cd "${{ steps.project.outputs.project_dir }}";flutter pub get;flutter pub add --dev sqflite_common_ffi:^2.3.6;flutter analyze --no-fatal-infos --no-fatal-warnings;flutter test test/task_permission_test.dart test/history_empty_widget_test.dart test/task_photo_widget_test.dart
       - name: Create Android project with approved launcher icon
         shell: bash
         run: |
