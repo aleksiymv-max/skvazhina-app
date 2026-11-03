@@ -270,10 +270,23 @@ Deno.serve(async(req:Request)=>{
     const repaired=await effectiveState(fieldId);
     const output=(data??[]).filter((x:J)=>x.device_id!==device||x.event_type==="app_state"||x.event_type==="measurement")
       .map((x:J)=>({key:x.event_key,type:x.event_type,updatedAt:x.client_updated_at,payload:x.payload}));
-    if(repaired.snapshot&&repaired.changed)output.push({
-      key:"recovered:"+fieldId+":"+String(repaired.seq),type:"app_state",
-      updatedAt:new Date().toISOString(),payload:repaired.snapshot
-    });
+    if(repaired.snapshot&&repaired.changed){
+      // During recovery replay immutable measurements, even if a device's
+      // cursor passed them before its local SQLite data was lost.
+      const {data:archivedWalks,error:archiveError}=await actorClient.from("sync_events")
+        .select("event_key,event_type,payload,client_updated_at")
+        .eq("field_id",fieldId).eq("event_type","measurement")
+        .order("sequence",{ascending:false}).limit(200);
+      if(archiveError)throw archiveError;
+      const present=new Set(output.map((e:J)=>String(e.key)));
+      for(const e of [...(archivedWalks??[])].reverse()){
+        if(present.has(String(e.event_key)))continue;
+        output.push({key:e.event_key,type:"measurement",
+          updatedAt:e.client_updated_at,payload:e.payload});
+      }
+      output.push({key:"recovered:"+fieldId+":"+String(repaired.seq),type:"app_state",
+        updatedAt:new Date().toISOString(),payload:repaired.snapshot});
+    }
     return reply({cursor:(data?.length?String(data[data.length-1].sequence):cursor),items:output});
    }
    const device=txt(body.deviceId),items=body.items;
