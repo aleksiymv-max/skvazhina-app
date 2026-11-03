@@ -4,6 +4,7 @@ on:
     paths:
       - 'supabase/staging/**'
       - 'tools/test_staging_task_registry_security.py'
+      - 'tools/test_staging_task_registry_race.py'
       - 'tools/staging_task_registry_pg_*.sql'
       - '.github/workflows/staging-task-registry.yml'
   workflow_dispatch:
