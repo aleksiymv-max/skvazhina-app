@@ -10,6 +10,39 @@ const base=Deno.env.get("SUPABASE_URL")??"",publish=Deno.env.get("SUPABASE_ANON_
 const fieldTag=(x:unknown)=>txt(x).slice(0,128);
 const validEmail=(x:string)=>x.length<=254&&/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(x);
 type J=Record<string,unknown>;
+
+function mergeRows(oldV:unknown,newV:unknown,k:string):J[]{
+ const out:J[]=[],pos=new Map<string,number>();
+ for(const v of [...(Array.isArray(oldV)?oldV:[]),...(Array.isArray(newV)?newV:[])]){
+  if(!good(v))continue;const row={...(v as J)};
+  const key=k==="annulus"?String(row.wellId??"")+"|"+String(row.date??""):String(row.id??"");
+  const idx=pos.get(key);
+  if(idx===undefined||key===""||key==="|"){
+    if(key!==""&&key!=="|")pos.set(key,out.length);
+    if(key!==""&&key!=="|"||!out.some(x=>JSON.stringify(x)===JSON.stringify(row)))out.push(row);
+  }else{
+    const old=out[idx];
+    if(k==="pads")out[idx]={...old,...row,wells:mergeRows(old.wells,row.wells,"id")};
+    else if(k==="tasks"&&((old.status==="confirmed"&&row.status!=="confirmed")||
+      (old.status==="awaitingConfirmation"&&row.status==="active"&&!row.rejectedAt)))continue;
+    else if(k==="notifications"&&old.read===true)out[idx]={...old,...row,read:true};
+    else out[idx]={...old,...row};
+  }
+ }
+ return out;
+}
+function mergeState(a:J,b:J):J{
+ const o:J={...a,...b};
+ for(const k of ["areas","pads","tasks","annulus","training","notifications"])o[k]=mergeRows(a[k],b[k],k);
+ for(const k of ["avatars","problemApplications"])
+   o[k]={...(good(a[k])?a[k] as J:{}),...(good(b[k])?b[k] as J:{})};
+ const x=good(a.walkConfig)?a.walkConfig as J:{},y=good(b.walkConfig)?b.walkConfig as J:{};
+ const cfg:J={...x,...y};
+ for(const k of ["enabled","units","wellEnabled","wellUnits"])
+   cfg[k]={...(good(x[k])?x[k] as J:{}),...(good(y[k])?y[k] as J:{})};
+ o.walkConfig=cfg;return o;
+}
+
 Deno.serve(async(req:Request)=>{
  if(req.method==="OPTIONS")return new Response(null,{status:204,headers:HEAD});
  const route=new URL(req.url).pathname.replace(/^.*?\/promysel-compat/,"");
@@ -101,6 +134,18 @@ Deno.serve(async(req:Request)=>{
   if(mErr)throw mErr;
   const memberships=(members??[]).filter((m:J)=>m.approved===true&&m.blocked!==true);
   const canField=(fieldId:string)=>memberships.find((m:J)=>m.field_id===fieldId);
+  async function effectiveState(fid:string):Promise<{snapshot:J|null,seq:number,changed:boolean}>{
+    const {data,error}=await admin.from("sync_events").select("sequence,payload")
+      .eq("field_id",fid).eq("event_type","app_state").order("sequence",{ascending:false}).limit(80);
+    if(error)throw error;
+    if(!data?.length)return {snapshot:null,seq:0,changed:false};
+    let acc:J={};
+    for(const row of [...data].reverse())if(good(row.payload))acc=mergeState(acc,row.payload as J);
+    const last=data[0].payload as J;
+    const names=["areas","pads","tasks","annulus","training","notifications","walkConfig","avatars","problemApplications"];
+    return {snapshot:acc,seq:Number(data[0].sequence),
+      changed:names.some(k=>JSON.stringify(acc[k])!==JSON.stringify(last?.[k]))};
+  }
   const administrator=elevated;
   if(req.method==="POST"&&(route==="/v1/auth/first-password"||route==="/v1/auth/change-password")){
    const password=txt(body.password)||txt(body.newPassword);
@@ -196,14 +241,9 @@ Deno.serve(async(req:Request)=>{
   if(req.method==="GET"&&(padWellsRoute||route==="/api/v1/pads")){
     const allowed=memberships.map((m:J)=>String(m.field_id));
     if(!allowed.length)return reply({detail:"Нет доступа к месторождению"},403);
-    const {data:stateEvents,error:stateError}=await admin.from("sync_events").select("field_id,payload")
-      .in("field_id",allowed).eq("event_type","app_state").order("sequence",{ascending:false}).limit(100);
-    if(stateError)throw stateError;
-    const seen=new Set<string>(),pads:J[]=[];
-    for(const event of stateEvents??[]){
-      if(seen.has(event.field_id))continue;seen.add(event.field_id);
-      const p=event.payload as J;
-      if(good(p)&&Array.isArray(p.pads))for(const item of p.pads)if(good(item))pads.push(item as J);
+    const pads:J[]=[];
+    for(const fid of allowed){const state=await effectiveState(fid);const data=state.snapshot;
+      if(data&&Array.isArray(data.pads))for(const item of data.pads)if(good(item))pads.push(item as J);
     }
     if(route==="/api/v1/pads")
       return reply(pads.map(p=>({id:p.id,name:p.name,type:p.type??p.kind??"oil",field_id:p.fieldId??null})));
@@ -227,9 +267,14 @@ Deno.serve(async(req:Request)=>{
      .select("sequence,event_key,event_type,payload,client_updated_at,device_id")
      .eq("field_id",fieldId).gt("sequence",Number(cursor)).order("sequence",{ascending:true}).limit(200);
     if(error)throw error;
-    return reply({cursor:(data?.length?String(data[data.length-1].sequence):cursor),
-      items:(data??[]).filter((x:J)=>x.device_id!==device).map((x:J)=>({
-        key:x.event_key,type:x.event_type,updatedAt:x.client_updated_at,payload:x.payload}))});
+    const repaired=await effectiveState(fieldId);
+    const output=(data??[]).filter((x:J)=>x.device_id!==device||x.event_type==="app_state"||x.event_type==="measurement")
+      .map((x:J)=>({key:x.event_key,type:x.event_type,updatedAt:x.client_updated_at,payload:x.payload}));
+    if(repaired.snapshot&&repaired.changed)output.push({
+      key:"recovered:"+fieldId+":"+String(repaired.seq),type:"app_state",
+      updatedAt:new Date().toISOString(),payload:repaired.snapshot
+    });
+    return reply({cursor:(data?.length?String(data[data.length-1].sequence):cursor),items:output});
    }
    const device=txt(body.deviceId),items=body.items;
    if(!device||device.length>200||!Array.isArray(items)||items.length<1||items.length>100)
