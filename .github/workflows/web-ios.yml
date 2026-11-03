@@ -65,6 +65,10 @@ jobs:
           python3 "$GITHUB_WORKSPACE/tools/test_promysel_history_keyset.py"
           python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_task_permissions.py"
           python3 "$GITHUB_WORKSPACE/tools/test_promysel_task_permissions.py"
+          cp "$GITHUB_WORKSPACE/tools/task_photo_service.dart" lib/core/services/task_photo_service.dart
+          cp "$GITHUB_WORKSPACE/tools/task_photo_widgets.dart" lib/features/tasks/task_photo_widgets.dart
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_task_photos.py"
+          python3 "$GITHUB_WORKSPACE/tools/test_promysel_task_photos.py"
           mkdir -p test
           cp "$GITHUB_WORKSPACE/tools/task_permission_test.dart" test/task_permission_test.dart
           cp "$GITHUB_WORKSPACE/tools/history_empty_widget_test.dart" test/history_empty_widget_test.dart
