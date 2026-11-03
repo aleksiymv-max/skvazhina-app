@@ -47,6 +47,10 @@ for name in ("app_private.can_view_task", "app_private.can_attach_task"):
     require("and app_private.can_walk(p_field)" in body,
             name + " must enforce current walk role")
 
+complete = function_body("public.promysel_complete_task")
+require(complete.index("for update;") < complete.index("app_private.can_attach_task(p_field,p_task)"),
+        "Completion must lock the task BEFORE checking assignment (revoke race)")
+
 review = function_body("public.promysel_review_task")
 require("not app_private.can_manage_tasks(p_field)" in review,
         "Former authors who lost task management privileges must not review")
