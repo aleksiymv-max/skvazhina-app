@@ -148,11 +148,15 @@ create function public.promysel_complete_task(p_field text,p_task text)
 returns jsonb language plpgsql security definer set search_path='' as $$
 declare t public.work_tasks%rowtype; v_actor uuid:=(select auth.uid());
 begin
-  if v_actor is null or not app_private.can_attach_task(p_field,p_task) then
-    raise exception 'Not allowed to complete this task';
+  if v_actor is null then
+    raise exception 'Not authenticated';
   end if;
+  -- Serialize completion with assignment revocation before checking permissions.
   select * into t from public.work_tasks where field_id=p_field and id=p_task for update;
   if not found then raise exception 'Task not found'; end if;
+  if not app_private.can_attach_task(p_field,p_task) then
+    raise exception 'Not allowed to complete this task';
+  end if;
   if t.status='awaitingConfirmation' and t.completed_by=v_actor then
     return jsonb_build_object('status',t.status,'taskId',p_task);
   end if;
