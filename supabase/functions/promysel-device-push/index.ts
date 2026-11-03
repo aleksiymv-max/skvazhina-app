@@ -89,21 +89,41 @@ Deno.serve(async(req:Request)=>{
        .eq("field_id",fieldId).eq("user_id",userId).eq("endpoint",endpoint);
       return response({status:"unsubscribed"},200,origin);
     }
-    if(route==="/deliver"&&req.method==="POST"){
+    if((route==="/deliver"||route==="/dispatch")&&req.method==="POST"){
       const body=await req.json().catch(()=>({}));
       const fieldId=String(body?.fieldId??"");
       if(!/^field-[0-9a-z-]{1,90}$/i.test(fieldId))return response({detail:"Неверное месторождение"},400,origin);
-      const userId=await signedIn(req,fieldId);
-      if(!userId)return response({detail:"Нет доступа"},403,origin);
+      let dispatchEventId=0;
+      if(route==="/dispatch"){
+        dispatchEventId=Number(body?.eventId??0);
+        const supplied=String(body?.signature??"").toLowerCase();
+        if(!Number.isSafeInteger(dispatchEventId)||dispatchEventId<1||!/^[0-9a-f]{64}$/.test(supplied)){
+          return response({detail:"Недопустимая подпись"},403,origin);
+        }
+        const {data:secret,error:secretError}=await db.from("promysel_push_keys")
+          .select("private_key").eq("key_name","push-webhook-hmac").maybeSingle();
+        if(secretError||!secret?.private_key)return response({detail:"Webhook unavailable"},503,origin);
+        const keyBytes=Uint8Array.from(secret.private_key.match(/.{2}/g)!.map((s:string)=>parseInt(s,16)));
+        const hmacKey=await crypto.subtle.importKey("raw",keyBytes,{name:"HMAC",hash:"SHA-256"},false,["sign"]);
+        const input=new TextEncoder().encode(String(dispatchEventId)+"|"+fieldId);
+        const sig=new Uint8Array(await crypto.subtle.sign("HMAC",hmacKey,input));
+        let mismatch=0;
+        for(let i=0;i<sig.length;i++) mismatch |= sig[i]^parseInt(supplied.slice(i*2,i*2+2),16);
+        if(mismatch!==0)return response({detail:"Нет доступа"},403,origin);
+      }else{
+        const userId=await signedIn(req,fieldId);
+        if(!userId)return response({detail:"Нет доступа"},403,origin);
+      }
       const keys=await vapid();
       webpush.setVapidDetails("https://promysel-web.pages.dev",
         keys.public_key,keys.private_key);
-      const {data:pending,error}=await db.from("promysel_push_events")
+      let query=db.from("promysel_push_events")
         .select("id,user_id,event_key,title,body,task_id,send_attempts")
-        .eq("field_id",fieldId).is("sent_at",null)
-        .lt("send_attempts",5)
-        .gte("created_at",new Date(Date.now()-7*86400000).toISOString())
-        .order("id",{ascending:true}).limit(25);
+        .eq("field_id",fieldId).is("sent_at",null).lt("send_attempts",5)
+        .gte("created_at",new Date(Date.now()-7*86400000).toISOString());
+      if(dispatchEventId)query=query.eq("id",dispatchEventId);
+      const {data:pending,error}=await query.order("id",{ascending:true})
+        .limit(dispatchEventId?1:25);
       if(error)throw error;
       let pushed=0;
       for(const event of pending??[]){
