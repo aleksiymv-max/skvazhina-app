@@ -2,7 +2,7 @@ import { createClient } from "npm:@supabase/supabase-js@2.57.0";
 // Backward-compatible adapter for the ORIGINAL Flutter Promysel 1.77 app.
 // Browser must pass Supabase Auth bearer token for every private endpoint.
 // All administrative writes use the existing audited, scoped Postgres RPCs.
-const HEAD={"Access-Control-Allow-Origin":"*","Access-Control-Allow-Headers":"authorization,apikey,content-type,x-client-info","Access-Control-Allow-Methods":"GET,POST,DELETE,OPTIONS","Content-Type":"application/json; charset=utf-8","Cache-Control":"no-store"};
+const HEAD={"Access-Control-Allow-Origin":"*","Access-Control-Allow-Headers":"authorization,apikey,content-type,x-client-info","Access-Control-Allow-Methods":"GET,POST,PATCH,DELETE,OPTIONS","Content-Type":"application/json; charset=utf-8","Cache-Control":"no-store"};
 const reply=(x:unknown,status=200)=>new Response(JSON.stringify(x),{status,headers:HEAD});
 const good=(x:unknown)=>!!x&&typeof x==="object"&&!Array.isArray(x);
 const txt=(x:unknown)=>typeof x==="string"?x.trim():"";
@@ -77,7 +77,7 @@ Deno.serve(async(req:Request)=>{
   route==="/v1/registration/apply"&&req.method==="POST"||
   route==="/v1/auth/forgot-password"&&req.method==="POST";
  let body:J={};
- if(req.method==="POST"){
+ if(["POST","PATCH","DELETE"].includes(req.method)){
   const raw=await req.text();
   if(raw.length>1024*1024)return reply({detail:"Размер запроса превышает 1 МБ"},413);
   if(raw){try{const b=JSON.parse(raw);if(!good(b))return reply({detail:"Ожидается JSON-объект"},400);body=b as J}
@@ -85,7 +85,7 @@ Deno.serve(async(req:Request)=>{
  }
  try{
   if(publicRoute&&route==="/v1/registration/fields"){
-   const {data,error}=await admin.from("oil_fields").select("id,name").order("name").limit(100);
+   const {data,error}=await admin.from("oil_fields").select("id,name").is("archived_at",null).order("name").limit(100);
    if(error)throw error;return reply({items:data??[]});
   }
   if(publicRoute&&route==="/v1/auth/login"){
@@ -96,7 +96,7 @@ Deno.serve(async(req:Request)=>{
    if(error||!data.user||!data.session)return reply({detail:"Неверная электронная почта или пароль"},401);
    const {data:members,error:memberErr}=await admin.from("field_memberships").select("field_id,role,subrole,display_name,approved,blocked").eq("user_id",data.user.id).limit(10);
    if(memberErr)throw memberErr;
-   const member=(members??[]).find((m:J)=>m.approved===true&&m.blocked!==true);
+   let member=(members??[]).find((m:J)=>m.approved===true&&m.blocked!==true);if(member){const {data:active}=await admin.from("oil_fields").select("id").eq("id",member.field_id).is("archived_at",null).maybeSingle();if(!active)member=undefined;}
    const isAdmin=data.user.app_metadata?.system_admin===true;
    if(!member&&!isAdmin)return reply({detail:"Заявка ещё не согласована или доступ заблокирован"},403);
    const mustChange=data.user.app_metadata?.must_change_password===true;
@@ -152,7 +152,7 @@ Deno.serve(async(req:Request)=>{
   }
   const {data:members,error:mErr}=await admin.from("field_memberships").select("field_id,role,subrole,display_name,approved,blocked").eq("user_id",user.id).limit(30);
   if(mErr)throw mErr;
-  const memberships=(members??[]).filter((m:J)=>m.approved===true&&m.blocked!==true);
+  const {data:activeRows}=await admin.from("oil_fields").select("id").is("archived_at",null).limit(500);const activeFields=new Set((activeRows??[]).map((f:J)=>String(f.id)));const memberships=(members??[]).filter((m:J)=>m.approved===true&&m.blocked!==true&&activeFields.has(String(m.field_id)));
   const canField=(fieldId:string)=>memberships.find((m:J)=>m.field_id===fieldId);
   async function effectiveState(fid:string):Promise<{snapshot:J|null,seq:number,changed:boolean}>{
     const {data,error}=await admin.from("sync_events").select("sequence,payload")
@@ -242,11 +242,11 @@ Deno.serve(async(req:Request)=>{
   if(req.method==="GET"&&(route==="/v1/users"||route==="/v1/registration/users")){
    if(!administrator&&memberships.length===0)return reply({detail:"Нет доступа"},403);
    const fields=administrator?null:memberships.map((m:J)=>String(m.field_id));
-   let query=admin.from("field_memberships").select("user_id,field_id,display_name,role,subrole,approved,blocked").order("joined_at",{ascending:false}).limit(500);
-   if(fields&&fields.length)query=query.in("field_id",fields);
+   let query=admin.from("field_memberships").select("user_id,field_id,display_name,role,subrole,approved,blocked,chief_id").order("joined_at",{ascending:false}).limit(500);
+   if(fields&&fields.length)query=query.in("field_id",fields);query=query.in("field_id",activeFields.size?[...activeFields]:["__none__"]);
    const {data,error}=await query;if(error)throw error;
    return reply({items:(data??[]).map((m:J)=>({id:m.user_id,name:m.display_name,role:m.role,
-      subrole:m.subrole,fieldId:m.field_id,approved:m.approved===true&&m.blocked!==true}))});
+      subrole:m.subrole,fieldId:m.field_id,chiefId:m.chief_id,approved:m.approved===true&&m.blocked!==true}))});
   }
   const roleChange=route.match(/^\/v1\/users\/([0-9a-f-]{36})\/role$/i);
   if(req.method==="POST"&&roleChange){
@@ -296,6 +296,74 @@ Deno.serve(async(req:Request)=>{
    const {data,error}=await admin.rpc("promysel_set_worker_blocked",{p_field:chief.field_id,p_actor:user.id,p_target:target,p_blocked:true});
    if(error)return reply({detail:error.message},403);
    return reply({status:"blocked",userId:target,record:data});
+  }
+
+
+  // Sensitive administrative operations are checked against signed app_metadata on the server.
+  const fRoute=route.match(/^\/v1\/admin\/fields\/([^/]+)$/);
+  const uRoute=route.match(/^\/v1\/admin\/users\/([0-9a-f-]{36})$/i);
+  if(route.startsWith("/v1/admin/")&&!administrator)return reply({detail:"Только системному администратору"},403);
+  if(req.method==="POST"&&route==="/v1/admin/fields"){
+   const name=txt(body.name).replace(/\s+/g," ");if(name.length<3||name.length>160)return reply({detail:"Некорректное название"},400);
+   const id="field-"+crypto.randomUUID();const {error}=await admin.from("oil_fields").insert({id,name});
+   if(error)return reply({detail:error.message},409);
+   await admin.from("personnel_audit").insert({field_id:id,actor_id:user.id,action:"field_create",details:{name}});
+   return reply({id,name,status:"created"});
+  }
+  if(fRoute&&req.method==="PATCH"){
+   const id=fRoute[1],name=txt(body.name).replace(/\s+/g," ");
+   if(name.length<3||name.length>160)return reply({detail:"Некорректное название"},400);
+   const {data,error}=await admin.from("oil_fields").update({name}).eq("id",id).is("archived_at",null).select("id").maybeSingle();
+   if(error)return reply({detail:error.message},409);if(!data)return reply({detail:"Месторождение не найдено"},404);
+   await admin.from("personnel_audit").insert({field_id:id,actor_id:user.id,action:"field_rename",details:{name}});
+   return reply({id,name,status:"updated"});
+  }
+  if(fRoute&&req.method==="DELETE"){
+   const id=fRoute[1];const {data:field,error:findError}=await admin.from("oil_fields").select("id,name").eq("id",id).is("archived_at",null).maybeSingle();
+   if(findError)throw findError;if(!field)return reply({detail:"Месторождение не найдено"},404);
+   if(txt(body.confirmName)!==field.name)return reply({detail:"Введите точное название месторождения"},400);
+   // Reversible archival avoids cascaded destruction of pads, wells, history and tasks.
+   const {error}=await admin.from("oil_fields").update({archived_at:new Date().toISOString()}).eq("id",id).is("archived_at",null);
+   if(error)throw error;
+   await admin.from("personnel_audit").insert({field_id:id,actor_id:user.id,action:"field_archive",details:{name:field.name,historyPreserved:true}});
+   return reply({id,status:"archived",historyPreserved:true});
+  }
+  if(uRoute&&req.method==="PATCH"){
+   const target=uRoute[1],name=txt(body.fullName).replace(/\s+/g," "),role=txt(body.role),
+     subrole=txt(body.subrole),oldField=txt(body.oldFieldId),newField=txt(body.fieldId),chiefId=txt(body.chiefId);
+   if(target===user.id)return reply({detail:"Нельзя изменять свой профиль администратора"},403);
+   if(name.length<5||name.length>160||name.split(" ").length<2||/[<>\r\n\t]/.test(name))return reply({detail:"Некорректные ФИО"},400);
+   if(!["operator","engineer","dispatcher","shopChief","manager"].includes(role))return reply({detail:"Недопустимая роль"},400);
+   if(role==="engineer"&&!["leadingGeologist","leadingTechnologist","geologist","technologist","master"].includes(subrole))return reply({detail:"Выберите должность ИТР"},400);
+   const {data:field}=await admin.from("oil_fields").select("id").eq("id",newField).is("archived_at",null).maybeSingle();
+   if(!field)return reply({detail:"Месторождение недоступно"},404);
+   const {data:worker}=await admin.from("field_memberships").select("user_id").eq("user_id",target).eq("field_id",oldField).maybeSingle();
+   if(!worker)return reply({detail:"Сотрудник не найден"},404);
+   if(chiefId&&role!=="shopChief"){
+    const {data:chief}=await admin.from("field_memberships").select("user_id").eq("user_id",chiefId).eq("field_id",newField)
+      .eq("role","shopChief").eq("approved",true).eq("blocked",false).maybeSingle();
+    if(!chief)return reply({detail:"Начальник цеха не найден в выбранном месторождении"},400);
+   }
+   const {error}=await admin.from("field_memberships").update({field_id:newField,display_name:name,role,
+     subrole:role==="engineer"?subrole:null,chief_id:role==="shopChief"?null:chiefId||null})
+     .eq("user_id",target).eq("field_id",oldField);
+   if(error)return reply({detail:error.message},409);
+   await admin.from("personnel_audit").insert({field_id:newField,actor_id:user.id,target_user_id:target,action:"admin_update",
+     details:{name,role,oldField,newField,chiefId}});
+   return reply({status:"updated",userId:target});
+  }
+  if(uRoute&&req.method==="DELETE"){
+   const target=uRoute[1],field=txt(body.fieldId);if(target===user.id)return reply({detail:"Нельзя удалить администратора"},403);
+   const {data:worker}=await admin.from("field_memberships").select("user_id,display_name")
+     .eq("user_id",target).eq("field_id",field).maybeSingle();
+   if(!worker)return reply({detail:"Сотрудник не найден"},404);
+   if(txt(body.confirmName)!==worker.display_name)return reply({detail:"Введите точные ФИО для подтверждения"},400);
+   // Removing membership revokes field access; auth.users and historical measurements remain intact.
+   const {error}=await admin.from("field_memberships").delete().eq("user_id",target).eq("field_id",field);
+   if(error)throw error;
+   await admin.from("personnel_audit").insert({field_id:field,actor_id:user.id,target_user_id:target,action:"admin_remove",
+     details:{name:worker.display_name,historyPreserved:true}});
+   return reply({status:"removed",historyPreserved:true});
   }
 
   const padWellsRoute=route.match(new RegExp("^/api/v1/pads/([^/]+)/wells$"));
