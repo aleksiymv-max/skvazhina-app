@@ -106,6 +106,7 @@ jobs:
           python3 "$GITHUB_WORKSPACE/tools/prepare_work_schedule_integration.py"
           python3 "$GITHUB_WORKSPACE/tools/prepare_personnel_ui.py"
           python3 "$GITHUB_WORKSPACE/tools/prepare_profile_name_edit.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_organization_role_security.py"
           cp "$GITHUB_WORKSPACE/tools/work_schedule_test.dart" test/work_schedule_test.dart
           mkdir -p test
           cp "$GITHUB_WORKSPACE/tools/task_permission_test.dart" test/task_permission_test.dart
