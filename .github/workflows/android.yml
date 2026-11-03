@@ -169,6 +169,21 @@ jobs:
         run: |
           set -euo pipefail;cd "${{ steps.project.outputs.project_dir }}"
           rm -rf "$GITHUB_WORKSPACE/artifacts/symbols";mkdir -p "$GITHUB_WORKSPACE/artifacts/symbols" "$GITHUB_WORKSPACE/artifacts/apk"
+          # Flutter 3.47 + AGP 9 disables KGP in file_picker 11.x incorrectly.
+          # Apply Kotlin explicitly to the plugin's Gradle project and target JVM 17.
+          PICKER_GRADLE="$(find "${PUB_CACHE:-$HOME/.pub-cache}/hosted" -path '*/file_picker-11.0.3/android/build.gradle' -print -quit)"
+          test -n "$PICKER_GRADLE" && test -f "$PICKER_GRADLE"
+          cat >> "$PICKER_GRADLE" <<'KOTLIN_PATCH'
+          if (!plugins.hasPlugin('org.jetbrains.kotlin.android')) {
+              apply plugin: 'org.jetbrains.kotlin.android'
+          }
+          tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
+              compilerOptions {
+                  jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
+              }
+          }
+          KOTLIN_PATCH
+
           flutter build apk --release --target-platform android-arm64 --tree-shake-icons --obfuscate --split-debug-info="$GITHUB_WORKSPACE/artifacts/symbols" --dart-define=PROMYSEL_SYNC_URL=https://xptmcufhuvtcunqzlsme.supabase.co/functions/v1/promysel-compat
           cp build/app/outputs/flutter-apk/app-release.apk "$GITHUB_WORKSPACE/artifacts/apk/promysel-v1.80-arm64.apk"
           sha256sum "$GITHUB_WORKSPACE/artifacts/apk/promysel-v1.80-arm64.apk"
