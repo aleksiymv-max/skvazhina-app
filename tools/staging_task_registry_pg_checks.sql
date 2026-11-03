@@ -10,8 +10,7 @@ values('field-a','personal-1','Synthetic personal task','personal',
 insert into public.work_tasks(field_id,id,title,target_type,target_id,created_by)
 values('field-a','area-1','Synthetic area task','area','area-a',
 '00000000-0000-0000-0000-000000000001');
-insert into public.work_task_assignees(field_id,task_id,user_id)
-values('field-a','area-1','00000000-0000-0000-0000-000000000002');
+select public.promysel_assign_task_assignee('field-a','area-1','00000000-0000-0000-0000-000000000002');
 do $$ begin
   if (select count(*) from public.work_tasks where field_id='field-a')<>2
   then raise exception 'Chief must see two tasks'; end if;
@@ -120,8 +119,7 @@ select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000001'
 insert into public.work_tasks(field_id,id,title,target_type,target_id,created_by)
 values('field-a','area-revoke','Synthetic revocation task','area','area-a',
 '00000000-0000-0000-0000-000000000001');
-insert into public.work_task_assignees(field_id,task_id,user_id)
-values('field-a','area-revoke','00000000-0000-0000-0000-000000000003');
+select public.promysel_assign_task_assignee('field-a','area-revoke','00000000-0000-0000-0000-000000000003');
 reset role;
 set role authenticated;
 select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000003',false);
