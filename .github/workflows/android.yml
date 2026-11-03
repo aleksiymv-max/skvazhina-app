@@ -119,6 +119,7 @@ jobs:
           python3 "$GITHUB_WORKSPACE/tools/prepare_training_merge_safety.py"
           cp "$GITHUB_WORKSPACE/tools/training_calendar_test.dart" test/training_calendar_test.dart
           python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_v179_feedback.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_v179_admin.py"
           cp "$GITHUB_WORKSPACE/tools/work_schedule_test.dart" test/work_schedule_test.dart
           mkdir -p test
           cp "$GITHUB_WORKSPACE/tools/task_permission_test.dart" test/task_permission_test.dart
