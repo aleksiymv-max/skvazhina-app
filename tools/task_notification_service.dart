@@ -13,6 +13,16 @@ class TaskNotificationService {
     final userId = me.id;
     if (userId.isEmpty || !me.approved || session.currentFieldId == null) return;
     final notices = NotificationStore.instance;
+    // Remove legacy completion alerts mistakenly sent to chiefs or executors.
+    final validCompletionIds=<String>{};
+    for(final task in tasks){
+      final owned=task.createdById==userId ||
+        (task.createdById==null && task.createdBy==me.name);
+      if(owned && task.completedAt!=null && task.completedBy!=me.name){
+        validCompletionIds.add('task_completed_${task.id}_${userId}_${task.completedAt!.toUtc().microsecondsSinceEpoch}');
+      }
+    }
+    await notices.removeInvalidCompletionNotices(userId,validCompletionIds);
     for (final task in tasks) {
       final author = task.createdById == userId ||
           (task.createdById == null && task.createdBy == me.name);
@@ -33,7 +43,7 @@ class TaskNotificationService {
       }
       // Send completion to the author and the field's shop chief. No notice
       // to unrelated employees or to the executor unless they also issued it.
-      final reviewer = author || me.role == UserRole.shopChief;
+      final reviewer = author && task.completedBy != me.name;
       if (reviewer &&
           task.completedAt != null &&
           task.status != WorkTaskStatus.active) {
