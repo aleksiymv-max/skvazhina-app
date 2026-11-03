@@ -120,6 +120,11 @@ jobs:
           cp "$GITHUB_WORKSPACE/tools/training_calendar_test.dart" test/training_calendar_test.dart
           python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_v179_feedback.py"
           python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_v179_admin.py"
+          mkdir -p lib/features/chat
+          cp "$GITHUB_WORKSPACE/tools/promysel_chat_service.dart" lib/core/services/promysel_chat_service.dart
+          cp "$GITHUB_WORKSPACE/tools/promysel_chat_screen.dart" lib/features/chat/promysel_chat_screen.dart
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_v180.py"
+          python3 "$GITHUB_WORKSPACE/tools/test_promysel_chat_v180.py"
           cp "$GITHUB_WORKSPACE/tools/work_schedule_test.dart" test/work_schedule_test.dart
           mkdir -p test
           cp "$GITHUB_WORKSPACE/tools/task_permission_test.dart" test/task_permission_test.dart
@@ -136,10 +141,10 @@ jobs:
       - name: Full generated source preflight
         shell: bash
         run: |
-          set -euo pipefail;cd "${{ steps.project.outputs.project_dir }}";mkdir -p "$GITHUB_WORKSPACE/artifacts";zip -qr "$GITHUB_WORKSPACE/artifacts/promysel-v1.79-source.zip" . -x 'android/*' 'build/*' '.dart_tool/*';unzip -t "$GITHUB_WORKSPACE/artifacts/promysel-v1.79-source.zip" >/dev/null
+          set -euo pipefail;cd "${{ steps.project.outputs.project_dir }}";mkdir -p "$GITHUB_WORKSPACE/artifacts";zip -qr "$GITHUB_WORKSPACE/artifacts/promysel-v1.80-source.zip" . -x 'android/*' 'build/*' '.dart_tool/*';unzip -t "$GITHUB_WORKSPACE/artifacts/promysel-v1.80-source.zip" >/dev/null
       - uses: actions/upload-artifact@v4
         continue-on-error: true
-        with: {name: promysel-v1.79-source, path: artifacts/promysel-v1.79-source.zip, retention-days: 30}
+        with: {name: promysel-v1.80-source, path: artifacts/promysel-v1.80-source.zip, retention-days: 30}
       - uses: subosito/flutter-action@v2
         with: {channel: stable, cache: true}
       - name: Get dependencies and analyze
@@ -151,7 +156,10 @@ jobs:
         run: |
           set -euo pipefail;cd "${{ steps.project.outputs.project_dir }}";rm -rf android;flutter create --platforms=android --project-name promysel --org ru.promysel .
           python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_launcher_badge_android.py"
+          if [[ -f android/app/build.gradle.kts ]]; then sed -i 's/minSdk = flutter.minSdkVersion/minSdk = 23/' android/app/build.gradle.kts; fi
+          if [[ -f android/app/build.gradle ]]; then sed -i 's/minSdkVersion flutter.minSdkVersion/minSdkVersion 23/' android/app/build.gradle; fi
           M=android/app/src/main/AndroidManifest.xml;sed -i '/<manifest/a\\    <uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.CAMERA" />' "$M";sed -i 's/android:label="[^"]*"/android:label="Промысел"/' "$M"
+          sed -i '/<manifest/a\\    <uses-permission android:name="android.permission.RECORD_AUDIO" />' "$M"
           rm -f android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml android/app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml
           declare -A z=([mdpi]=48 [hdpi]=72 [xhdpi]=96 [xxhdpi]=144 [xxxhdpi]=192);for d in mdpi hdpi xhdpi xxhdpi xxxhdpi;do o="android/app/src/main/res/mipmap-$d";mkdir -p "$o";convert assets/icon/app_icon.png -resize "${z[$d]}x${z[$d]}" "$o/ic_launcher.png";cp "$o/ic_launcher.png" "$o/ic_launcher_round.png";done
           sed -i 's#android:icon="[^"]*"#android:icon="@mipmap/ic_launcher"#' "$M"
@@ -162,14 +170,14 @@ jobs:
           set -euo pipefail;cd "${{ steps.project.outputs.project_dir }}"
           rm -rf "$GITHUB_WORKSPACE/artifacts/symbols";mkdir -p "$GITHUB_WORKSPACE/artifacts/symbols" "$GITHUB_WORKSPACE/artifacts/apk"
           flutter build apk --release --target-platform android-arm64 --tree-shake-icons --obfuscate --split-debug-info="$GITHUB_WORKSPACE/artifacts/symbols" --dart-define=PROMYSEL_SYNC_URL=https://xptmcufhuvtcunqzlsme.supabase.co/functions/v1/promysel-compat
-          cp build/app/outputs/flutter-apk/app-release.apk "$GITHUB_WORKSPACE/artifacts/apk/promysel-v1.79-arm64.apk"
-          sha256sum "$GITHUB_WORKSPACE/artifacts/apk/promysel-v1.79-arm64.apk"
+          cp build/app/outputs/flutter-apk/app-release.apk "$GITHUB_WORKSPACE/artifacts/apk/promysel-v1.80-arm64.apk"
+          sha256sum "$GITHUB_WORKSPACE/artifacts/apk/promysel-v1.80-arm64.apk"
       - uses: actions/upload-artifact@v4
         continue-on-error: true
-        with: {name: promysel-v1.79-arm64-android, path: artifacts/apk/promysel-v1.79-arm64.apk, retention-days: 30}
+        with: {name: promysel-v1.80-arm64-android, path: artifacts/apk/promysel-v1.80-arm64.apk, retention-days: 30}
       - uses: actions/upload-artifact@v4
         continue-on-error: true
-        with: {name: promysel-v1.79-debug-symbols, path: artifacts/symbols/**, retention-days: 30}
+        with: {name: promysel-v1.80-debug-symbols, path: artifacts/symbols/**, retention-days: 30}
       - name: Publish tested candidate APK as private GitHub prerelease
         if: github.event_name != 'pull_request'
         shell: bash
@@ -177,11 +185,11 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          TAG="promysel-supabase-1.79-rc"
-          APK="artifacts/apk/promysel-v1.79-arm64.apk"
+          TAG="promysel-supabase-1.80-rc"
+          APK="artifacts/apk/promysel-v1.80-arm64.apk"
           test -s "$APK"
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" "$APK" --clobber
           else
-            gh release create "$TAG" "$APK" --title "Promysel 1.79 Supabase candidate (Android)" --notes "Candidate: requires live E2E testing with real Supabase accounts. Legacy Beget is not used." --prerelease
+            gh release create "$TAG" "$APK" --title "Promysel 1.80 Supabase candidate (Android)" --notes "Candidate: requires live E2E testing with real Supabase accounts. Legacy Beget is not used." --prerelease
           fi

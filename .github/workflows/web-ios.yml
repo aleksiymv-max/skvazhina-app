@@ -118,6 +118,11 @@ jobs:
           cp "$GITHUB_WORKSPACE/tools/training_calendar_test.dart" test/training_calendar_test.dart
           python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_v179_feedback.py"
           python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_v179_admin.py"
+          mkdir -p lib/features/chat
+          cp "$GITHUB_WORKSPACE/tools/promysel_chat_service.dart" lib/core/services/promysel_chat_service.dart
+          cp "$GITHUB_WORKSPACE/tools/promysel_chat_screen.dart" lib/features/chat/promysel_chat_screen.dart
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_v180.py"
+          python3 "$GITHUB_WORKSPACE/tools/test_promysel_chat_v180.py"
           cp "$GITHUB_WORKSPACE/tools/work_schedule_test.dart" test/work_schedule_test.dart
           mkdir -p test
           cp "$GITHUB_WORKSPACE/tools/task_permission_test.dart" test/task_permission_test.dart
