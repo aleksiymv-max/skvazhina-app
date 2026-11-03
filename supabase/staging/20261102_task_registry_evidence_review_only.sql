@@ -301,4 +301,43 @@ revoke all on function public.promysel_revoke_task_assignee(text,text,uuid)
 grant execute on function public.promysel_revoke_task_assignee(text,text,uuid)
   to authenticated;
 
+-- Assignment changes serialize on the task row with completion and revocation.
+-- Clients may read assignments, but cannot insert them directly.
+revoke insert on public.work_task_assignees from authenticated;
+create function public.promysel_assign_task_assignee(
+  p_field text,p_task text,p_user uuid
+) returns jsonb language plpgsql security definer set search_path='' as $$
+declare
+  t public.work_tasks%rowtype;
+  v_actor uuid := (select auth.uid());
+  v_added integer := 0;
+begin
+  if v_actor is null or not app_private.can_manage_tasks(p_field) then
+    raise exception 'Not allowed to assign task';
+  end if;
+  select * into t from public.work_tasks
+    where field_id=p_field and id=p_task for update;
+  if not found or t.target_type not in ('area','pad') then
+    raise exception 'Common task not found';
+  end if;
+  if t.status<>'active' then
+    raise exception 'Cannot assign after completion';
+  end if;
+  if not exists (
+    select 1 from public.field_memberships m
+    where m.field_id=p_field and m.user_id=p_user
+      and m.approved and not m.blocked
+      and m.role in ('operator','engineer','shopChief')
+  ) then raise exception 'Assignee not eligible'; end if;
+  insert into public.work_task_assignees(field_id,task_id,user_id,assigned_by)
+    values(p_field,p_task,p_user,v_actor)
+    on conflict do nothing;
+  get diagnostics v_added = row_count;
+  return jsonb_build_object('taskId',p_task,'assigned',v_added>0);
+end $$;
+revoke all on function public.promysel_assign_task_assignee(text,text,uuid)
+  from public,anon,authenticated;
+grant execute on function public.promysel_assign_task_assignee(text,text,uuid)
+  to authenticated;
+
 commit;
