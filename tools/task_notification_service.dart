@@ -46,7 +46,7 @@ class TaskNotificationService {
       final reviewer = author && task.completedBy != me.name;
       if (reviewer &&
           task.completedAt != null &&
-          task.status == WorkTaskStatus.awaitingConfirmation) {
+          task.status != WorkTaskStatus.active) {
         final at = task.completedAt!;
         await notices.add(AppNotice(
           id: 'task_completed_${task.id}_${userId}_${at.toUtc().microsecondsSinceEpoch}',
