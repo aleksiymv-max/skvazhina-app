@@ -93,6 +93,7 @@ jobs:
           python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_tab_notifications.py"
           python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_notification_settings.py"
           python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_fast_task_notifications.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_performance.py"
           mkdir -p test
           cp "$GITHUB_WORKSPACE/tools/task_permission_test.dart" test/task_permission_test.dart
           cp "$GITHUB_WORKSPACE/tools/history_empty_widget_test.dart" test/history_empty_widget_test.dart
