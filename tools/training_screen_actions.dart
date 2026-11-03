@@ -15,7 +15,7 @@ class _TrainingScreenState extends State<TrainingScreen>{
    super.initState();
    unawaited(TrainingStore.instance.load());
  }
- String _date(DateTime d)=>DateFormat('dd.MM.yyyy','ru').format(d);
+ String _date(DateTime d)=>DateFormat('dd.MM.yyyy').format(d);
  String _cadence(int months)=>switch(months){
    6=>'Раз в полгода',12=>'Раз в год',_=>'Без периодичности',
  };
