@@ -23,6 +23,9 @@ function mergeRows(oldV:unknown,newV:unknown,k:string):J[]{
   }else{
     const old=out[idx];
     if(k==="pads")out[idx]={...old,...row,wells:mergeRows(old.wells,row.wells,"id")};
+    else if(k==="training"&&
+      (Date.parse(String(old.updatedAt??""))||0)>
+      (Date.parse(String(row.updatedAt??""))||0))continue;
     else if(k==="tasks"&&((old.status==="confirmed"&&row.status!=="confirmed")||
       (old.status==="awaitingConfirmation"&&row.status==="active"&&!row.rejectedAt)))continue;
     else if(k==="notifications"&&old.read===true)out[idx]={...old,...row,read:true};

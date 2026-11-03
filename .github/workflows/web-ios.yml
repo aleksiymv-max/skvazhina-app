@@ -110,6 +110,12 @@ jobs:
           python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_calendar_russian.py"
           python3 "$GITHUB_WORKSPACE/tools/prepare_profile_single_pencil.py"
           python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_menu_navigation.py"
+          cp "$GITHUB_WORKSPACE/tools/training_store_events.dart" lib/core/services/training_store.dart
+          cp "$GITHUB_WORKSPACE/tools/training_screen_actions.dart" lib/features/organization/training_screen.dart
+          cp "$GITHUB_WORKSPACE/tools/work_schedule_events_screen.dart" lib/features/organization/work_schedule_screen.dart
+          python3 "$GITHUB_WORKSPACE/tools/prepare_work_schedule_day_editor.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_training_merge_safety.py"
+          cp "$GITHUB_WORKSPACE/tools/training_calendar_test.dart" test/training_calendar_test.dart
           cp "$GITHUB_WORKSPACE/tools/work_schedule_test.dart" test/work_schedule_test.dart
           mkdir -p test
           cp "$GITHUB_WORKSPACE/tools/task_permission_test.dart" test/task_permission_test.dart
@@ -159,7 +165,7 @@ jobs:
         run: |
           set -euo pipefail;cd "${{ steps.project.outputs.project_dir }}"
           flutter analyze --no-fatal-infos --no-fatal-warnings
-          flutter test test/task_permission_test.dart test/history_empty_widget_test.dart test/task_photo_widget_test.dart test/work_schedule_test.dart
+          flutter test test/task_permission_test.dart test/history_empty_widget_test.dart test/task_photo_widget_test.dart test/work_schedule_test.dart test/training_calendar_test.dart
           flutter build web --release --pwa-strategy=offline-first --dart-define=PROMYSEL_SYNC_URL=https://xptmcufhuvtcunqzlsme.supabase.co/functions/v1/promysel-compat
           python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_web_push.py"
           test -f build/web/index.html;test -f build/web/flutter_bootstrap.js;test -f build/web/manifest.json;test -f build/web/sqlite3.wasm;test -f build/web/sqflite_sw.js;test -f build/web/apple-touch-icon.png
