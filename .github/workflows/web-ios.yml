@@ -91,6 +91,7 @@ jobs:
           python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_pull_refresh.py"
           cp "$GITHUB_WORKSPACE/tools/task_tabs_read_observer.dart" lib/features/tasks/task_tabs_read_observer.dart
           python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_tab_notifications.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_notification_settings.py"
           mkdir -p test
           cp "$GITHUB_WORKSPACE/tools/task_permission_test.dart" test/task_permission_test.dart
           cp "$GITHUB_WORKSPACE/tools/history_empty_widget_test.dart" test/history_empty_widget_test.dart
