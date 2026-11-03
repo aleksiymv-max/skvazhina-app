@@ -77,6 +77,8 @@ jobs:
           cp "$GITHUB_WORKSPACE/tools/task_notification_service.dart" lib/core/services/task_notification_service.dart
           cp "$GITHUB_WORKSPACE/tools/task_notifications_screen.dart" lib/features/tasks/task_notifications_screen.dart
           python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_task_notifications.py"
+          cp "$GITHUB_WORKSPACE/tools/task_completion_dialog.dart" lib/features/tasks/task_completion_dialog.dart
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_unified_task_completion.py"
           mkdir -p test
           cp "$GITHUB_WORKSPACE/tools/task_permission_test.dart" test/task_permission_test.dart
           cp "$GITHUB_WORKSPACE/tools/history_empty_widget_test.dart" test/history_empty_widget_test.dart
