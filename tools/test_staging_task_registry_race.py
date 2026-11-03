@@ -27,8 +27,7 @@ set role authenticated;
 select set_config('request.jwt.claim.sub','{CHIEF}',false);
 insert into public.work_tasks(field_id,id,title,target_type,target_id,created_by)
 values('field-a','area-race','Concurrent revocation test','area','area-a','{CHIEF}');
-insert into public.work_task_assignees(field_id,task_id,user_id)
-values('field-a','area-race','{OPERATOR}');
+select public.promysel_assign_task_assignee('field-a','area-race','{OPERATOR}');
 """)
 
 # Hold the task row lock, then revoke while a completion request waits.
