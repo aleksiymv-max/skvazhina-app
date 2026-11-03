@@ -156,3 +156,31 @@ end $$;
 reset role;
 
 select 'PASS: synthetic PostgreSQL task RLS, Storage, completion and revocation' as result;
+
+-- Regression: a non-manager must not grant themselves common-task access.
+set role authenticated;
+select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000003',false);
+do $$ begin
+  begin
+    perform public.promysel_assign_task_assignee(
+      'field-a','area-revoke','00000000-0000-0000-0000-000000000003');
+    raise exception 'Operator granted own task assignment';
+  exception when others then
+    if sqlerrm='Operator granted own task assignment' then raise; end if;
+  end;
+end $$;
+reset role;
+
+-- Regression: even a manager cannot assign an employee after completion.
+set role authenticated;
+select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000001',false);
+do $$ begin
+  begin
+    perform public.promysel_assign_task_assignee(
+      'field-a','personal-1','00000000-0000-0000-0000-000000000003');
+    raise exception 'Manager assigned employee to completed personal task';
+  exception when others then
+    if sqlerrm='Manager assigned employee to completed personal task' then raise; end if;
+  end;
+end $$;
+reset role;
