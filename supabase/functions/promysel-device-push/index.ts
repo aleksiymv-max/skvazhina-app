@@ -6,7 +6,16 @@ type Subscription = {endpoint:string,p256dh:string,auth_secret:string,user_id:st
 const url = Deno.env.get("SUPABASE_URL")!;
 const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const db = createClient(url, serviceKey, {auth:{persistSession:false}});
-const allowedOrigins = new Set(["https://promysel-web.pages.dev","http://localhost:3000","http://localhost:8080"]);
+const publicOriginRaw=(Deno.env.get("PROMYSEL_PUBLIC_ORIGIN")??"").trim();
+function validHttpsOrigin(value:string):string{
+ try{
+   const u=new URL(value);
+   return u.protocol==="https:"&&!u.username&&!u.password&&u.pathname==="/"&&!u.search&&!u.hash?u.origin:"";
+ }catch(_){return "";}
+}
+const publicOrigin=validHttpsOrigin(publicOriginRaw);
+const allowedOrigins = new Set(["https://promysel-web.pages.dev","http://localhost:3000","http://localhost:8080",
+  ...(publicOrigin?[publicOrigin]:[])]);
 const baseHeaders = {"content-type":"application/json","cache-control":"no-store"};
 function response(body:unknown,status=200,origin?:string){
   const h:Record<string,string>={...baseHeaders};
@@ -115,7 +124,7 @@ Deno.serve(async(req:Request)=>{
         if(!userId)return response({detail:"Нет доступа"},403,origin);
       }
       const keys=await vapid();
-      webpush.setVapidDetails("https://promysel-web.pages.dev",
+      webpush.setVapidDetails(publicOrigin||"https://promysel-web.pages.dev",
         keys.public_key,keys.private_key);
       let query=db.from("promysel_push_events")
         .select("id,user_id,event_key,title,body,task_id,send_attempts")
