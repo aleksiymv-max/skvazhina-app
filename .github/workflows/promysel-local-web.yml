@@ -1,0 +1,281 @@
+# Manual ONLY. Requires a dedicated Linux x64 self-hosted runner labeled promysel-local.
+# No scheduled, push, or pull-request triggers. Production release workflow is unchanged.
+name: "Promysel Web - local laptop runner"
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: promysel-web-dev-build-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  build:
+    name: Build Promysel Web/PWA for iPhone
+    if: github.ref == 'refs/heads/main'
+    runs-on: [self-hosted, Linux, X64, promysel-local]
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: Approval-first registration regression
+        run: python3 server/test_approval_before_invitation.py
+      - name: Supabase compatibility endpoint preflight
+        shell: bash
+        run: |
+          set -euo pipefail
+          API="https://xptmcufhuvtcunqzlsme.supabase.co/functions/v1/promysel-compat/health"
+          curl --fail --silent --show-error --retry 3 --connect-timeout 10 "$API" -o /tmp/promysel-compat.json
+          python3 - <<'PY'
+          import json
+          j=json.load(open('/tmp/promysel-compat.json'))
+          assert j.get('status')=='ok' and j.get('service')=='promysel-compat',j
+          print('Supabase compatibility API is ready')
+          PY
+          # A healthy /health endpoint alone cannot prove that the backend has
+          # PostgreSQL service_role grants. This real read failed with HTTP 500
+          # when the initial administrator could authenticate but not enter.
+          curl --fail --silent --show-error --retry 3 --connect-timeout 10 \
+            "https://xptmcufhuvtcunqzlsme.supabase.co/functions/v1/promysel-compat/v1/registration/fields" \
+            -o /tmp/promysel-fields.json
+          python3 - <<'PY'
+          import json
+          response=json.load(open('/tmp/promysel-fields.json', encoding='utf-8'))
+          assert isinstance(response.get('items'), list), response
+          print('Supabase service-role data access is ready')
+          PY
+      - name: Extract base source
+        id: project
+        shell: bash
+        run: |
+          set -euo pipefail
+          DIR="$RUNNER_TEMP/promysel";rm -rf "$DIR";mkdir -p "$DIR"
+          unzip -q "$GITHUB_WORKSPACE/neftyanik_v1.24.1_stable_hotfix.zip" -d "$DIR"
+          PROJECT="$(dirname "$(find "$DIR" -name pubspec.yaml -print -quit)")"
+          echo "project_dir=$PROJECT" >> "$GITHUB_OUTPUT"
+      - name: Install image tools
+        run: |
+          set -euo pipefail
+          if ! command -v identify >/dev/null || ! command -v rsvg-convert >/dev/null; then
+            sudo apt-get update -qq
+            sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq imagemagick librsvg2-bin
+          fi
+      - name: Apply current Promysel updates
+        shell: bash
+        run: |
+          set -euo pipefail;cd "${{ steps.project.outputs.project_dir }}"
+          for s in prepare_promysel_v125.py prepare_promysel_v126.py prepare_promysel_v127.py prepare_promysel_v128.py prepare_promysel_v129.py prepare_promysel_v129_walk.py prepare_promysel_v129_problems.py prepare_promysel_v130.py prepare_promysel_v131.py prepare_promysel_v132.py prepare_promysel_v133.py prepare_promysel_v134.py prepare_promysel_v135.py prepare_promysel_v136.py prepare_promysel_v136_fix.py prepare_promysel_v137.py prepare_promysel_v137_corrections.py prepare_promysel_v138_problem_actions.py prepare_promysel_v139_problem_layout.py prepare_promysel_v140_problem_card.py prepare_promysel_v140_closed_lists.py prepare_promysel_v141_parameter_sync.py prepare_promysel_v142_user_fixes.py prepare_promysel_v143_exact_walk_and_dispatcher.py prepare_promysel_v144_requested_fixes.py prepare_promysel_v145.py prepare_promysel_v146.py prepare_promysel_v147.py prepare_promysel_v148.py prepare_promysel_v149.py prepare_promysel_v150.py prepare_promysel_v151.py prepare_promysel_v152.py prepare_promysel_v153.py prepare_promysel_v154a.py prepare_promysel_v154b.py prepare_promysel_v154c.py prepare_promysel_v154d.py prepare_promysel_v154e.py prepare_promysel_v154f.py prepare_promysel_v154g.py prepare_promysel_v154h.py prepare_promysel_v155.py prepare_promysel_v156.py prepare_promysel_v157a.py prepare_promysel_v157b.py prepare_promysel_v157c.py prepare_promysel_v157d.py prepare_promysel_v159.py prepare_promysel_v170.py;do python3 "$GITHUB_WORKSPACE/tools/$s";done
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_supabase_adapter.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_supabase_hardening.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_approval_performance_hotfix.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_history_init.py"
+          python3 "$GITHUB_WORKSPACE/tools/test_promysel_history_keyset.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_task_permissions.py"
+          python3 "$GITHUB_WORKSPACE/tools/test_promysel_task_permissions.py"
+          cp "$GITHUB_WORKSPACE/tools/task_photo_service.dart" lib/core/services/task_photo_service.dart
+          cp "$GITHUB_WORKSPACE/tools/task_photo_widgets.dart" lib/features/tasks/task_photo_widgets.dart
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_task_photos.py"
+          python3 "$GITHUB_WORKSPACE/tools/test_promysel_task_photos.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_sync_state_merge.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_sync_recovery.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_task_inbox_refresh.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_field_name_persistence.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_task_completion_comment.py"
+          cp "$GITHUB_WORKSPACE/tools/task_notification_service.dart" lib/core/services/task_notification_service.dart
+          cp "$GITHUB_WORKSPACE/tools/task_notifications_screen.dart" lib/features/tasks/task_notifications_screen.dart
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_task_notifications.py"
+          cp "$GITHUB_WORKSPACE/tools/task_completion_dialog.dart" lib/features/tasks/task_completion_dialog.dart
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_unified_task_completion.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_task_badge_login.py"
+          cp "$GITHUB_WORKSPACE/tools/task_launcher_badge.dart" lib/core/services/task_launcher_badge.dart
+          cp "$GITHUB_WORKSPACE/tools/task_badge_platform_stub.dart" lib/core/services/task_badge_platform_stub.dart
+          cp "$GITHUB_WORKSPACE/tools/task_badge_platform_mobile.dart" lib/core/services/task_badge_platform_mobile.dart
+          cp "$GITHUB_WORKSPACE/tools/task_badge_platform_web.dart" lib/core/services/task_badge_platform_web.dart
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_launcher_badge.py"
+          cp "$GITHUB_WORKSPACE/tools/task_notification_onboarding.dart" lib/core/services/task_notification_onboarding.dart
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_device_notification_onboarding.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_push_logout.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_pull_refresh.py"
+          cp "$GITHUB_WORKSPACE/tools/task_tabs_read_observer.dart" lib/features/tasks/task_tabs_read_observer.dart
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_tab_notifications.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_notification_settings.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_fast_task_notifications.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_performance.py"
+          cp "$GITHUB_WORKSPACE/tools/profile_avatar_editor.dart" lib/features/organization/profile_avatar_editor.dart
+          python3 "$GITHUB_WORKSPACE/tools/prepare_profile_layout.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_profile_avatar.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_profile_training_delete.py"
+          cp "$GITHUB_WORKSPACE/tools/work_schedule_store.dart" lib/core/services/work_schedule_store.dart
+          cp "$GITHUB_WORKSPACE/tools/work_schedule_screen.dart" lib/features/organization/work_schedule_screen.dart
+          python3 "$GITHUB_WORKSPACE/tools/prepare_personnel_access.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_work_schedule_integration.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_personnel_ui.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_profile_name_edit.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_organization_role_security.py"
+          mkdir -p lib/features/menu
+          cp "$GITHUB_WORKSPACE/tools/promysel_menu_screen.dart" lib/features/menu/menu_screen.dart
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_calendar_russian.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_profile_single_pencil.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_menu_navigation.py"
+          cp "$GITHUB_WORKSPACE/tools/training_store_events.dart" lib/core/services/training_store.dart
+          cp "$GITHUB_WORKSPACE/tools/training_screen_actions.dart" lib/features/organization/training_screen.dart
+          cp "$GITHUB_WORKSPACE/tools/work_schedule_events_screen.dart" lib/features/organization/work_schedule_screen.dart
+          python3 "$GITHUB_WORKSPACE/tools/prepare_work_schedule_day_editor.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_training_merge_safety.py"
+          cp "$GITHUB_WORKSPACE/tools/training_calendar_test.dart" test/training_calendar_test.dart
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_v179_feedback.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_v179_admin.py"
+          mkdir -p lib/features/chat
+          cp "$GITHUB_WORKSPACE/tools/promysel_chat_service.dart" lib/core/services/promysel_chat_service.dart
+          cp "$GITHUB_WORKSPACE/tools/promysel_chat_screen.dart" lib/features/chat/promysel_chat_screen.dart
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_v180.py"
+          python3 "$GITHUB_WORKSPACE/tools/test_promysel_chat_v180.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_v181.py"
+          python3 "$GITHUB_WORKSPACE/tools/test_promysel_v181.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_v182.py"
+          python3 "$GITHUB_WORKSPACE/tools/test_promysel_v182.py"
+          patch --batch -p1 < "$GITHUB_WORKSPACE/tools/promysel_v183_changes.diff"
+          python3 "$GITHUB_WORKSPACE/tools/test_promysel_v183.py"
+          patch --batch -p1 < "$GITHUB_WORKSPACE/tools/promysel_v184_changes.diff"
+          python3 "$GITHUB_WORKSPACE/tools/test_promysel_v184.py"
+          patch --batch -p1 < "$GITHUB_WORKSPACE/tools/promysel_v185_changes.diff"
+          python3 "$GITHUB_WORKSPACE/tools/test_promysel_v185.py"
+          patch --batch -p1 < "$GITHUB_WORKSPACE/tools/promysel_v186_perf.patch"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_v186_sync_lock.py"
+          python3 "$GITHUB_WORKSPACE/tools/test_promysel_v186.py"
+          patch --batch -p1 < "$GITHUB_WORKSPACE/tools/promysel_v187_changes.patch"
+          python3 "$GITHUB_WORKSPACE/tools/test_promysel_v187.py"
+          patch --batch -p1 < "$GITHUB_WORKSPACE/tools/promysel_v188_changes.patch"
+          python3 "$GITHUB_WORKSPACE/tools/test_promysel_v188.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_fund_bar.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_registration_fields_fix.py"
+          python3 "$GITHUB_WORKSPACE/tools/test_promysel_registration_fields.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_admin_registration_fix.py"
+          python3 "$GITHUB_WORKSPACE/tools/test_promysel_admin_registration_fix.py"
+          cp "$GITHUB_WORKSPACE/tools/work_schedule_test.dart" test/work_schedule_test.dart
+          mkdir -p test
+          cp "$GITHUB_WORKSPACE/tools/task_permission_test.dart" test/task_permission_test.dart
+          cp "$GITHUB_WORKSPACE/tools/history_empty_widget_test.dart" test/history_empty_widget_test.dart
+          cp "$GITHUB_WORKSPACE/tools/task_photo_widget_test.dart" test/task_photo_widget_test.dart
+          mkdir -p assets/icon
+          rsvg-convert -w 1024 -h 1024 "$GITHUB_WORKSPACE/assets/promysel_icon_modern.svg" -o assets/icon/app_icon.png
+          cp assets/icon/app_icon.png assets/icon/app_icon_foreground.png
+      - uses: subosito/flutter-action@v2
+        with: {channel: stable, cache: true}
+      - name: Create web platform and configure iPhone PWA
+        shell: bash
+        run: |
+          set -euo pipefail;cd "${{ steps.project.outputs.project_dir }}"
+          flutter create --no-pub --platforms=web --project-name promysel --org ru.promysel .
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_ci_pubspec.py" web
+          flutter pub get
+          dart run sqflite_common_ffi_web:setup --force
+          mkdir -p web/icons
+          rsvg-convert -w 192 -h 192 "$GITHUB_WORKSPACE/assets/promysel_icon_modern.svg" -o web/icons/Icon-192.png
+          rsvg-convert -w 512 -h 512 "$GITHUB_WORKSPACE/assets/promysel_icon_modern.svg" -o web/icons/Icon-512.png
+          cp web/icons/Icon-192.png web/icons/Icon-maskable-192.png
+          cp web/icons/Icon-512.png web/icons/Icon-maskable-512.png
+          rsvg-convert -w 64 -h 64 "$GITHUB_WORKSPACE/assets/promysel_icon_modern.svg" -o web/favicon.png
+          rsvg-convert -w 180 -h 180 "$GITHUB_WORKSPACE/assets/promysel_icon_modern.svg" -o web/apple-touch-icon.png
+          python3 - <<'PY'
+          from pathlib import Path
+          import re,json
+          p=Path('web/index.html');s=p.read_text();s=s.replace('<title>promysel</title>','<title>Промысел</title>')
+          if 'apple-mobile-web-app-capable' not in s:s=s.replace('</head>','  <meta name="apple-mobile-web-app-capable" content="yes">\n  <meta name="apple-mobile-web-app-status-bar-style" content="default">\n  <meta name="apple-mobile-web-app-title" content="Промысел">\n  <link rel="apple-touch-icon" href="apple-touch-icon.png">\n</head>')
+          elif 'apple-touch-icon' not in s:s=s.replace('</head>','  <link rel="apple-touch-icon" href="apple-touch-icon.png">\n</head>')
+          p.write_text(s)
+          m=Path('web/manifest.json');x=json.loads(m.read_text());x['name']='Промысел';x['short_name']='Промысел';x['display']='standalone';x['background_color']='#071425';x['theme_color']='#0B4F91';m.write_text(json.dumps(x,ensure_ascii=False,indent=2))
+          main=Path('lib/main.dart');src=main.read_text();web_import="import 'package:sqflite_common_ffi_web/sqflite_ffi_web.dart';\n";sq_import="import 'package:sqflite/sqflite.dart';\n";foundation_import="import 'package:flutter/foundation.dart';\n"
+          if web_import not in src:src=web_import+sq_import+foundation_import+src
+          pattern=r'((?:Future<\s*void\s*>|void)\s+main\s*\([^)]*\)\s*(?:async\s*)?\{)';match=re.search(pattern,src)
+          if not match:raise SystemExit('ERROR: main() not found')
+          init="\n  if (kIsWeb) {\n    databaseFactory = databaseFactoryFfiWeb;\n  }\n"
+          if 'databaseFactory = databaseFactoryFfiWeb;' not in src:src=src[:match.end()]+init+src[match.end():]
+          main.write_text(src)
+          PY
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_launcher_badge_web.py"
+          test -f web/sqlite3.wasm;test -f web/sqflite_sw.js;test -f web/apple-touch-icon.png
+      - name: Analyze and build web release
+        shell: bash
+        run: |
+          set -euo pipefail;cd "${{ steps.project.outputs.project_dir }}"
+          flutter analyze --no-fatal-infos --no-fatal-warnings
+          flutter test test/task_permission_test.dart test/history_empty_widget_test.dart test/task_photo_widget_test.dart test/work_schedule_test.dart test/training_calendar_test.dart
+          flutter build web --no-pub --release --pwa-strategy=offline-first --dart-define=PROMYSEL_SYNC_URL=https://xptmcufhuvtcunqzlsme.supabase.co/functions/v1/promysel-compat
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_web_push.py"
+          test -f build/web/index.html;test -f build/web/flutter_bootstrap.js;test -f build/web/manifest.json;test -f build/web/sqlite3.wasm;test -f build/web/sqflite_sw.js;test -f build/web/apple-touch-icon.png
+      - name: Add first-run account setup and Cloudflare hosting metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="${{ steps.project.outputs.project_dir }}/build/web"
+          test -f "$GITHUB_WORKSPACE/docs/index.html"
+          # The original Flutter UI remains at /; the setup page is used only
+          # to register the first administrator and manage account onboarding.
+          cp "$GITHUB_WORKSPACE/docs/index.html" "$OUT/setup.html"
+          cp "$GITHUB_WORKSPACE/docs/admin-setup.html" "$OUT/activate-admin.html"
+          cp "$GITHUB_WORKSPACE/docs/finish-registration.html" "$OUT/finish-registration.html"
+          cat > "$OUT/_headers" <<'EOF'
+          /*
+            X-Content-Type-Options: nosniff
+            Referrer-Policy: strict-origin-when-cross-origin
+            X-Frame-Options: DENY
+          /index.html
+            Cache-Control: no-cache
+          /main.dart.js
+            Cache-Control: no-cache
+          /setup.html
+            Cache-Control: no-cache
+          /finish-registration.html
+            Cache-Control: no-store
+          EOF
+          test -f "$OUT/index.html"
+          test -f "$OUT/setup.html"
+          test -f "$OUT/activate-admin.html"
+          test -f "$OUT/finish-registration.html"
+      - name: Package iPhone web app
+        shell: bash
+        run: |
+          set -euo pipefail;cd "${{ steps.project.outputs.project_dir }}";mkdir -p "$GITHUB_WORKSPACE/artifacts";(cd build/web && zip -qr "$GITHUB_WORKSPACE/artifacts/promysel-original-flutter-supabase-web.zip" .);sha256sum "$GITHUB_WORKSPACE/artifacts/promysel-original-flutter-supabase-web.zip"
+      # Artifacts are optional: exhausted artifact storage must not block the live iPhone deployment.
+      - uses: actions/upload-artifact@v4
+        continue-on-error: true
+        with: {name: promysel-original-flutter-supabase-web, path: artifacts/promysel-original-flutter-supabase-web.zip, retention-days: 7}
+      - name: Confirm Cloudflare-ready root structure
+        shell: bash
+        run: |
+          set -euo pipefail
+          unzip -Z1 artifacts/promysel-original-flutter-supabase-web.zip | grep -qx index.html
+          unzip -Z1 artifacts/promysel-original-flutter-supabase-web.zip | grep -qx main.dart.js
+          unzip -Z1 artifacts/promysel-original-flutter-supabase-web.zip | grep -qx sqflite_sw.js
+          unzip -Z1 artifacts/promysel-original-flutter-supabase-web.zip | grep -qx setup.html
+          unzip -Z1 artifacts/promysel-original-flutter-supabase-web.zip | grep -qx activate-admin.html
+          unzip -Z1 artifacts/promysel-original-flutter-supabase-web.zip | grep -qx finish-registration.html
+          echo 'Verified Web artifact before optional DEV publish'
+      - name: Publish development preview only (stable production remains frozen)
+        if: github.event_name != 'pull_request'
+        shell: bash
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -euo pipefail
+          if [[ -z "${CLOUDFLARE_API_TOKEN:-}" ]]; then
+            echo "::error title=Cloudflare not configured::Add GitHub Actions secret CLOUDFLARE_API_TOKEN (Pages Edit permission)."
+            exit 1
+          fi
+          if [[ -z "${CLOUDFLARE_ACCOUNT_ID:-}" ]]; then
+            echo "::error title=Cloudflare not configured::Add GitHub Actions secret CLOUDFLARE_ACCOUNT_ID."
+            exit 1
+          fi
+          test -f "${{ steps.project.outputs.project_dir }}/build/web/finish-registration.html"
+          # Visible label only in live development preview, never in the releasable ZIP.
+          python3 - <<'PY'
+          from pathlib import Path
+          root=Path("${{ steps.project.outputs.project_dir }}/build/web")
+          index=root/"index.html"
+          html=index.read_text(encoding="utf-8")
+          badge='''<style>#promysel-dev-mark{position:fixed;top:env(safe-area-inset-top,0px);right:8px;z-index:2147483647;background:#0b4f91;color:white;padding:4px 9px;border-radius:0 0 9px 9px;font:600 10px/1.4 sans-serif;letter-spacing:.06em;pointer-events:none;opacity:.95}</style><div id="promysel-dev-mark" aria-label="Тестовая версия">РАЗРАБОТКА</div>'''
+          assert "</body>" in html
+          index.write_text(html.replace("</body>",badge+"</body>"),encoding="utf-8")
+          PY
+          npx --yes wrangler@4 pages deploy "${{ steps.project.outputs.project_dir }}/build/web" --project-name=promysel-web --branch=dev
+          echo "::notice title=DEV preview deployed::Published commit ${GITHUB_SHA} to dev.promysel-web.pages.dev. Stable promysel-web.pages.dev was NOT modified."
