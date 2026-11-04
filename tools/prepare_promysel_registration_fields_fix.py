@@ -66,15 +66,15 @@ old="onChanged:(v)=>setState(()=>fieldId=v??'new')"
 new="onChanged:(v)=>setState((){fieldId=v??'';_fieldManuallyChosen=v!=null;})"
 assert s.count(old)==1, "field picker onChanged anchor changed"
 s=s.replace(old,new,1)
-old="    const SizedBox(height:10),DropdownButtonFormField<String>"
-new="""    if(_fieldsLoading)const Padding(padding:EdgeInsets.only(top:10),
+old="const SizedBox(height:10),DropdownButtonFormField<String>(initialValue:fields.any("
+new="""if(_fieldsLoading)const Padding(padding:EdgeInsets.only(top:10),
       child:LinearProgressIndicator(minHeight:2)),
     if(_fieldLoadError!=null)Padding(padding:const EdgeInsets.only(top:8),
       child:Row(children:[Expanded(child:Text(_fieldLoadError!,
         style:TextStyle(color:Theme.of(context).colorScheme.error))),
         TextButton(onPressed:_fieldsLoading?null:_fetchFields,
           child:const Text('Повторить'))])),
-    const SizedBox(height:10),DropdownButtonFormField<String>"""
+    const SizedBox(height:10),DropdownButtonFormField<String>(initialValue:fields.any("""
 assert s.count(old)==1, "field picker insertion anchor changed"
 s=s.replace(old,new,1)
 old=" @override void dispose(){username.dispose();"
