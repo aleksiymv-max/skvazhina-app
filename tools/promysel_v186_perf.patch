@@ -1,0 +1,357 @@
+--- a/pubspec.yaml
++++ b/pubspec.yaml
+@@ -1,7 +1,7 @@
+ name: oilman_app
+ description: Мобильное приложение для операторов нефтегазовых объектов.
+ publish_to: 'none'
+-version: 1.85.0+191
++version: 1.86.0+192
+ environment:
+   sdk: '>=3.3.0 <4.0.0'
+   flutter: '>=3.19.0'
+--- a/lib/core/services/session_service.dart
++++ b/lib/core/services/session_service.dart
+@@ -19,7 +19,15 @@
+  SessionService._(); static final instance=SessionService._();
+  AppUser currentUser=const AppUser(id:'',name:'',role:UserRole.operator,approved:false);
+  final ApiClient api=ApiClient.instance; String? get token=>api.token;
++ // Multiple chat, badge and personnel requests share one refresh-token rotation.
++ Future<void>? _tokenRefreshPending;
+  Future<void> ensureFreshToken()async{
++   if(_tokenRefreshPending!=null)return _tokenRefreshPending!;
++   final op=_ensureFreshTokenOnce();
++   _tokenRefreshPending=op;
++   try{await op;}finally{if(identical(_tokenRefreshPending,op))_tokenRefreshPending=null;}
++ }
++ Future<void> _ensureFreshTokenOnce()async{
+    final token=api.token;
+    if(token==null||token.isEmpty||token.startsWith('offline-'))return;
+    final parts=token.split('.');
+--- a/lib/core/services/promysel_chat_service.dart
++++ b/lib/core/services/promysel_chat_service.dart
+@@ -61,23 +61,48 @@
+     if(_roomsKey!=key){_roomsKey=key;_roomsCache=null;_roomsUpdated=null;_roomsPending=null;}
+     if(_roomsPending!=null)return _roomsPending!;
+     if(!force&&_roomsCache!=null&&_roomsUpdated!=null&&
+-      DateTime.now().difference(_roomsUpdated!)<const Duration(seconds:25))return _roomsCache!;
++      DateTime.now().difference(_roomsUpdated!)<const Duration(seconds:65))return _roomsCache!;
+     final request=call('GET','/rooms',query:{'fieldId':fieldId}).then(_list);
+     _roomsPending=request;
+     try{final result=await request;_roomsCache=result;_roomsUpdated=DateTime.now();return result;}
+     finally{_roomsPending=null;}
+   }
++  /// Keep already loaded chats immediately visible while the server is slow/offline.
++  /// The cache is memory-only, per user and field: it cannot leak across accounts.
++  List<Map<String,dynamic>> cachedRooms(){
++    if(_roomsKey!='$userId:$fieldId')return <Map<String,dynamic>>[];
++    return List<Map<String,dynamic>>.from(_roomsCache??const <Map<String,dynamic>>[]);
++  }
++  final Map<String,List<Map<String,dynamic>>> _messageCache={};
++  String _messageKey(String room)=>'$userId:$fieldId:$room';
++  List<Map<String,dynamic>> cachedMessages(String room)=>
++      List<Map<String,dynamic>>.from(_messageCache[_messageKey(room)]??const <Map<String,dynamic>>[]);
++  void _cacheMessages(String room,List<Map<String,dynamic>> fresh,{bool append=false}){
++    final key=_messageKey(room);
++    if(!append){_messageCache[key]=List<Map<String,dynamic>>.of(fresh);}
++    else{
++      final prev=_messageCache[key]??<Map<String,dynamic>>[];
++      final seen=prev.map((m)=>m['id']).toSet();
++      _messageCache[key]=[...prev,...fresh.where((m)=>seen.add(m['id']))];
++    }
++    // Bounded memory; never persist confidential messages to browser storage.
++    if(_messageCache[key]!.length>100)_messageCache[key]=_messageCache[key]!.sublist(_messageCache[key]!.length-100);
++    if(_messageCache.length>8)_messageCache.remove(_messageCache.keys.first);
++  }
+   Map<String,dynamic>? cachedRoom(String id){
+     if(_roomsKey!='$userId:$fieldId')return null;
+     for(final room in _roomsCache??<Map<String,dynamic>>[]){if(room['id']==id)return room;}
+     return null;
+   }
+   Future<List<Map<String,dynamic>>> users()=>call('GET','/users',query:{'fieldId':fieldId}).then(_list);
+-  Future<List<Map<String,dynamic>>> messages(String id,{DateTime? before,DateTime? after})=>
+-    call('GET','/rooms/$id/messages',query:{
++  Future<List<Map<String,dynamic>>> messages(String id,{DateTime? before,DateTime? after})async{
++    final result=_list(await call('GET','/rooms/$id/messages',query:{
+       if(before!=null)'before':before.toUtc().toIso8601String(),
+       if(after!=null)'after':after.toUtc().toIso8601String(),
+-    }).then(_list);
++    }));
++    if(before==null)_cacheMessages(id,result,append:after!=null);
++    return result;
++  }
+   Future<String> create(String kind,{required List<String> people,String title=''})async{
+     final r=await call('POST','/rooms',data:{'fieldId':fieldId,'kind':kind,'title':title,'people':people});
+     invalidateRooms();return r['id'].toString();
+@@ -95,21 +120,42 @@
+     final result=await call('POST','/rooms/$room/upload',data:{'name':name,'size':size,'mimeType':mime,'kind':kind});
+     final url=(result['uploadUrl']??'').toString();
+     if(url.isEmpty)throw Exception('Не удалось получить адрес загрузки');
+-    final bytes=await file.readAsBytes();
+     http.Response upload;
+     try{
+-      upload=await _client.put(Uri.parse(url),headers:{'Content-Type':mime,'x-upsert':'false'},body:bytes)
+-        .timeout(const Duration(minutes:2));
+-    }on TimeoutException{throw Exception('Не удалось загрузить фото: превышено время ожидания. Повторите отправку.');}
++      if(kIsWeb){
++        // BrowserClient buffers request bodies: read once, without keeping previews
++        // and an additional encoded HTTP request copy in application state.
++        upload=await _client.put(Uri.parse(url),
++          headers:{'Content-Type':mime,'x-upsert':'false'},body:await file.readAsBytes())
++          .timeout(const Duration(seconds:95));
++      }else{
++        // Android/iOS: stream the file instead of loading 50MB into RAM.
++        final request=http.StreamedRequest('PUT',Uri.parse(url))
++          ..headers.addAll({'Content-Type':mime,'x-upsert':'false'})
++          ..contentLength=size;
++        final sending=_client.send(request).then(http.Response.fromStream);
++        await request.sink.addStream(file.openRead());
++        await request.sink.close();
++        upload=await sending.timeout(const Duration(seconds:95));
++      }
++    }on TimeoutException{throw Exception('Загрузка затянулась. Проверьте сеть и повторите отправку.');}
+     if(upload.statusCode<200||upload.statusCode>=300)throw Exception('Не удалось загрузить вложение (${upload.statusCode})');
+     return '${result['path']}';
+   }
+-  Future<void> sendMedia(String room,XFile file,String kind,{String caption='',List<double>? waveform,int? durationMs})async{
+-    final path=await upload(room,file,kind);
++  Future<void> sendMedia(String room,XFile file,String kind,{
++    String caption='',List<double>? waveform,int? durationMs,String? clientId,
++    String? uploadedPath,void Function(String path)? onUploaded,
++  })async{
++    // Retrying an uncertain server response must not create a duplicate message
++    // or re-upload an already confirmed file.
++    final path=uploadedPath??await upload(room,file,kind);
++    onUploaded?.call(path);
+     await call('POST','/rooms/$room/messages',data:{'kind':kind,'body':caption,'path':path,
++      'clientId':clientId??newMessageId(),
+       'name':file.name,'mimeType':_mime(file.name,kind),'size':await file.length(),
+       if(kind=='voice'&&waveform!=null)'waveform':waveform,
+-      if(durationMs!=null)'durationMs':durationMs});invalidateRooms();
++      if(durationMs!=null)'durationMs':durationMs});
++    invalidateRooms();
+   }
+   /// A single captioned album in the chat history. Uploaded files can be reused after a retry.
+   /// The message ID remains constant across retries to prevent duplicate sends.
+--- a/lib/features/chat/promysel_chat_screen.dart
++++ b/lib/features/chat/promysel_chat_screen.dart
+@@ -44,7 +44,11 @@
+ }
+ class _PromyselChatScreenState extends State<PromyselChatScreen>{
+  List<Map<String,dynamic>> rooms=[];bool loading=true;String? error;String search='';Timer? tick;int knownUnread=-1;bool busy=false,_fetching=false; final Set<String> _hiddenLocally={};
+- @override void initState(){super.initState();AvatarStore.instance.ensureLoaded();_load(force:true);tick=Timer.periodic(const Duration(seconds:75),(_){if(mounted&&GoRouter.of(context).routeInformationProvider.value.uri.path=='/chat')_load(silent:true);});}
++ @override void initState(){super.initState();AvatarStore.instance.ensureLoaded();
++   rooms=_chat.cachedRooms();loading=rooms.isEmpty;
++   _load();tick=Timer.periodic(const Duration(seconds:95),(_){
++     if(mounted&&GoRouter.of(context).routeInformationProvider.value.uri.path=='/chat')_load(silent:true);
++   });}
+  @override void dispose(){tick?.cancel();super.dispose();}
+  Future<void> _load({bool silent=false,bool force=false})async{
+    if(!mounted||_fetching)return;_fetching=true;
+@@ -214,11 +218,16 @@
+  final Map<int,Uint8List> _thumbs={};
+  final Map<int,String> _uploadedPhotos={};
+  String? _draftId,_textSendId;String _textForId='',_progress='';
++ XFile? _retryFile;String? _retryKind,_retryMessageId,_retryUploadedPath;
++ List<double>? _retryWaveform;int? _retryDurationMs;bool _mediaFailed=false;
+  String search='';
+- @override void initState(){super.initState();_resolvedRoomId=widget.roomId;AvatarStore.instance.ensureLoaded();_init();tick=Timer.periodic(const Duration(seconds:18),(_){
+-   if(!mounted||_roomId.isEmpty||GoRouter.of(context).routeInformationProvider.value.uri.path!='/chat/${_roomId}')return;
+-   _refresh(silent:true);if(++polls%10==0)_reloadRoom();
+- });}
++ @override void initState(){super.initState();_resolvedRoomId=widget.roomId;AvatarStore.instance.ensureLoaded();
++   messages=_roomId.isEmpty?<Map<String,dynamic>>[]:_chat.cachedMessages(_roomId);
++   loading=messages.isEmpty;
++   _init();tick=Timer.periodic(const Duration(seconds:35),(_){
++     if(!mounted||_roomId.isEmpty||GoRouter.of(context).routeInformationProvider.value.uri.path!='/chat/${_roomId}')return;
++     _refresh(silent:true);if(++polls%9==0)_reloadRoom();
++   });}
+  @override void dispose(){tick?.cancel();_recordLimit?.cancel();_recordTick?.cancel();_waveSub?.cancel();_videoController?.dispose();text.dispose();list.dispose();recorder.dispose();super.dispose();}
+  Future<void> _init()async{
+    if(_roomId.isEmpty){
+@@ -234,8 +243,9 @@
+    // Show history immediately; room metadata loads independently from shared cache.
+    final cached=_chat.cachedRoom(_roomId);
+    if(cached!=null)room=cached;
+-   unawaited(_reloadRoom());
+-   await _refresh();
++   // Do not launch two slow server calls simultaneously on opening a chat.
++   await _refresh(silent:messages.isNotEmpty);
++   if(mounted&&room==null)unawaited(_reloadRoom());
+  }
+  Future<void> _refresh({bool silent=false})async{
+    if(!mounted||_roomId.isEmpty||busy||_fetching)return;
+@@ -299,7 +309,7 @@
+      // Preserve the text, photo draft and successful uploads for a manual retry.
+      _report(e);
+    }finally{
+-     if(mounted){setState((){busy=false;_progress='';});await _refresh();}
++     if(mounted){setState((){busy=false;_progress='';});if(text.text.trim().isEmpty&&_draftPhotos.isEmpty)unawaited(_refresh(silent:true));}
+    }
+  }
+  Future<void> _queuePhotos(List<XFile> items)async{
+@@ -326,13 +336,24 @@
+      _uploadedPhotos.clear();_draftId=_chat.newMessageId();
+    });
+  }
+- Future<void> _media(XFile file,String kind,{List<double>? waveform,int? durationMs})async{
+-   if(busy)return;setState(()=>busy=true);
+-   try{final destination=await _ensureRoom();await _chat.sendMedia(destination,file,kind,waveform:waveform,durationMs:durationMs);
+-     if(widget.roomId.isEmpty){if(mounted)context.go('/chat/$destination');}
+-     else{await _refresh();}
++ Future<void> _media(XFile file,String kind,{List<double>? waveform,int? durationMs,bool retry=false})async{
++   if(busy)return;
++   if(!retry&&_retryFile!=null){_report('Сначала повторите или отмените предыдущую отправку.');return;}
++   if(!retry){
++     _retryFile=file;_retryKind=kind;_retryMessageId=_chat.newMessageId();_retryUploadedPath=null;
++     _retryWaveform=waveform;_retryDurationMs=durationMs;
+    }
+-   catch(e){_report(e);}finally{if(mounted){setState(()=>busy=false);await _refresh();}}
++   if(mounted)setState((){busy=true;_mediaFailed=false;_progress='Загрузка вложения…';});
++   try{
++     final destination=await _ensureRoom();
++     await _chat.sendMedia(destination,file,kind,waveform:_retryWaveform,
++       durationMs:_retryDurationMs,clientId:_retryMessageId,uploadedPath:_retryUploadedPath,
++       onUploaded:(path)=>_retryUploadedPath=path);
++     _retryFile=null;_retryKind=null;_retryMessageId=null;_retryUploadedPath=null;
++     if(widget.roomId.isEmpty){if(mounted)context.go('/chat/$destination');}
++     else{unawaited(_refresh(silent:true));}
++   }catch(e){_mediaFailed=true;_report(e);}
++   finally{if(mounted)setState((){busy=false;_progress='';});}
+  }
+  Future<void> _attachment(String kind,{bool camera=false})async{
+    try{
+@@ -362,7 +383,7 @@
+        if(cameras.isEmpty)throw Exception('Камера недоступна');
+        final front=cameras.where((c)=>c.lensDirection==CameraLensDirection.front);
+        final controller=CameraController(front.isNotEmpty?front.first:cameras.first,
+-         ResolutionPreset.medium,enableAudio:true);
++         ResolutionPreset.low,enableAudio:true);
+        _videoController=controller;
+        await controller.initialize();
+        if((_cancelPending||!_held)&&!_recordLocked){await controller.dispose();_videoController=null;
+@@ -372,7 +393,7 @@
+        if(!await recorder.hasPermission())throw Exception('Разрешите доступ к микрофону');
+        final stamp=DateTime.now().microsecondsSinceEpoch;
+        final path=kIsWeb?'voice_$stamp.webm':'${(await getTemporaryDirectory()).path}/voice_$stamp.m4a';
+-       await recorder.start(RecordConfig(encoder:kIsWeb?AudioEncoder.opus:AudioEncoder.aacLc),path:path);
++       await recorder.start(RecordConfig(encoder:kIsWeb?AudioEncoder.opus:AudioEncoder.aacLc,bitRate:40000,sampleRate:24000),path:path);
+        await _waveSub?.cancel();
+        _waveSub=recorder.onAmplitudeChanged(const Duration(milliseconds:220)).listen((sample){
+          if(!mounted||_recordType!='voice')return;
+@@ -383,7 +404,7 @@
+      _recordStarting=false;_recordSince=DateTime.now();
+      _recordTick?.cancel();
+      _recordTick=Timer.periodic(const Duration(milliseconds:250),(_){if(mounted&&_recordType!=null)setState((){});});
+-     _recordLimit?.cancel();_recordLimit=Timer(const Duration(minutes:2),(){unawaited(_finishRecording(send:true));});
++     _recordLimit?.cancel();_recordLimit=Timer(_recordingVideo?const Duration(seconds:60):const Duration(minutes:2),(){unawaited(_finishRecording(send:true));});
+      if(mounted)setState(()=>recording=true);
+      if(_cancelPending)unawaited(_finishRecording(send:false));
+      else if(!_held&&!_recordLocked)unawaited(_finishRecording(send:true));
+@@ -568,6 +589,18 @@
+      body:Column(children:[if(loading)const LinearProgressIndicator(),
+        Expanded(child:visible.isEmpty?Center(child:Text(loading?'Загрузка…':search.isNotEmpty?'Ничего не найдено':'Напишите первое сообщение')):
+          ListView.builder(controller:list,padding:const EdgeInsets.symmetric(vertical:9),itemCount:visible.length,itemBuilder:(_,i)=>_bubble(visible[i]))),
++         if(_retryFile!=null)Padding(padding:const EdgeInsets.symmetric(horizontal:12,vertical:4),
++           child:Row(children:[
++             const Icon(Icons.attach_file,size:20),
++             Expanded(child:Text(_mediaFailed?'Не отправлено: ${_retryFile!.name}':
++               'Отправка: ${_retryFile!.name}',maxLines:1,overflow:TextOverflow.ellipsis)),
++             if(busy)const SizedBox(width:20,height:20,child:CircularProgressIndicator(strokeWidth:2)),
++             if(_mediaFailed)IconButton(tooltip:'Повторить отправку',icon:const Icon(Icons.refresh),
++               onPressed:()=>_media(_retryFile!,_retryKind!,retry:true)),
++             if(_mediaFailed)IconButton(tooltip:'Отменить вложение',icon:const Icon(Icons.close),
++               onPressed:()=>setState((){_retryFile=null;_retryKind=null;_retryUploadedPath=null;
++                 _retryMessageId=null;_mediaFailed=false;})),
++           ])),
+         if(_recordType!=null)Container(
+           margin:const EdgeInsets.fromLTRB(8,7,8,4),
+           decoration:BoxDecoration(color:Theme.of(context).colorScheme.surfaceContainerHighest,
+@@ -661,16 +694,20 @@
+  @override State<_ChatVoiceBubble> createState()=>_ChatVoiceBubbleState();
+ }
+ class _ChatVoiceBubbleState extends State<_ChatVoiceBubble>{
+- final AudioPlayer _player=AudioPlayer();
++ AudioPlayer? _player;
+  StreamSubscription<Duration>? _positionSub,_durationSub;
+  StreamSubscription<PlayerState>? _stateSub;
+  Duration _position=Duration.zero,_duration=Duration.zero;
+  bool _playing=false,_transcribing=false;String? _transcript;
+  @override void initState(){super.initState();
+    _transcript=(widget.message['transcript']??'').toString();
+-   _positionSub=_player.onPositionChanged.listen((x){if(mounted)setState(()=>_position=x);});
+-   _durationSub=_player.onDurationChanged.listen((x){if(mounted)setState(()=>_duration=x);});
+-   _stateSub=_player.onPlayerStateChanged.listen((s){if(mounted)setState(()=>_playing=s==PlayerState.playing);});
++ }
++ void _preparePlayer(){
++   if(_player!=null)return;
++   final player=AudioPlayer();_player=player;
++   _positionSub=player.onPositionChanged.listen((x){if(mounted)setState(()=>_position=x);});
++   _durationSub=player.onDurationChanged.listen((x){if(mounted)setState(()=>_duration=x);});
++   _stateSub=player.onPlayerStateChanged.listen((s){if(mounted)setState(()=>_playing=s==PlayerState.playing);});
+  }
+  @override void didUpdateWidget(covariant _ChatVoiceBubble old){super.didUpdateWidget(old);
+    if(old.message['transcript']!=widget.message['transcript']&&widget.message['transcript']!=null)
+@@ -679,7 +716,7 @@
+  @override void dispose(){_positionSub?.cancel();_durationSub?.cancel();_stateSub?.cancel();_player.dispose();super.dispose();}
+  Future<void> _toggle()async{
+    final url='${widget.message['url']??''}';if(url.isEmpty)return;
+-   try{if(_playing)await _player.pause();else if(_position!=Duration.zero)await _player.resume();else await _player.play(UrlSource(url));}
++   try{_preparePlayer();final player=_player!;if(_playing)await player.pause();else if(_position!=Duration.zero)await player.resume();else await player.play(UrlSource(url));}
+    catch(e){widget.error(e);}
+  }
+  Future<void> _transcribe()async{
+@@ -713,7 +750,7 @@
+            SizedBox(height:31,child:LayoutBuilder(builder:(ctx,size)=>GestureDetector(
+              onTapDown:(d)async{if(length.inMilliseconds>0&&size.maxWidth>0){
+                final fraction=(d.localPosition.dx/size.maxWidth).clamp(0,1);
+-               await _player.seek(Duration(milliseconds:(length.inMilliseconds*fraction).round()));
++               await _player?.seek(Duration(milliseconds:(length.inMilliseconds*fraction).round()));
+              }},child:CustomPaint(size:Size(size.maxWidth,31),
+                painter:_ChatWavePainter(amp,progress,foreground))))),
+            Text('${_durationLabel(_position)} / ${_durationLabel(length)}',
+@@ -735,8 +772,8 @@
+  @override State<_ChatRoundVideo> createState()=>_ChatRoundVideoState();
+ }
+ class _ChatRoundVideoState extends State<_ChatRoundVideo>{
+- VideoPlayerController? controller;bool _error=false;
+- @override void initState(){super.initState();_init();}
++ VideoPlayerController? controller;bool _error=false,_loading=false;
++ @override void initState(){super.initState();/* lazy: prepare video on first tap */}
+  Future<void> _init()async{
+    if(widget.url.isEmpty){setState(()=>_error=true);return;}
+    final c=VideoPlayerController.networkUrl(Uri.parse(widget.url));controller=c;
+@@ -744,16 +781,30 @@
+    catch(_){if(mounted)setState(()=>_error=true);}
+  }
+  @override void didUpdateWidget(covariant _ChatRoundVideo old){super.didUpdateWidget(old);
+-   if(old.url!=widget.url){controller?.dispose();controller=null;_error=false;_init();}
++   if(old.url!=widget.url){controller?.dispose();controller=null;_error=false;_loading=false;}
+  }
+  @override void dispose(){controller?.dispose();super.dispose();}
+  @override Widget build(BuildContext context){
+    final c=controller;
+-   return GestureDetector(onTap:(){if(c==null||!c.value.isInitialized)return;
+-     if(c.value.isPlaying)c.pause();else c.play();setState((){});},
++   return GestureDetector(onTap:()async{
++     if(c==null){
++       if(_loading||widget.url.isEmpty)return;
++       setState(()=>_loading=true);
++       await _init();if(!mounted)return;
++       setState(()=>_loading=false);
++       if(controller?.value.isInitialized==true)await controller!.play();
++       return;
++     }
++     if(!c.value.isInitialized)return;
++     if(c.value.isPlaying)await c.pause();else await c.play();if(mounted)setState((){});
++   },
+      child:ClipOval(child:SizedBox(width:205,height:205,child:_error?
+        const Center(child:Icon(Icons.videocam_off_outlined,size:34)):
+-       c==null||!c.value.isInitialized?const Center(child:CircularProgressIndicator()):
++       c==null?Stack(alignment:Alignment.center,children:[
++         Container(color:Colors.black87),
++         if(_loading)const CircularProgressIndicator(color:Colors.white)
++         else const Icon(Icons.play_circle_fill_rounded,color:Colors.white,size:62),
++       ]):!c.value.isInitialized?const Center(child:CircularProgressIndicator()):
+        Stack(fit:StackFit.expand,children:[
+          FittedBox(fit:BoxFit.cover,child:SizedBox(width:205,
+            height:205/c.value.aspectRatio,child:VideoPlayer(c))),
