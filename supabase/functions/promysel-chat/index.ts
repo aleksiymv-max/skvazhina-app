@@ -84,10 +84,12 @@ Deno.serve(async(req:Request)=>{
   const transcriptRoute=path.match(/^\/rooms\/([0-9a-f-]{36})\/messages\/([0-9a-f-]{36})\/transcribe$/i);
   if(req.method==='POST'&&transcriptRoute){
     const requestedRoom=transcriptRoute[1],messageId=transcriptRoute[2];
-    if(!await roomAccess(requestedRoom))return response({detail:'Нет доступа к переписке'},403);
+    const transcriptScope=await roomAccess(requestedRoom);
+    if(!transcriptScope)return response({detail:'Нет доступа к переписке'},403);
     const {data:message,error:readError}=await db.from('promysel_chat_messages')
       .select('id,kind,attachment_path,mime_type,attachment_name,transcript,deleted_at,bytes')
-      .eq('room_id',requestedRoom).eq('id',messageId).maybeSingle();
+      .eq('room_id',requestedRoom).eq('id',messageId)
+      .gte('created_at',str(transcriptScope.member.visible_since)||'1970-01-01T00:00:00Z').maybeSingle();
     if(readError)throw readError;
     if(!message||message.kind!=='voice'||message.deleted_at||!message.attachment_path)
       return response({detail:'Голосовое сообщение не найдено'},404);
@@ -123,18 +125,22 @@ Deno.serve(async(req:Request)=>{
   if(!m)return response({detail:'Маршрут не найден'},404);
   const roomId=m[1],action=m[2]??'',msgId=m[3];
   const scope=await roomAccess(roomId);if(!scope)return response({detail:'Чат недоступен'},403);
-  const {room}=scope;
+  const {room,member}=scope;
+  const visibleSince=str(member.visible_since)||'1970-01-01T00:00:00Z';
   if(req.method==='DELETE'&&action===''){
-   // Remove only this member's chat from the list; history and other participants are preserved.
-   const {error}=await db.from('promysel_chat_members').update({hidden:true,pinned:false})
-      .eq('room_id',roomId).eq('user_id',uid);
+   // Tombstone affects only current member; peer's copy remains unchanged.
+   const cutoff=new Date().toISOString();
+   const {error}=await db.from('promysel_chat_members').update({
+     hidden:true,pinned:false,visible_since:cutoff,last_read_at:cutoff,
+   }).eq('room_id',roomId).eq('user_id',uid);
    if(error)throw error;
-   return response({status:'hidden',historyPreserved:true});
+   return response({status:'hidden',historyPreserved:true,visibleSince:cutoff});
   }
   if(req.method==='GET'&&action==='messages'){
    // Polling 'after' only fetches additions and avoids re-signing every historical image.
    const after=str(url.searchParams.get('after')),before=str(url.searchParams.get('before'));
    let q=db.from('promysel_chat_messages').select('*').eq('room_id',roomId)
+     .gte('created_at',visibleSince)
      .order('created_at',{ascending:!!after}).limit(after?40:60);
    if(after)q=q.gt('created_at',after);
    else if(before)q=q.lt('created_at',before);
@@ -218,7 +224,8 @@ Deno.serve(async(req:Request)=>{
    return response({id:data?.id??null,status:'sent'});
   }
   if(msgId&&action==='messages'&&['PATCH','DELETE'].includes(req.method)){
-   const {data:old}=await db.from('promysel_chat_messages').select('*').eq('id',msgId).eq('room_id',roomId).maybeSingle();
+   const {data:old}=await db.from('promysel_chat_messages').select('*')
+     .eq('id',msgId).eq('room_id',roomId).gte('created_at',visibleSince).maybeSingle();
    if(!old||old.sender_id!==uid)return response({detail:'Изменять можно только свои сообщения'},403);
    if(req.method==='PATCH'){
     const newText=str(value.body);if(old.kind!=='text'||old.deleted_at||!newText||newText.length>8000)return response({detail:'Редактирование невозможно'},400);
