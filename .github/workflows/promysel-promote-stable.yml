@@ -1,5 +1,10 @@
 name: "Promysel — вручную опубликовать проверенную Web-версию"
 on:
+  # One-time v1.91 promotion only; Web build must be successful first.
+  push:
+    branches: [main]
+    paths:
+      - 'deploy/ci/promote-v191.trigger'
   workflow_dispatch:
     inputs:
       run_id:
@@ -18,7 +23,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   release:
-    if: ${{ github.event.inputs.confirmation == 'PROMOTE' }}
+    if: ${{ github.event_name == 'push' || github.event.inputs.confirmation == 'PROMOTE' }}
     runs-on: ubuntu-latest
     timeout-minutes: 12
     environment: production
@@ -30,7 +35,7 @@ jobs:
         id: check
         env:
           GH_TOKEN: ${{ github.token }}
-          RUN_ID: ${{ inputs.run_id }}
+          RUN_ID: ${{ github.event_name == 'push' && '41887290723' || inputs.run_id }}
           REPO: ${{ github.repository }}
         shell: bash
         run: |
@@ -38,6 +43,9 @@ jobs:
           [[ "$RUN_ID" =~ ^[0-9]+$ ]]
           gh api "repos/$REPO/actions/runs/$RUN_ID" > /tmp/promysel-run.json
           jq -e '.conclusion=="success" and .name=="Build Promysel Web for iPhone" and .head_branch=="main" and .event!="pull_request"' /tmp/promysel-run.json
+          if [[ "${{ github.event_name }}" == "push" ]]; then
+            jq -e '.head_sha=="20f95541ca6a56185a6989ec8d8b56253ffe8448"' /tmp/promysel-run.json
+          fi
           SHA="$(jq -r '.head_sha' /tmp/promysel-run.json)"
           git fetch origin stable
           git fetch origin "$SHA"
