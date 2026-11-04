@@ -140,6 +140,8 @@ jobs:
           python3 "$GITHUB_WORKSPACE/tools/test_promysel_v186.py"
           patch --batch -p1 < "$GITHUB_WORKSPACE/tools/promysel_v187_changes.patch"
           python3 "$GITHUB_WORKSPACE/tools/test_promysel_v187.py"
+          patch --batch -p1 < "$GITHUB_WORKSPACE/tools/promysel_v188_changes.patch"
+          python3 "$GITHUB_WORKSPACE/tools/test_promysel_v188.py"
           cp "$GITHUB_WORKSPACE/tools/work_schedule_test.dart" test/work_schedule_test.dart
           mkdir -p test
           cp "$GITHUB_WORKSPACE/tools/task_permission_test.dart" test/task_permission_test.dart
@@ -156,10 +158,10 @@ jobs:
       - name: Full generated source preflight
         shell: bash
         run: |
-          set -euo pipefail;cd "${{ steps.project.outputs.project_dir }}";mkdir -p "$GITHUB_WORKSPACE/artifacts";zip -qr "$GITHUB_WORKSPACE/artifacts/promysel-v1.87-source.zip" . -x 'android/*' 'build/*' '.dart_tool/*';unzip -t "$GITHUB_WORKSPACE/artifacts/promysel-v1.87-source.zip" >/dev/null
+          set -euo pipefail;cd "${{ steps.project.outputs.project_dir }}";mkdir -p "$GITHUB_WORKSPACE/artifacts";zip -qr "$GITHUB_WORKSPACE/artifacts/promysel-v1.88-source.zip" . -x 'android/*' 'build/*' '.dart_tool/*';unzip -t "$GITHUB_WORKSPACE/artifacts/promysel-v1.88-source.zip" >/dev/null
       - uses: actions/upload-artifact@v4
         continue-on-error: true
-        with: {name: promysel-v1.87-source, path: artifacts/promysel-v1.87-source.zip, retention-days: 30}
+        with: {name: promysel-v1.88-source, path: artifacts/promysel-v1.88-source.zip, retention-days: 30}
       - uses: subosito/flutter-action@v2
         with: {channel: stable, cache: true}
       - name: Get dependencies and analyze
@@ -200,14 +202,14 @@ jobs:
           KOTLIN_PATCH
 
           flutter build apk --release --target-platform android-arm64 --tree-shake-icons --obfuscate --split-debug-info="$GITHUB_WORKSPACE/artifacts/symbols" --dart-define=PROMYSEL_SYNC_URL=https://xptmcufhuvtcunqzlsme.supabase.co/functions/v1/promysel-compat
-          cp build/app/outputs/flutter-apk/app-release.apk "$GITHUB_WORKSPACE/artifacts/apk/promysel-v1.87-arm64.apk"
-          sha256sum "$GITHUB_WORKSPACE/artifacts/apk/promysel-v1.87-arm64.apk"
+          cp build/app/outputs/flutter-apk/app-release.apk "$GITHUB_WORKSPACE/artifacts/apk/promysel-v1.88-arm64.apk"
+          sha256sum "$GITHUB_WORKSPACE/artifacts/apk/promysel-v1.88-arm64.apk"
       - uses: actions/upload-artifact@v4
         continue-on-error: true
-        with: {name: promysel-v1.87-arm64-android, path: artifacts/apk/promysel-v1.87-arm64.apk, retention-days: 30}
+        with: {name: promysel-v1.88-arm64-android, path: artifacts/apk/promysel-v1.88-arm64.apk, retention-days: 30}
       - uses: actions/upload-artifact@v4
         continue-on-error: true
-        with: {name: promysel-v1.87-debug-symbols, path: artifacts/symbols/**, retention-days: 30}
+        with: {name: promysel-v1.88-debug-symbols, path: artifacts/symbols/**, retention-days: 30}
       - name: Publish tested candidate APK as private GitHub prerelease
         if: github.event_name != 'pull_request'
         shell: bash
@@ -215,11 +217,11 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          TAG="promysel-supabase-1.87-rc"
-          APK="artifacts/apk/promysel-v1.87-arm64.apk"
+          TAG="promysel-supabase-1.88-rc"
+          APK="artifacts/apk/promysel-v1.88-arm64.apk"
           test -s "$APK"
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" "$APK" --clobber
           else
-            gh release create "$TAG" "$APK" --title "Promysel 1.87 Supabase candidate (Android)" --notes "Candidate: requires live E2E testing with real Supabase accounts. Legacy Beget is not used." --prerelease
+            gh release create "$TAG" "$APK" --title "Promysel 1.88 Supabase candidate (Android)" --notes "Candidate: requires live E2E testing with real Supabase accounts. Legacy Beget is not used." --prerelease
           fi
