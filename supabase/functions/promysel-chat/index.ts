@@ -39,23 +39,18 @@ Deno.serve(async(req:Request)=>{
   }
   if(req.method==='GET'&&path==='/rooms'){
    if(!await active(field))return response({detail:'Месторождение недоступно'},403);
-   const {data:own,error:ownErr}=await db.from('promysel_chat_members').select('room_id,muted,sound_enabled,last_read_at').eq('user_id',uid);
-   if(ownErr)throw ownErr;
-   const ids=(own??[]).map(x=>x.room_id);if(!ids.length)return response({items:[]});
-   const {data:rooms,error:roomErr}=await db.from('promysel_chat_rooms').select('*').in('id',ids).eq('field_id',field).order('updated_at',{ascending:false}).limit(100);
-   if(roomErr)throw roomErr;
-   const items=await Promise.all((rooms??[]).map(async r=>{
-     const {data:participants}=await db.from('promysel_chat_members').select('user_id,last_read_at').eq('room_id',r.id);
-     const personIds=(participants??[]).map(p=>p.user_id);
-     const {data:persons}=personIds.length?await db.from('field_memberships').select('user_id,display_name').eq('field_id',field).in('user_id',personIds):{data:[]};
-     const names=(persons??[]).map(x=>({id:x.user_id,name:x.display_name,readAt:(participants??[]).find(p=>p.user_id===x.user_id)?.last_read_at}));
-     const {data:last}=await db.from('promysel_chat_messages').select('body,kind,created_at,sender_id,deleted_at').eq('room_id',r.id).order('created_at',{ascending:false}).limit(1);
-     const mine=(own??[]).find(x=>x.room_id===r.id)!;
-     const {count}=await db.from('promysel_chat_messages').select('id',{count:'exact',head:true}).eq('room_id',r.id).gt('created_at',mine.last_read_at).neq('sender_id',uid).is('deleted_at',null);
-     const {data:avatar}=r.avatar_path?await db.storage.from(B).createSignedUrl(r.avatar_path,1800):{data:null};
-     return {...r,avatarUrl:avatar?.signedUrl??null,muted:mine.muted,soundEnabled:mine.sound_enabled,lastReadAt:mine.last_read_at,people:names,last:last?.[0]??null,unread:count??0};
+   // One SQL statement replaces the N+1 requests formerly triggered per room.
+   const {data,error}=await db.rpc('promysel_chat_listing',{p_user:uid,p_field:field});
+   if(error)throw error;
+   const items=Array.isArray(data)?data as J[]:[];
+   // Only group photos live in private Storage. Individual user pictures use the synchronized profile avatar store.
+   const decorated=await Promise.all(items.map(async r=>{
+     const avatarPath=str(r.avatar_path);
+     if(!avatarPath||r.kind!=='group')return {...r,avatarUrl:null};
+     const {data:link}=await db.storage.from(B).createSignedUrl(avatarPath,1800);
+     return {...r,avatarUrl:link?.signedUrl??null};
    }));
-   return response({items});
+   return response({items:decorated});
   }
   if(req.method==='POST'&&path==='/rooms'){
    if(!await active(field))return response({detail:'Месторождение недоступно'},403);
@@ -70,9 +65,9 @@ Deno.serve(async(req:Request)=>{
    const {data:eligible,error:eerr}=await db.from('field_memberships').select('user_id').eq('field_id',field).eq('approved',true).eq('blocked',false).in('user_id',participants);
    if(eerr)throw eerr;if((eligible??[]).length!==participants.length)return response({detail:'Участник не работает в этом месторождении'},403);
    const pairKey=kind==='group'?null:`${field}:${kind}:${participants.slice().sort().join(':')}`;
-   if(pairKey){const {data:existing}=await db.from('promysel_chat_rooms').select('id').eq('pair_key',pairKey).maybeSingle();if(existing)return response({id:existing.id});}
+   if(pairKey){const {data:existing}=await db.from('promysel_chat_rooms').select('id').eq('pair_key',pairKey).maybeSingle();if(existing){await db.from('promysel_chat_members').update({hidden:false}).eq('room_id',existing.id).eq('user_id',uid);return response({id:existing.id});}}
    const {data:room,error:rerr}=await db.from('promysel_chat_rooms').insert({field_id:field,kind,title,created_by:uid,pair_key:pairKey}).select('id').single();
-   if(rerr){if(pairKey){const {data:existing}=await db.from('promysel_chat_rooms').select('id').eq('pair_key',pairKey).maybeSingle();if(existing)return response({id:existing.id});}throw rerr;}
+   if(rerr){if(pairKey){const {data:existing}=await db.from('promysel_chat_rooms').select('id').eq('pair_key',pairKey).maybeSingle();if(existing){await db.from('promysel_chat_members').update({hidden:false}).eq('room_id',existing.id).eq('user_id',uid);return response({id:existing.id});}}throw rerr;}
    const {error:joinErr}=await db.from('promysel_chat_members').insert(participants.map(x=>({room_id:room.id,user_id:x})));
    if(joinErr){await db.from('promysel_chat_rooms').delete().eq('id',room.id);throw joinErr;}
    return response({id:room.id},201);
@@ -82,6 +77,13 @@ Deno.serve(async(req:Request)=>{
   const roomId=m[1],action=m[2]??'',msgId=m[3];
   const scope=await roomAccess(roomId);if(!scope)return response({detail:'Чат недоступен'},403);
   const {room}=scope;
+  if(req.method==='DELETE'&&action===''){
+   // Remove only this member's chat from the list; history and other participants are preserved.
+   const {error}=await db.from('promysel_chat_members').update({hidden:true,pinned:false})
+      .eq('room_id',roomId).eq('user_id',uid);
+   if(error)throw error;
+   return response({status:'hidden',historyPreserved:true});
+  }
   if(req.method==='GET'&&action==='messages'){
    let q=db.from('promysel_chat_messages').select('*').eq('room_id',roomId).order('created_at',{ascending:false}).limit(60);
    const before=str(url.searchParams.get('before'));if(before)q=q.lt('created_at',before);
@@ -119,6 +121,7 @@ Deno.serve(async(req:Request)=>{
      bytes:Math.max(0,Number(value.size)||0),client_id:clientId||null};
    const {data,error}=await db.from('promysel_chat_messages').upsert(payload,{onConflict:'room_id,sender_id,client_id',ignoreDuplicates:true}).select('id').maybeSingle();
    if(error)throw error;
+   await db.from('promysel_chat_members').update({hidden:false}).eq('room_id',roomId);
    await db.from('promysel_chat_rooms').update({updated_at:new Date().toISOString()}).eq('id',roomId);
    return response({id:data?.id??null,status:'sent'});
   }
@@ -136,6 +139,7 @@ Deno.serve(async(req:Request)=>{
   if(req.method==='PATCH'&&action==='settings'){
    const next:J={};if(typeof value.muted==='boolean')next.muted=value.muted;
    if(typeof value.soundEnabled==='boolean')next.sound_enabled=value.soundEnabled;
+   if(typeof value.pinned==='boolean')next.pinned=value.pinned;
    if(value.read===true)next.last_read_at=new Date().toISOString();
    if(Object.keys(next).length){const {error}=await db.from('promysel_chat_members').update(next).eq('room_id',roomId).eq('user_id',uid);if(error)throw error;}
    const avatarPath=str(value.avatarPath);if(avatarPath){
