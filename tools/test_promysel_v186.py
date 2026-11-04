@@ -16,7 +16,7 @@ assert "_messageCache.length>8" in service
 assert 'Duration(seconds:65)' in service
 assert 'http.StreamedRequest' in service
 assert 'file.openRead()' in service
-assert 'clientId:clientId??newMessageId()' in service
+assert "'clientId':clientId??newMessageId()" in service
 assert 'uploadedPath??await upload(room,file,kind)' in service
 assert "rooms=_chat.cachedRooms();loading=rooms.isEmpty;" in screen
 assert 'messages=_roomId.isEmpty?' in screen
