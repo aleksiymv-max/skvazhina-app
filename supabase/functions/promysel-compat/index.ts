@@ -169,7 +169,7 @@ Deno.serve(async(req:Request)=>{
   const canField=(fieldId:string)=>memberships.find((m:J)=>m.field_id===fieldId);
   async function effectiveState(fid:string):Promise<{snapshot:J|null,seq:number,changed:boolean}>{
     const {data,error}=await admin.from("sync_events").select("sequence,payload")
-      .eq("field_id",fid).eq("event_type","app_state").order("sequence",{ascending:false}).limit(80);
+      .eq("field_id",fid).eq("event_type","app_state").order("sequence",{ascending:false}).limit(4);
     if(error)throw error;
     if(!data?.length)return {snapshot:null,seq:0,changed:false};
     let acc:J={};
@@ -462,36 +462,51 @@ Deno.serve(async(req:Request)=>{
    if(req.method==="GET"){
     const cursor=txt(url.searchParams.get("cursor"))||"0",device=txt(url.searchParams.get("deviceId"));
     if(!/^\d{1,19}$/.test(cursor)||device.length>200)return reply({detail:"Неверный курсор"},400);
+    // HOTFIX 2026-11-04: avoid full app_state history replay.
+    // Full snapshots carry inline avatars; fetching 100+ duplicates caused
+    // PostgREST 57014 statement timeouts and sync/pull HTTP 500.
+    const {data:recent,error:seqError}=await admin.from("sync_events")
+      .select("sequence").eq("field_id",fieldId).eq("event_type","app_state")
+      .order("sequence",{ascending:false}).limit(1);
+    if(seqError)throw seqError;
+    const latestStateSeq=Number(recent?.[0]?.sequence??0);
     const {data,error}=await actorClient.from("sync_events")
-     .select("sequence,event_key,event_type,payload,client_updated_at,device_id")
-     .eq("field_id",fieldId).gt("sequence",Number(cursor)).order("sequence",{ascending:true}).limit(200);
+      .select("sequence,event_key,payload,client_updated_at")
+      .eq("field_id",fieldId).eq("event_type","measurement")
+      .gt("sequence",Number(cursor)).order("sequence",{ascending:true}).limit(200);
     if(error)throw error;
-    // Recovery is expensive: replay snapshots only when new structural state arrives,
-    // at initial sync, or via an explicit recover=1 request (no history is deleted).
-    const requireRecovery=cursor==="0"||url.searchParams.get("recover")==="1"||
-      (data??[]).some((x:J)=>x.event_type==="app_state");
-    const repaired=requireRecovery?await effectiveState(fieldId):
-      {snapshot:null,seq:0,changed:false};
-    const output=(data??[]).filter((x:J)=>x.device_id!==device||x.event_type==="app_state"||x.event_type==="measurement")
-      .map((x:J)=>({key:x.event_key,type:x.event_type,updatedAt:x.client_updated_at,payload:x.payload}));
-    if(repaired.snapshot&&repaired.changed){
-      // During recovery replay immutable measurements, even if a device's
-      // cursor passed them before its local SQLite data was lost.
-      const {data:archivedWalks,error:archiveError}=await actorClient.from("sync_events")
-        .select("event_key,event_type,payload,client_updated_at")
-        .eq("field_id",fieldId).eq("event_type","measurement")
-        .order("sequence",{ascending:false}).limit(200);
-      if(archiveError)throw archiveError;
-      const present=new Set(output.map((e:J)=>String(e.key)));
-      for(const e of [...(archivedWalks??[])].reverse()){
-        if(present.has(String(e.event_key)))continue;
-        output.push({key:e.event_key,type:"measurement",
-          updatedAt:e.client_updated_at,payload:e.payload});
+    const output=(data??[]).map((x:J)=>({key:x.event_key,type:"measurement",
+      updatedAt:x.client_updated_at,payload:x.payload}));
+    const lastMeasurementSeq=data?.length?Number(data[data.length-1].sequence):Number(cursor);
+    // Never move the cursor over a measurement page we have not delivered.
+    const moreMeasurements=(data?.length??0)>=200;
+    const fullRestore=cursor==="0"||url.searchParams.get("recover")==="1";
+    let stateDeliveredSeq=0;
+    if((fullRestore||latestStateSeq>Number(cursor))&&!moreMeasurements){
+      const repaired=await effectiveState(fieldId);
+      if(repaired.snapshot){
+        if(fullRestore&&cursor!=="0"){
+          // Explicit recovery also replays old immutable measurements.
+          const {data:archive,error:archiveError}=await actorClient.from("sync_events")
+            .select("event_key,payload,client_updated_at")
+            .eq("field_id",fieldId).eq("event_type","measurement")
+            .order("sequence",{ascending:false}).limit(200);
+          if(archiveError)throw archiveError;
+          const seen=new Set(output.map((e:J)=>String(e.key)));
+          for(const e of [...(archive??[])].reverse()){
+            if(seen.has(String(e.event_key)))continue;
+            seen.add(String(e.event_key));
+            output.push({key:e.event_key,type:"measurement",
+              updatedAt:e.client_updated_at,payload:e.payload});
+          }
+        }
+        output.push({key:"recovered:"+fieldId+":"+String(repaired.seq),
+          type:"app_state",updatedAt:new Date().toISOString(),payload:repaired.snapshot});
+        stateDeliveredSeq=repaired.seq;
       }
-      output.push({key:"recovered:"+fieldId+":"+String(repaired.seq),type:"app_state",
-        updatedAt:new Date().toISOString(),payload:repaired.snapshot});
     }
-    return reply({cursor:(data?.length?String(data[data.length-1].sequence):cursor),items:output});
+    return reply({cursor:String(Math.max(Number(cursor),lastMeasurementSeq,stateDeliveredSeq)),
+      items:output});
    }
    const device=txt(body.deviceId),items=body.items;
    if(!device||device.length>200||!Array.isArray(items)||items.length<1||items.length>100)
