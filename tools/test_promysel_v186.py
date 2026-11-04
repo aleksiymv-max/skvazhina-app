@@ -35,4 +35,11 @@ assert '/* lazy: prepare video on first tap */' in screen
 assert 'if(_loading||widget.url.isEmpty)return;' in screen
 assert "if(_retryFile!=null)" in screen
 assert "if(_recordType!=null)" in screen
+sync=(root/'lib/core/services/sync_service.dart').read_text(encoding='utf-8')
+assert 'Duration(seconds:60)' in sync
+assert 'if(_syncing)return;' in sync
+assert 'DateTime? _retryAfter;' in sync
+assert 'Duration(hours:12)' in sync
+assert "if(recover)'recover':'1'" in sync
+assert "sync_last_repair_" in sync
 print('PASS v1.86 stability: singleflight auth, bounded chat cache, incremental refresh, streaming upload, retry/outbox, on-demand media players')

@@ -27,6 +27,79 @@
     final token=api.token;
     if(token==null||token.isEmpty||token.startsWith('offline-'))return;
     final parts=token.split('.');
+--- a/lib/core/services/sync_service.dart
++++ b/lib/core/services/sync_service.dart
+@@ -36,10 +36,12 @@
+     await _subscription?.cancel();
+     _subscription=Connectivity().onConnectivityChanged.listen((results){final was=_online;_online=results.any((x)=>x!=ConnectivityResult.none);_refreshCount();if(_online&&!was)unawaited(syncNow());});
+     await _refreshCount();WorkTaskStore.instance.addListener(_stateChanged);WalkParameterConfig.instance.addListener(_stateChanged);AnnulusPressureStore.instance.addListener(_stateChanged);ProblemApplicationStore.instance.addListener(_stateChanged);AvatarStore.instance.addListener(_stateChanged);TrainingStore.instance.addListener(_stateChanged);WorkScheduleStore.instance.addListener(_stateChanged); if(_online&&configured)unawaited(syncNow());
+-    _periodic?.cancel();_periodic=Timer.periodic(const Duration(seconds:12),(_){if(_online&&configured)unawaited(syncNow());});
++    // Backpressure: periodic sync must not continuously restart after slow requests.
++    _periodic?.cancel();_periodic=Timer.periodic(const Duration(seconds:60),(_){if(_online&&configured&&!_syncing)unawaited(syncNow());});
+   }
+   void _stateChanged(){if(!_applyingRemote)markStateDirty();}
+-  void markStateDirty(){_stateDirty=true;_stateRevision++;unawaited(AppStateStore.instance.markDirty(SessionService.instance.currentFieldId));if(configured)unawaited(syncNow());}
++  void markStateDirty(){_stateDirty=true;_stateRevision++;unawaited(AppStateStore.instance.markDirty(SessionService.instance.currentFieldId));
++    if(_syncing){_syncAgain=true;return;}if(configured)unawaited(syncNow());}
+   Future<void> _refreshCount()async{
+     pending=await _db.pendingSyncCount();
+     if(!configured){_serverAvailable=false;status=pending==0?'Офлайн-режим · сервер синхронизации не настроен':'Офлайн-режим · в очереди: $pending';}
+@@ -47,9 +49,12 @@
+     else if(!_syncing){status=pending==0?'Синхронизировано':'Ожидают синхронизации: $pending';}
+     notifyListeners();
+   }
++  int _syncFailures=0;DateTime? _retryAfter;
+   Future<void> syncNow()async{
++    if(_syncing)return; // timer and badge requests must never schedule extra sync loops
++    if(_retryAfter!=null&&DateTime.now().isBefore(_retryAfter!))return;
++    if(!configured||SessionService.instance.currentFieldId==null)return;
+     try{await SessionService.instance.ensureFreshToken();}catch(_){/* offline queue preserved */}
+-    if(_syncing){_syncAgain=true;return;}if(!configured||SessionService.instance.currentFieldId==null){return;}
+     final activeField=SessionService.instance.currentFieldId;
+     if(activeField!=_cursorField){
+       _stateDirty=_stateDirty||await AppStateStore.instance.takeDirty(activeField);
+@@ -57,9 +62,18 @@
+       _lastRemoteStateContent='';
+     }
+     _syncing=true;status='Синхронизация…';notifyListeners();
+-    try{await _pull();await _push();if(_stateDirty){await _pushState();await _pull();}try{if(_workersUpdatedAt==null||DateTime.now().difference(_workersUpdatedAt!)>const Duration(minutes:5)){await SessionService.instance.refreshWorkers();_workersUpdatedAt=DateTime.now();}}catch(_){} _serverAvailable=true;lastSyncAt=DateTime.now();status='Синхронизировано';}
+-    catch(_){_serverAvailable=false;status='Синхронизация недоступна · данные сохранены офлайн';}
+-    finally{_syncing=false;await _refreshCount();if(_syncAgain){_syncAgain=false;unawaited(syncNow());}}
++    try{await _pull();await _push();if(_stateDirty){await _pushState();await _pull();}try{if(_workersUpdatedAt==null||DateTime.now().difference(_workersUpdatedAt!)>const Duration(minutes:5)){await SessionService.instance.refreshWorkers();_workersUpdatedAt=DateTime.now();}}catch(_){} _serverAvailable=true;lastSyncAt=DateTime.now();status='Синхронизировано';_syncFailures=0;_retryAfter=null;}
++    catch(_){_serverAvailable=false;status='Синхронизация недоступна · данные сохранены офлайн';
++      // Keep all pending offline items; exponential backoff prevents flooding a degraded database.
++      _syncFailures=(_syncFailures+1).clamp(0,7);
++      final delaySeconds=(10*(1<<(_syncFailures-1))).clamp(10,300);
++      _retryAfter=DateTime.now().add(Duration(seconds:delaySeconds));
++    }
++    finally{_syncing=false;await _refreshCount();
++      final followUp=_syncAgain&&_syncFailures==0;
++      _syncAgain=false;
++      if(followUp)unawaited(syncNow());
++    }
+   }
+   Map<String,String> get _authHeaders=>{'content-type':'application/json',if(SessionService.instance.token!=null) 'authorization':'Bearer ${SessionService.instance.token}'};
+   Uri _uri(String path,[Map<String,String>? query]){final base=_baseUrl.endsWith('/')?_baseUrl.substring(0,_baseUrl.length-1):_baseUrl;return Uri.parse('$base$path').replace(queryParameters:query);}
+@@ -83,7 +97,18 @@
+       if(_cursor.trim().isEmpty)_cursor='0';
+       _cursorField=fieldId;
+     }
+-    final res=await http.get(_uri('/v1/sync/pull',{'fieldId':fieldId,'deviceId':_deviceId,'cursor':_cursor.trim().isEmpty?'0':_cursor}),headers:_authHeaders).timeout(const Duration(seconds:12));if(res.statusCode<200||res.statusCode>=300)throw Exception('HTTP ${res.statusCode}');
++    // Keep recovery available without rebuilding full historical snapshots on every pull.
++    final recoveryPrefs=await SharedPreferences.getInstance();
++    final lastRepair=DateTime.tryParse(recoveryPrefs.getString('sync_last_repair_$fieldId')??'');
++    final recover=_cursor=='0'||lastRepair==null||
++      DateTime.now().difference(lastRepair)>const Duration(hours:12);
++    final res=await http.get(_uri('/v1/sync/pull',{
++      'fieldId':fieldId,'deviceId':_deviceId,
++      'cursor':_cursor.trim().isEmpty?'0':_cursor,
++      if(recover)'recover':'1',
++    }),headers:_authHeaders).timeout(const Duration(seconds:20));
++    if(res.statusCode<200||res.statusCode>=300)throw Exception('HTTP ${res.statusCode}');
++    if(recover)await recoveryPrefs.setString('sync_last_repair_$fieldId',DateTime.now().toUtc().toIso8601String());
+     final body=jsonDecode(res.body);if(body is! Map<String,dynamic>)throw const FormatException('Некорректный ответ синхронизации');final items=body['items'];
+     var changed=false;Map<String,dynamic>? latestState;if(items is List){for(final raw in items){if(raw is! Map)continue;final item=Map<String,dynamic>.from(raw);final key=item['key']?.toString(),payload=item['payload'];if(key==null||payload is! Map)continue;if(item['type']=='measurement'){await _db.applyRemoteMeasurement(key,Map<String,dynamic>.from(payload));changed=true;}else if(item['type']=='app_state'){latestState=Map<String,dynamic>.from(payload);}}}if(latestState!=null&&!_stateDirty){
+       // Avoid applying unchanged app_state and rebuilding entire UI tree.
 --- a/lib/core/services/promysel_chat_service.dart
 +++ b/lib/core/services/promysel_chat_service.dart
 @@ -61,23 +61,48 @@
