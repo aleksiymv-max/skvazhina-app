@@ -1,0 +1,79 @@
+name: "Promysel — два Web-сайта без VPN"
+on:
+  workflow_dispatch:
+    inputs:
+      stable_run_id:
+        description: "ID успешного релиза stable, например 41800117647"
+        required: true
+        default: "41800117647"
+        type: string
+      dev_run_id:
+        description: "ID успешной DEV-сборки, например 41804860301"
+        required: true
+        default: "41804860301"
+        type: string
+permissions:
+  contents: read
+  actions: read
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify tested stable and DEV builds
+        env:
+          GH_TOKEN: ${{ github.token }}
+          STABLE_RUN: ${{ inputs.stable_run_id }}
+          DEV_RUN: ${{ inputs.dev_run_id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$STABLE_RUN" =~ ^[0-9]+$ && "$DEV_RUN" =~ ^[0-9]+$ ]]
+          for id in "$STABLE_RUN" "$DEV_RUN"; do
+            gh api "repos/$GITHUB_REPOSITORY/actions/runs/$id" > "/tmp/$id.json"
+            jq -e '.conclusion=="success" and .name=="Build Promysel Web for iPhone" and .event!="pull_request"' "/tmp/$id.json"
+          done
+          APPROVED="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/stable" --jq '.object.sha')"
+          [[ "$APPROVED" == "$(jq -r .head_sha /tmp/$STABLE_RUN.json)" ]] || { echo "Stable build not approved";exit 1; }
+          jq -e '.head_branch=="main"' "/tmp/$DEV_RUN.json"
+      - name: Download original Web artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+          STABLE_RUN: ${{ inputs.stable_run_id }}
+          DEV_RUN: ${{ inputs.dev_run_id }}
+        run: |
+          set -euo pipefail
+          for channel in stable dev; do
+            id="$STABLE_RUN"; [[ "$channel" == stable ]] || id="$DEV_RUN"
+            mkdir -p "$RUNNER_TEMP/z-$channel" "$RUNNER_TEMP/raw-$channel"
+            gh run download "$id" -R "$GITHUB_REPOSITORY" -n promysel-original-flutter-supabase-web -D "$RUNNER_TEMP/z-$channel"
+            unzip -q "$RUNNER_TEMP/z-$channel/promysel-original-flutter-supabase-web.zip" -d "$RUNNER_TEMP/raw-$channel"
+          done
+      - name: Create two separate same-origin frontends with one Supabase
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/bundle/deploy"
+          for channel in stable dev; do
+            python3 deploy/vpnfree/prepare_mirror.py --source "$RUNNER_TEMP/raw-$channel" --output "$RUNNER_TEMP/bundle/site-$channel"
+          done
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          p=Path(os.environ['RUNNER_TEMP'])/'bundle/site-dev/index.html'
+          s=p.read_text(encoding='utf-8')
+          assert '</body>' in s
+          badge='<div id="promysel-channel-indicator" style="position:fixed;top:0;right:8px;padding:4px 10px;background:#0b4f91;color:white;z-index:99999;font:600 11px Arial">РАЗРАБОТКА</div>'
+          p.write_text(s.replace('</body>',badge+'</body>'),encoding='utf-8')
+          PY
+          cp deploy/vpnfree/nginx-site.template deploy/vpnfree/install-dual.sh deploy/vpnfree/update-channel.sh "$RUNNER_TEMP/bundle/deploy/"
+          cp deploy/vpnfree/README-dual.txt "$RUNNER_TEMP/bundle/README.txt"
+          test -s "$RUNNER_TEMP/bundle/site-stable/main.dart.js"
+          test -s "$RUNNER_TEMP/bundle/site-dev/main.dart.js"
+          ! grep -q 'promysel-channel-indicator' "$RUNNER_TEMP/bundle/site-stable/index.html"
+          grep -q 'promysel-channel-indicator' "$RUNNER_TEMP/bundle/site-dev/index.html"
+          (cd "$RUNNER_TEMP/bundle" && zip -qr "$GITHUB_WORKSPACE/promysel-dual-vpnfree.zip" .)
+      - uses: actions/upload-artifact@v4
+        with:
+          name: promysel-dual-one-supabase
+          path: promysel-dual-vpnfree.zip
+          retention-days: 14
