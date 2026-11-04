@@ -365,7 +365,7 @@
   @override void didUpdateWidget(covariant _ChatVoiceBubble old){super.didUpdateWidget(old);
     if(old.message['transcript']!=widget.message['transcript']&&widget.message['transcript']!=null)
 @@ -679,7 +716,7 @@
-  @override void dispose(){_positionSub?.cancel();_durationSub?.cancel();_stateSub?.cancel();_player.dispose();super.dispose();}
+  @override void dispose(){_positionSub?.cancel();_durationSub?.cancel();_stateSub?.cancel();_player?.dispose();super.dispose();}
   Future<void> _toggle()async{
     final url='${widget.message['url']??''}';if(url.isEmpty)return;
 -   try{if(_playing)await _player.pause();else if(_position!=Duration.zero)await _player.resume();else await _player.play(UrlSource(url));}
