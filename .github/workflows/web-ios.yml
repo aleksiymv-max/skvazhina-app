@@ -1,6 +1,11 @@
 name: Build Promysel Web for iPhone
 on:
   workflow_dispatch:
+  # Explicit one-shot Web build requests only. Ordinary source commits never build Flutter.
+  push:
+    branches: [main]
+    paths:
+      - 'deploy/ci/web-v191-build.trigger'
 permissions:
   contents: read
 concurrency:
