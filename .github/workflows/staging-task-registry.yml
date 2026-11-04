@@ -1,0 +1,59 @@
+name: Staging task registry security guard
+on:
+  pull_request:
+    paths:
+      - 'supabase/staging/**'
+      - 'tools/test_staging_task_registry_security.py'
+      - 'tools/test_staging_task_registry_race.py'
+      - 'tools/staging_task_registry_pg_*.sql'
+      - '.github/workflows/staging-task-registry.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  static-security-guard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check staging task audience, RLS and Storage guardrails
+        run: python3 tools/test_staging_task_registry_security.py
+      - name: Scope
+        run: echo 'Static guard only; production is not modified.'
+  isolated-postgres-rls:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: synthetic_ci_only
+          POSTGRES_DB: promysel_synthetic
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d promysel_synthetic"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PGHOST: localhost
+      PGPORT: 5432
+      PGUSER: postgres
+      PGPASSWORD: synthetic_ci_only
+      PGDATABASE: promysel_synthetic
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client
+      - name: Build synthetic Supabase-compatible schema
+        run: psql -v ON_ERROR_STOP=1 -f tools/staging_task_registry_pg_fixture.sql
+      - name: Parse and apply staging proposal to disposable PostgreSQL
+        run: psql -v ON_ERROR_STOP=1 -f supabase/staging/20261102_task_registry_evidence_review_only.sql
+      - name: Verify role isolation, evidence RLS, RPC and revocation
+        run: psql -v ON_ERROR_STOP=1 -f tools/staging_task_registry_pg_checks.sql
+      - name: Verify concurrent assignment revocation and completion
+        run: python3 tools/test_staging_task_registry_race.py
+      - name: Scope
+        run: echo 'Synthetic PostgreSQL only; not full Supabase Storage API or production E2E.'
