@@ -54,7 +54,7 @@ jobs:
       - name: Download exact previously tested Web artifact
         uses: actions/download-artifact@v4
         with:
-          run-id: ${{ inputs.run_id }}
+          run-id: ${{ github.event_name == 'push' && '41887290723' || inputs.run_id }}
           name: promysel-original-flutter-supabase-web
           repository: ${{ github.repository }}
           github-token: ${{ github.token }}
