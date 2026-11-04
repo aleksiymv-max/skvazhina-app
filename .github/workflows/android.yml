@@ -1,19 +1,16 @@
 name: Build Promysel APK
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
 permissions:
   contents: write
 concurrency:
   group: promysel-android-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 jobs:
   build:
     name: Build Promysel Android ARM64
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - name: Approval-first registration regression
@@ -54,7 +51,12 @@ jobs:
         run: |
           set -euo pipefail; DIR="$RUNNER_TEMP/promysel";rm -rf "$DIR";mkdir -p "$DIR";unzip -q "$GITHUB_WORKSPACE/neftyanik_v1.24.1_stable_hotfix.zip" -d "$DIR";PROJECT="$(dirname "$(find "$DIR" -name pubspec.yaml -print -quit)")";echo "project_dir=$PROJECT" >> "$GITHUB_OUTPUT"
       - name: Install image tools
-        run: sudo apt-get update && sudo apt-get install -y imagemagick librsvg2-bin
+        run: |
+          set -euo pipefail
+          if ! command -v identify >/dev/null || ! command -v rsvg-convert >/dev/null; then
+            sudo apt-get update -qq
+            sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq imagemagick librsvg2-bin
+          fi
       - name: Apply Promysel updates and approved raster emblem
         shell: bash
         run: |
@@ -172,11 +174,11 @@ jobs:
       - name: Get dependencies and analyze
         shell: bash
         run: |
-          cd "${{ steps.project.outputs.project_dir }}";flutter pub get;flutter pub add --dev sqflite_common_ffi:^2.3.6;flutter analyze --no-fatal-infos --no-fatal-warnings;flutter test test/task_permission_test.dart test/history_empty_widget_test.dart test/task_photo_widget_test.dart test/work_schedule_test.dart test/training_calendar_test.dart
+          cd "${{ steps.project.outputs.project_dir }}";python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_ci_pubspec.py" android;flutter pub get;flutter analyze --no-fatal-infos --no-fatal-warnings;flutter test test/task_permission_test.dart test/history_empty_widget_test.dart test/task_photo_widget_test.dart test/work_schedule_test.dart test/training_calendar_test.dart
       - name: Create Android project with approved launcher icon
         shell: bash
         run: |
-          set -euo pipefail;cd "${{ steps.project.outputs.project_dir }}";rm -rf android;flutter create --platforms=android --project-name promysel --org ru.promysel .
+          set -euo pipefail;cd "${{ steps.project.outputs.project_dir }}";rm -rf android;flutter create --no-pub --platforms=android --project-name promysel --org ru.promysel .
           python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_launcher_badge_android.py"
           if [[ -f android/app/build.gradle.kts ]]; then sed -i 's/minSdk = flutter.minSdkVersion/minSdk = 24/' android/app/build.gradle.kts; fi
           if [[ -f android/app/build.gradle ]]; then sed -i 's/minSdkVersion flutter.minSdkVersion/minSdkVersion 24/' android/app/build.gradle; fi
@@ -206,7 +208,7 @@ jobs:
           }
           KOTLIN_PATCH
 
-          flutter build apk --release --target-platform android-arm64 --tree-shake-icons --obfuscate --split-debug-info="$GITHUB_WORKSPACE/artifacts/symbols" --dart-define=PROMYSEL_SYNC_URL=https://xptmcufhuvtcunqzlsme.supabase.co/functions/v1/promysel-compat
+          flutter build apk --no-pub --release --target-platform android-arm64 --tree-shake-icons --obfuscate --split-debug-info="$GITHUB_WORKSPACE/artifacts/symbols" --dart-define=PROMYSEL_SYNC_URL=https://xptmcufhuvtcunqzlsme.supabase.co/functions/v1/promysel-compat
           cp build/app/outputs/flutter-apk/app-release.apk "$GITHUB_WORKSPACE/artifacts/apk/promysel-v1.88-arm64.apk"
           sha256sum "$GITHUB_WORKSPACE/artifacts/apk/promysel-v1.88-arm64.apk"
       - uses: actions/upload-artifact@v4

@@ -1,0 +1,54 @@
+name: Promysel fast source validation
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'tools/**'
+      - 'server/**'
+      - '.github/workflows/**'
+      - 'supabase/functions/**'
+      - 'supabase/migrations/**'
+      - 'neftyanik_v1.24.1_stable_hotfix.zip'
+      - '!**/*.md'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'tools/**'
+      - 'server/**'
+      - '.github/workflows/**'
+      - 'supabase/functions/**'
+      - 'supabase/migrations/**'
+      - 'neftyanik_v1.24.1_stable_hotfix.zip'
+      - '!**/*.md'
+permissions:
+  contents: read
+concurrency:
+  group: promysel-fast-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  source-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v4
+      - name: Python syntax checks (no Flutter, Android SDK or apt)
+        run: python3 -m compileall -q tools server
+      - name: Critical registration and approval regressions
+        run: |
+          set -euo pipefail
+          python3 server/test_approval_before_invitation.py
+          python3 server/test_registration_rules.py
+          python3 server/test_registration_decisions.py
+          python3 server/test_registration_service.py
+      - name: Check workflow safety policy
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          for p in ('web-ios.yml','android.yml','stability-preflight.yml'):
+              s=(Path('.github/workflows')/p).read_text()
+              assert 'workflow_dispatch:' in s and '  push:' not in s and '  schedule:' not in s,p
+          promotion=Path('.github/workflows/promysel-promote-stable.yml').read_text()
+          assert 'cancel-in-progress: false' in promotion
+          assert 'environment: production' in promotion
+          print('PASS: heavy workflows are manual, stable deployment is serialized')
+          PY

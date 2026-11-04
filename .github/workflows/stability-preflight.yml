@@ -1,13 +1,12 @@
 name: Stability diagnostic
 on:
-  push:
-    branches: [stability-sync-v159]
   workflow_dispatch:
 permissions:
   contents: read
 jobs:
   inspect:
     runs-on: ubuntu-latest
+    timeout-minutes: 12
     steps:
       - uses: actions/checkout@v4
       - name: Live API contract

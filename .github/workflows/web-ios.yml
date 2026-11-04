@@ -1,19 +1,16 @@
 name: Build Promysel Web for iPhone
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
 permissions:
   contents: read
 concurrency:
-  group: promysel-web-registration-fix-${{ github.ref }}
-  cancel-in-progress: true
+  group: promysel-web-dev-build-${{ github.ref }}
+  cancel-in-progress: false
 jobs:
   build:
     name: Build Promysel Web/PWA for iPhone
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
       - name: Approval-first registration regression
@@ -52,7 +49,12 @@ jobs:
           PROJECT="$(dirname "$(find "$DIR" -name pubspec.yaml -print -quit)")"
           echo "project_dir=$PROJECT" >> "$GITHUB_OUTPUT"
       - name: Install image tools
-        run: sudo apt-get update && sudo apt-get install -y imagemagick librsvg2-bin
+        run: |
+          set -euo pipefail
+          if ! command -v identify >/dev/null || ! command -v rsvg-convert >/dev/null; then
+            sudo apt-get update -qq
+            sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq imagemagick librsvg2-bin
+          fi
       - name: Apply current Promysel updates
         shell: bash
         run: |
@@ -159,10 +161,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail;cd "${{ steps.project.outputs.project_dir }}"
+          flutter create --no-pub --platforms=web --project-name promysel --org ru.promysel .
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_ci_pubspec.py" web
           flutter pub get
-          flutter create --platforms=web --project-name promysel --org ru.promysel .
-          flutter pub add sqflite_common_ffi_web:^1.2.0
-          flutter pub add --dev sqflite_common_ffi:^2.3.6
           dart run sqflite_common_ffi_web:setup --force
           mkdir -p web/icons
           rsvg-convert -w 192 -h 192 "$GITHUB_WORKSPACE/assets/promysel_icon_modern.svg" -o web/icons/Icon-192.png
@@ -195,7 +196,7 @@ jobs:
           set -euo pipefail;cd "${{ steps.project.outputs.project_dir }}"
           flutter analyze --no-fatal-infos --no-fatal-warnings
           flutter test test/task_permission_test.dart test/history_empty_widget_test.dart test/task_photo_widget_test.dart test/work_schedule_test.dart test/training_calendar_test.dart
-          flutter build web --release --pwa-strategy=offline-first --dart-define=PROMYSEL_SYNC_URL=https://xptmcufhuvtcunqzlsme.supabase.co/functions/v1/promysel-compat
+          flutter build web --no-pub --release --pwa-strategy=offline-first --dart-define=PROMYSEL_SYNC_URL=https://xptmcufhuvtcunqzlsme.supabase.co/functions/v1/promysel-compat
           python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_web_push.py"
           test -f build/web/index.html;test -f build/web/flutter_bootstrap.js;test -f build/web/manifest.json;test -f build/web/sqlite3.wasm;test -f build/web/sqflite_sw.js;test -f build/web/apple-touch-icon.png
       - name: Add first-run account setup and Cloudflare hosting metadata
@@ -234,7 +235,18 @@ jobs:
       # Artifacts are optional: exhausted artifact storage must not block the live iPhone deployment.
       - uses: actions/upload-artifact@v4
         continue-on-error: true
-        with: {name: promysel-original-flutter-supabase-web, path: artifacts/promysel-original-flutter-supabase-web.zip, retention-days: 3}
+        with: {name: promysel-original-flutter-supabase-web, path: artifacts/promysel-original-flutter-supabase-web.zip, retention-days: 7}
+      - name: Confirm Cloudflare-ready root structure
+        shell: bash
+        run: |
+          set -euo pipefail
+          unzip -Z1 artifacts/promysel-original-flutter-supabase-web.zip | grep -qx index.html
+          unzip -Z1 artifacts/promysel-original-flutter-supabase-web.zip | grep -qx main.dart.js
+          unzip -Z1 artifacts/promysel-original-flutter-supabase-web.zip | grep -qx sqflite_sw.js
+          unzip -Z1 artifacts/promysel-original-flutter-supabase-web.zip | grep -qx setup.html
+          unzip -Z1 artifacts/promysel-original-flutter-supabase-web.zip | grep -qx activate-admin.html
+          unzip -Z1 artifacts/promysel-original-flutter-supabase-web.zip | grep -qx finish-registration.html
+          echo 'Verified Web artifact before optional DEV publish'
       - name: Publish development preview only (stable production remains frozen)
         if: github.event_name != 'pull_request'
         shell: bash
@@ -264,14 +276,3 @@ jobs:
           PY
           npx --yes wrangler@4 pages deploy "${{ steps.project.outputs.project_dir }}/build/web" --project-name=promysel-web --branch=dev
           echo "::notice title=DEV preview deployed::Published commit ${GITHUB_SHA} to dev.promysel-web.pages.dev. Stable promysel-web.pages.dev was NOT modified."
-      - name: Confirm Cloudflare-ready root structure
-        shell: bash
-        run: |
-          set -euo pipefail
-          unzip -Z1 artifacts/promysel-original-flutter-supabase-web.zip | grep -qx index.html
-          unzip -Z1 artifacts/promysel-original-flutter-supabase-web.zip | grep -qx main.dart.js
-          unzip -Z1 artifacts/promysel-original-flutter-supabase-web.zip | grep -qx sqflite_sw.js
-          unzip -Z1 artifacts/promysel-original-flutter-supabase-web.zip | grep -qx setup.html
-          unzip -Z1 artifacts/promysel-original-flutter-supabase-web.zip | grep -qx activate-admin.html
-          unzip -Z1 artifacts/promysel-original-flutter-supabase-web.zip | grep -qx finish-registration.html
-          echo 'Manual Cloudflare Pages direct upload is ready'
