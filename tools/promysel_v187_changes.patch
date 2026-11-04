@@ -1,0 +1,298 @@
+--- a/pubspec.yaml
++++ b/pubspec.yaml
+@@ -1,7 +1,7 @@
+ name: oilman_app
+ description: Мобильное приложение для операторов нефтегазовых объектов.
+ publish_to: 'none'
+-version: 1.86.0+192
++version: 1.87.0+193
+ environment:
+   sdk: '>=3.3.0 <4.0.0'
+   flutter: '>=3.19.0'
+--- a/lib/core/services/session_service.dart
++++ b/lib/core/services/session_service.dart
+@@ -122,14 +122,74 @@
+    notifyListeners();
+  }
+ 
+- Future<void> refreshWorkers()async{await ensureFreshToken();final tok=api.token;if(tok==null||tok.isEmpty||tok.startsWith('offline-'))return;final d=await RegistrationService.instance.users(tok);final raw=d['items']??d['users'];if(raw is! List)return;if(raw.isEmpty&&_workers.isNotEmpty)return;_workers.clear();for(final x in raw){if(x is! Map)continue;final m=Map<String,dynamic>.from(x);final id=(m['id']??m['userId']??m['user_id']??'').toString();if(id.isEmpty)continue;final fid=(m['fieldId']??m['field_id'])?.toString();final chief=(m['chiefId']??m['chief_id'])?.toString();final approved=m['approved']!=false;_workers.add(AppUser(id:id,name:(m['name']??m['fullName']??m['full_name']??m['email']??'').toString(),role:_role(m['role']),itrSubrole:_subrole(m['subrole']),chiefId:chief,approved:approved));if(fid!=null&&fid.isNotEmpty)userFields[id]=fid;}
+- final me=_workers.where((u)=>u.id==currentUser.id).firstOrNull;
+- if(me!=null&&(me.name!=currentUser.name||me.role!=currentUser.role||
+-    me.itrSubrole!=currentUser.itrSubrole)){
+-   currentUser=me;
+-   unawaited(_persistSession());
++ // A single, complete, scoped roster is authoritative. Never swap the UI to
++ // a stale/partial response, and never issue several concurrent reads.
++ Future<void>? _workersPending;
++ DateTime? _workersLoadedAt;
++ String _workersScope='';
++ String? personnelLoadError;
++ DateTime? get personnelLastUpdated=>_workersLoadedAt;
++ bool get personnelLoading=>_workersPending!=null;
++ Future<void> refreshWorkers({bool force=false})async{
++   final scope='${currentUser.id}:${currentFieldId??'all'}';
++   if(_workersScope!=scope){
++     _workersScope=scope;_workersLoadedAt=null;personnelLoadError=null;
++     _workers.clear();userFields.removeWhere((id,field)=>id!=currentUser.id);
++     notifyListeners();
++   }
++   final inFlight=_workersPending;
++   if(inFlight!=null){await inFlight;if(!force)return;}
++   if(!force&&_workersLoadedAt!=null&&
++      DateTime.now().difference(_workersLoadedAt!)<const Duration(seconds:25))return;
++   final request=_fetchCompleteWorkers(scope);
++   _workersPending=request;notifyListeners();
++   try{await request;}
++   finally{if(identical(_workersPending,request)){
++     _workersPending=null;notifyListeners();
++   }}
++ }
++ Future<void> _fetchCompleteWorkers(String scope)async{
++   try{
++     await ensureFreshToken();
++     final tok=api.token;
++     if(tok==null||tok.isEmpty||tok.startsWith('offline-'))return;
++     final d=await RegistrationService.instance.users(tok);
++     final raw=d['items']??d['users'];
++     if(d['complete']!=true||raw is! List||d['count'] is! num||
++        (d['count'] as num).toInt()!=raw.length){
++       throw const FormatException('Сервер вернул неполный список персонала');
++     }
++     final next=<String,AppUser>{},nextFields=<String,String>{};
++     for(final row in raw){
++       if(row is! Map)throw const FormatException('Некорректная запись сотрудника');
++       final m=Map<String,dynamic>.from(row);
++       final id=(m['id']??m['userId']??m['user_id']??'').toString();
++       final fid=(m['fieldId']??m['field_id']??'').toString();
++       if(id.isEmpty||fid.isEmpty)throw const FormatException('Сотрудник без привязки к месторождению');
++       next[id]=AppUser(id:id,name:(m['name']??m['fullName']??m['full_name']??m['email']??'').toString(),
++         role:_role(m['role']),itrSubrole:_subrole(m['subrole']),chiefId:(m['chiefId']??m['chief_id'])?.toString(),
++         approved:m['approved']!=false);
++       nextFields[id]=fid;
++     }
++     if(scope!=_workersScope)return; // Another account/field logged in during the request.
++     _workers..clear()..addAll(next.values);
++     userFields.removeWhere((id,field)=>id!=currentUser.id);
++     userFields.addAll(nextFields);
++     final me=next[currentUser.id];
++     if(me!=null&&(me.name!=currentUser.name||me.role!=currentUser.role||
++       me.itrSubrole!=currentUser.itrSubrole)){
++       currentUser=me;unawaited(_persistSession());
++     }
++     _workersLoadedAt=DateTime.now();personnelLoadError=null;
++     notifyListeners();
++   }catch(e){
++     if(scope==_workersScope){
++       personnelLoadError='Список персонала пока не обновлён. Повторите загрузку.';
++       notifyListeners();
++     }
++     rethrow;
++   }
+  }
+- notifyListeners();}
+  Future<void> forgotPassword(String email)async{if(!RegExp(r'^[^@ ]+@[^@ ]+\.[^@ ]+$').hasMatch(email.trim()))throw const ApiException('Введите корректный e-mail');await RegistrationService.instance.forgotPassword(email);}
+  Future<void> refreshPending()async{final tok=api.token;if(tok==null)return;final d=await RegistrationService.instance.pending(tok);final raw=d['items'];pendingUsers.clear();if(raw is List){for(final x in raw){if(x is Map){final m=Map<String,dynamic>.from(x);final id=(m['id']??m['requestId']??m['request_id']??'').toString();final fid=(m['fieldId']??m['field_id']??'').toString();if(id.isEmpty)continue;pendingUsers.add(PendingUser(id:id,name:(m['name']??m['fullName']??m['full_name']??'').toString(),email:(m['email']??'').toString(),role:_role(m['role']),subrole:_subrole(m['subrole']),fieldId:fid,requiresAdmin:_role(m['role'])==UserRole.shopChief));}}}notifyListeners();}
+  static const _sessionKey='promysel_session_v2';
+@@ -189,12 +249,12 @@
+  String _adminToken(){if(currentUser.role!=UserRole.admin)throw const ApiException('Недостаточно прав');final value=api.token;if(value==null||value.isEmpty)throw const ApiException('Необходимо войти повторно');return value;}
+  Future<void> adminAddField(String name)async{await ensureFreshToken();await RegistrationService.instance.adminAddField(_adminToken(),name.trim());await refreshFields();}
+  Future<void> adminRenameField(String id,String name)async{await ensureFreshToken();await RegistrationService.instance.adminRenameField(_adminToken(),id,name.trim());await refreshFields();}
+- Future<void> adminDeleteField(String id,String exactName)async{await ensureFreshToken();await RegistrationService.instance.adminDeleteField(_adminToken(),id,exactName);await refreshFields();await refreshWorkers();}
+- Future<void> adminDeleteUser(String id,String fieldId,String exactName)async{await ensureFreshToken();await RegistrationService.instance.adminDeleteUser(_adminToken(),id,fieldId,exactName);userFields.remove(id);await refreshWorkers();}
++ Future<void> adminDeleteField(String id,String exactName)async{await ensureFreshToken();await RegistrationService.instance.adminDeleteField(_adminToken(),id,exactName);await refreshFields();await refreshWorkers(force:true);}
++ Future<void> adminDeleteUser(String id,String fieldId,String exactName)async{await ensureFreshToken();await RegistrationService.instance.adminDeleteUser(_adminToken(),id,fieldId,exactName);userFields.remove(id);await refreshWorkers(force:true);}
+  Future<void> adminChangeUser(String userId,{required UserRole role,ItrSubrole? subrole,required String fieldId,String? chiefId,required String fullName})async{
+   await ensureFreshToken();final existing=userFields[userId];if(existing==null)throw const ApiException('Не найдена привязка сотрудника');
+   await RegistrationService.instance.adminEditUser(_adminToken(),userId,fullName:fullName.trim(),oldFieldId:existing,fieldId:fieldId,role:role.name,subrole:subrole?.name,chiefId:chiefId);
+-  await refreshWorkers();
++  await refreshWorkers(force:true);
+  }
+  String approveAsChief(String id,{UserRole? role,ItrSubrole? subrole}){if(currentUser.role!=UserRole.shopChief)throw const ApiException('Недостаточно прав');final p=pendingUsers.where((u)=>u.id==id).firstOrNull;if(p==null)return '';if(p.requiresAdmin||p.fieldId!=currentFieldId)throw const ApiException('Заявка относится к другому подразделению');final actual=role??p.role;if(actual==UserRole.admin||actual==UserRole.shopChief)throw const ApiException('Эту роль назначает администратор');p.approved=true;final rnd=Random.secure();_workers.add(AppUser(id:p.id,name:p.name,role:actual,itrSubrole:actual==UserRole.engineer?subrole??p.subrole:null,chiefId:currentUser.id,approved:true));userFields[p.id]=p.fieldId;workPresence[p.id]=false;final temp='Pr'+(100000+rnd.nextInt(900000)).toString()+'!';p.temporaryPassword=temp;_passwords[p.id]=temp;_mustChange.add(p.id);notifyListeners();return temp;}
+  void rejectAsChief(String id){if(currentUser.role!=UserRole.shopChief)throw const ApiException('Недостаточно прав');final p=pendingUsers.where((u)=>u.id==id).firstOrNull;if(p==null)return;if(p.requiresAdmin||p.fieldId!=currentFieldId)throw const ApiException('Заявка относится к другому подразделению');pendingUsers.remove(p);notifyListeners();}
+@@ -219,7 +279,7 @@
+     throw const ApiException('Изменение роли требует подключения к серверу');
+   await RegistrationService.instance.changeWorkerRole(
+     tok,userId,role.name,role==UserRole.engineer?subrole?.name:null);
+-  await refreshWorkers();
++  await refreshWorkers(force:true);
+  }
+  Future<void> changeOwnFullName(String name)async{
+   final clean=name.trim().replaceAll(RegExp(r'\s+'),' ');
+@@ -235,14 +295,14 @@
+     itrSubrole:u.itrSubrole,chiefId:u.chiefId,approved:u.approved);
+   await _persistSession();
+   notifyListeners();
+-  await refreshWorkers();
++  await refreshWorkers(force:true);
+  }
+  Future<void> chiefDeleteWorker(String userId)async{
+   if(currentUser.role!=UserRole.shopChief)throw const ApiException('Недостаточно прав');
+   if(userId==currentUser.id)throw const ApiException('Нельзя удалить собственную учётную запись');
+   final target=_workers.where((u)=>u.id==userId&&u.approved).firstOrNull;if(target==null||![UserRole.operator,UserRole.engineer,UserRole.dispatcher].contains(target.role)||userFields[userId]!=currentFieldId)throw const ApiException('Сотрудник не найден в вашем месторождении');
+   final tok=api.token;if(tok==null||tok.isEmpty)throw const ApiException('Нет токена авторизации');
+-  await RegistrationService.instance.removeUser(tok,userId);await refreshWorkers();
++  await RegistrationService.instance.removeUser(tok,userId);await refreshWorkers(force:true);
+  }
+ 
+  final Map<String,String> _fieldNameCache={};
+--- a/lib/features/organization/personnel_screen.dart
++++ b/lib/features/organization/personnel_screen.dart
+@@ -12,7 +12,7 @@
+ }
+ class _PersonnelScreenState extends State<PersonnelScreen> with SingleTickerProviderStateMixin {
+   late final TabController tabs; Timer? _presenceTimer;
+-  @override void initState(){super.initState();tabs=TabController(length:2,vsync:this,initialIndex:widget.initialWorking==false?1:0);SessionService.instance.addListener(_changed);AvatarStore.instance.addListener(_changed);AvatarStore.instance.ensureLoaded();SessionService.instance.refreshWorkers().catchError((_){ });
++  @override void initState(){super.initState();tabs=TabController(length:3,vsync:this,initialIndex:widget.initialWorking==null?0:(widget.initialWorking! ? 1 : 2));SessionService.instance.addListener(_changed);AvatarStore.instance.addListener(_changed);AvatarStore.instance.ensureLoaded();SessionService.instance.refreshWorkers(force:true).catchError((_){ });
+   unawaited(SessionService.instance.refreshPresence(force:true).catchError((_){ }));
+   _presenceTimer=Timer.periodic(const Duration(seconds:25),(_){if(mounted)unawaited(SessionService.instance.refreshPresence(force:true).catchError((_){ }));});}
+   @override void dispose(){_presenceTimer?.cancel();SessionService.instance.removeListener(_changed);AvatarStore.instance.removeListener(_changed);tabs.dispose();super.dispose();}
+@@ -23,14 +23,24 @@
+   }
+   @override Widget build(BuildContext context)=>Scaffold(
+     appBar:AppBar(title:const Text('Персонал')),
+-    body:Column(children:[TabBar(controller:tabs,tabs:const[Tab(text:'На работе'),Tab(text:'Отдыхают')]),Expanded(child:TabBarView(controller:tabs,children:[_page(true),_page(false)]))]),
++    body:Column(children:[
++      if(SessionService.instance.personnelLoading&&SessionService.instance.personnelLastUpdated==null)
++        const LinearProgressIndicator(),
++      if(SessionService.instance.personnelLoadError!=null)
++        ListTile(dense:true,leading:const Icon(Icons.cloud_off_outlined),
++          title:Text(SessionService.instance.personnelLoadError!),
++          trailing:TextButton(onPressed:()=>SessionService.instance.refreshWorkers(force:true).catchError((_){ }),
++            child:const Text('Повторить'))),
++      TabBar(controller:tabs,tabs:const[Tab(text:'Все'),Tab(text:'На работе'),Tab(text:'Отдыхают')]),
++      Expanded(child:TabBarView(controller:tabs,children:[_page(null),_page(true),_page(false)]))]),
+   );
+-  Widget _page(bool working){
+-    final s=SessionService.instance,visible=users.where((u)=>s.isAtWork(u.id)==working).toList();
++  Widget _page(bool? working){
++    final s=SessionService.instance,visible=users.where((u)=>working==null||s.isAtWork(u.id)==working).toList();
+     final chief=visible.where((u)=>u.role==UserRole.shopChief).toList();
+     final itr=visible.where((u)=>u.role==UserRole.engineer||u.role==UserRole.dispatcher).toList();
+     final ops=visible.where((u)=>u.role==UserRole.operator).toList();
+-    return ListView(padding:const EdgeInsets.all(16),children:[if(SessionService.instance.currentUser.role==UserRole.admin)Card(child:ListTile(leading:const Icon(Icons.public),title:const Text('Все месторождения'),subtitle:Text(SessionService.instance.fields.map((f)=>f.name).join(' · ')))),_group('Начальник цеха',chief),const SizedBox(height:10),_group('ИТР',itr),const SizedBox(height:10),_group('Операторы',ops)]);
++    final management=visible.where((u)=>u.role==UserRole.admin||u.role==UserRole.manager).toList();
++    return ListView(padding:const EdgeInsets.all(16),children:[if(management.isNotEmpty)...[_group('Руководство',management),const SizedBox(height:10)],if(SessionService.instance.currentUser.role==UserRole.admin)Card(child:ListTile(leading:const Icon(Icons.public),title:const Text('Все месторождения'),subtitle:Text(SessionService.instance.fields.map((f)=>f.name).join(' · ')))),_group('Начальник цеха',chief),const SizedBox(height:10),_group('ИТР',itr),const SizedBox(height:10),_group('Операторы',ops)]);
+   }
+   Widget _group(String title,List<AppUser> list)=>Card(clipBehavior:Clip.antiAlias,child:ExpansionTile(
+     initiallyExpanded:false,shape:const Border(),collapsedShape:const Border(),
+--- a/lib/features/home/home_screen.dart
++++ b/lib/features/home/home_screen.dart
+@@ -63,7 +63,9 @@
+   final working=all.where((x)=>session.isAtWork(x.id)).length;
+   final rest=all.length-working;
+   return Card(child:Padding(padding:const EdgeInsets.all(16),child:Column(children:[
+-    InkWell(borderRadius:BorderRadius.circular(12),onTap:()=>context.push('/personnel'),child:_header(Icons.groups_outlined,'Персонал','Всего сотрудников: ${all.length}')),
++    InkWell(borderRadius:BorderRadius.circular(12),onTap:()=>context.push('/personnel'),
++      child:_header(Icons.groups_outlined,'Персонал',
++        session.personnelLastUpdated==null?'Загрузка полного списка сотрудников…':'Всего сотрудников: ${all.length}')),
+     const SizedBox(height:12),Row(children:[
+       Expanded(child:_personnelStatus('На работе',working,Colors.green,()=>context.push('/personnel?status=work'))),
+       const SizedBox(width:10),
+--- a/lib/core/services/promysel_chat_service.dart
++++ b/lib/core/services/promysel_chat_service.dart
+@@ -54,7 +54,7 @@
+   // Share in-flight requests between badge, list and open conversation.
+   List<Map<String,dynamic>>? _roomsCache;
+   Future<List<Map<String,dynamic>>>? _roomsPending;
+-  String _roomsKey='';DateTime? _roomsUpdated;
++  String _roomsKey='';DateTime? _roomsUpdated;int _roomsEpoch=0;
+   void invalidateRooms(){_roomsUpdated=null;}
+   Future<List<Map<String,dynamic>>> rooms({bool force=false})async{
+     final key='$userId:$fieldId';
+@@ -62,10 +62,23 @@
+     if(_roomsPending!=null)return _roomsPending!;
+     if(!force&&_roomsCache!=null&&_roomsUpdated!=null&&
+       DateTime.now().difference(_roomsUpdated!)<const Duration(seconds:65))return _roomsCache!;
++    final requestEpoch=_roomsEpoch;
+     final request=call('GET','/rooms',query:{'fieldId':fieldId}).then(_list);
+     _roomsPending=request;
+-    try{final result=await request;_roomsCache=result;_roomsUpdated=DateTime.now();return result;}
+-    finally{_roomsPending=null;}
++    try{
++      final result=await request;
++      if(requestEpoch!=_roomsEpoch)return cachedRooms();
++      final previous={for(final r in _roomsCache??<Map<String,dynamic>>[]):'${r['id']}':r};
++      final serverIds=result.map((r)=>'${r['id']}').toSet();
++      for(final e in previous.entries){
++        final latest=result.where((r)=>'${r['id']}'==e.key).firstOrNull;
++        if(!serverIds.contains(e.key)||
++           (latest!=null&&'${latest['visibleSince']??''}'!='${e.value['visibleSince']??''}')){
++          _evictHistory(e.key);
++        }
++      }
++      _roomsCache=result;_roomsUpdated=DateTime.now();return result;
++    }finally{if(identical(_roomsPending,request))_roomsPending=null;}
+   }
+   /// Keep already loaded chats immediately visible while the server is slow/offline.
+   /// The cache is memory-only, per user and field: it cannot leak across accounts.
+@@ -74,6 +87,10 @@
+     return List<Map<String,dynamic>>.from(_roomsCache??const <Map<String,dynamic>>[]);
+   }
+   final Map<String,List<Map<String,dynamic>>> _messageCache={};
++  final Map<String,int> _historyGeneration={};
++  int _generation(String room)=>_historyGeneration[_messageKey(room)]??0;
++  void _evictHistory(String room){final key=_messageKey(room);_messageCache.remove(key);
++    _historyGeneration[key]=(_historyGeneration[key]??0)+1;}
+   String _messageKey(String room)=>'$userId:$fieldId:$room';
+   List<Map<String,dynamic>> cachedMessages(String room)=>
+       List<Map<String,dynamic>>.from(_messageCache[_messageKey(room)]??const <Map<String,dynamic>>[]);
+@@ -94,18 +111,28 @@
+     for(final room in _roomsCache??<Map<String,dynamic>>[]){if(room['id']==id)return room;}
+     return null;
+   }
+-  Future<List<Map<String,dynamic>>> users()=>call('GET','/users',query:{'fieldId':fieldId}).then(_list);
++  String _peopleKey='';DateTime? _peopleAt;List<Map<String,dynamic>>? _peopleCache;
++  Future<List<Map<String,dynamic>>> users()async{
++    final key='$userId:$fieldId';
++    if(_peopleKey!=key){_peopleKey=key;_peopleCache=null;_peopleAt=null;}
++    if(_peopleCache!=null&&_peopleAt!=null&&DateTime.now().difference(_peopleAt!)<const Duration(seconds:60))
++      return List<Map<String,dynamic>>.from(_peopleCache!);
++    final result=_list(await call('GET','/users',query:{'fieldId':fieldId}));
++    _peopleCache=result;_peopleAt=DateTime.now();return result;
++  }
+   Future<List<Map<String,dynamic>>> messages(String id,{DateTime? before,DateTime? after})async{
++    final generation=_generation(id);
+     final result=_list(await call('GET','/rooms/$id/messages',query:{
+       if(before!=null)'before':before.toUtc().toIso8601String(),
+       if(after!=null)'after':after.toUtc().toIso8601String(),
+     }));
++    if(_generation(id)!=generation)return cachedMessages(id);
+     if(before==null)_cacheMessages(id,result,append:after!=null);
+     return result;
+   }
+   Future<String> create(String kind,{required List<String> people,String title=''})async{
+     final r=await call('POST','/rooms',data:{'fieldId':fieldId,'kind':kind,'title':title,'people':people});
+-    invalidateRooms();return r['id'].toString();
++    final id=r['id'].toString();_roomsEpoch++;_evictHistory(id);invalidateRooms();return id;
+   }
+   Future<void> sendText(String room,String text,{String? clientId})async{
+     if(text.trim().isEmpty)return;
+@@ -203,8 +230,8 @@
+   Future<void> hideRoom(String room)async{
+     final result=await call('DELETE','/rooms/$room');
+     if(result['status']!='hidden')throw Exception('Сервер не подтвердил удаление чата');
+-    _roomsCache?.removeWhere((x)=>x['id']==room);
+-    invalidateRooms();
++    _roomsEpoch++;_roomsCache?.removeWhere((x)=>x['id']==room);
++    _evictHistory(room);invalidateRooms();
+   }
+   Future<void> changeMessage(String room,String id,String text)=>call('PATCH','/rooms/$room/messages/$id',data:{'body':text}).then((_){ });
+   Future<void> deleteMessage(String room,String id)=>call('DELETE','/rooms/$room/messages/$id').then((_){ });
+--- a/lib/features/chat/promysel_chat_screen.dart
++++ b/lib/features/chat/promysel_chat_screen.dart
+@@ -81,13 +81,13 @@
+          Navigator.pop(sheet);
+          final ok=await showDialog<bool>(context:context,builder:(d)=>AlertDialog(
+            title:const Text('Убрать чат?'),
+-           content:const Text('Беседа исчезнет только из вашего списка. Сообщения у других участников сохранятся.'),
++           content:const Text('Беседа исчезнет из списка, и при повторном открытии старая история не вернётся. У других участников сообщения сохранятся.'),
+            actions:[TextButton(onPressed:()=>Navigator.pop(d,false),child:const Text('Отмена')),
+              FilledButton(onPressed:()=>Navigator.pop(d,true),child:const Text('Удалить'))]));
+          if(ok!=true)return;
+          final previous=List<Map<String,dynamic>>.of(rooms);
+          if(mounted)setState((){_hiddenLocally.add(id);rooms.removeWhere((x)=>x['id']==id);});
+-         try{await _chat.hideRoom(id);}
++         try{await _chat.hideRoom(id);if(mounted)setState(()=>_hiddenLocally.remove(id));}
+          catch(e){if(mounted)setState((){_hiddenLocally.remove(id);rooms=previous;});_report(e);}
+        }),
+    ])));
