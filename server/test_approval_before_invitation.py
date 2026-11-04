@@ -26,7 +26,12 @@ for name, code in [("compat", compat), ("admin", admin)]:
     assert "promysel_finish_registration_approval" in code, name
     assert "inviteUserByEmail" in code, name
     assert code.index("promysel_start_registration_approval") < code.index("promysel_finish_registration_approval"), name
-    assert "https://promysel-web.pages.dev/finish-registration.html" in code, name
+    if name == "compat":
+        assert "passwordSetupUrl" in code, "compat needs configurable user redirect"
+        assert 'publicOrigin=validatedPublicOrigin(configuredPublicOrigin)||"https://promysel-web.pages.dev"' in code
+        assert 'redirectTo:passwordSetupUrl' in code
+    else:
+        assert "https://promysel-web.pages.dev/finish-registration.html" in code, name
     assert "approved_field_id.not.is.null" in code, name
 
 assert "promysel_start_registration_approval" in migration

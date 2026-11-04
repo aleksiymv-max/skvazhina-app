@@ -230,7 +230,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         continue-on-error: true
         with: {name: promysel-original-flutter-supabase-web, path: artifacts/promysel-original-flutter-supabase-web.zip, retention-days: 3}
-      - name: Publish Flutter Web automatically to existing Cloudflare Pages project
+      - name: Publish development preview only (stable production remains frozen)
         if: github.event_name != 'pull_request'
         shell: bash
         env:
@@ -247,8 +247,18 @@ jobs:
             exit 1
           fi
           test -f "${{ steps.project.outputs.project_dir }}/build/web/finish-registration.html"
-          npx --yes wrangler@4 pages deploy "${{ steps.project.outputs.project_dir }}/build/web" --project-name=promysel-web --branch=main
-          echo "::notice title=Cloudflare Pages deployed::Published commit ${GITHUB_SHA} to promysel-web.pages.dev."
+          # Visible label only in live development preview, never in the releasable ZIP.
+          python3 - <<'PY'
+          from pathlib import Path
+          root=Path("${{ steps.project.outputs.project_dir }}/build/web")
+          index=root/"index.html"
+          html=index.read_text(encoding="utf-8")
+          badge='''<style>#promysel-dev-mark{position:fixed;top:env(safe-area-inset-top,0px);right:8px;z-index:2147483647;background:#0b4f91;color:white;padding:4px 9px;border-radius:0 0 9px 9px;font:600 10px/1.4 sans-serif;letter-spacing:.06em;pointer-events:none;opacity:.95}</style><div id="promysel-dev-mark" aria-label="Тестовая версия">РАЗРАБОТКА</div>'''
+          assert "</body>" in html
+          index.write_text(html.replace("</body>",badge+"</body>"),encoding="utf-8")
+          PY
+          npx --yes wrangler@4 pages deploy "${{ steps.project.outputs.project_dir }}/build/web" --project-name=promysel-web --branch=dev
+          echo "::notice title=DEV preview deployed::Published commit ${GITHUB_SHA} to dev.promysel-web.pages.dev. Stable promysel-web.pages.dev was NOT modified."
       - name: Confirm Cloudflare-ready root structure
         shell: bash
         run: |

@@ -1,0 +1,82 @@
+name: "Promysel — вручную опубликовать проверенную Web-версию"
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: "ID успешной Web-сборки на main, срок хранения артефакта — 3 дня"
+        required: true
+        type: string
+      confirmation:
+        description: 'Для изменения РАБОЧЕЙ версии введите PROMOTE'
+        required: true
+        type: string
+permissions:
+  actions: read
+  contents: write
+concurrency:
+  group: promysel-production-release
+  cancel-in-progress: false
+jobs:
+  release:
+    if: ${{ github.event.inputs.confirmation == 'PROMOTE' }}
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Check proven build and released ancestry
+        id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ inputs.run_id }}
+          REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$RUN_ID" =~ ^[0-9]+$ ]]
+          gh api "repos/$REPO/actions/runs/$RUN_ID" > /tmp/promysel-run.json
+          jq -e '.conclusion=="success" and .name=="Build Promysel Web for iPhone" and .head_branch=="main" and .event!="pull_request"' /tmp/promysel-run.json
+          SHA="$(jq -r '.head_sha' /tmp/promysel-run.json)"
+          git fetch origin stable
+          git fetch origin "$SHA"
+          git merge-base --is-ancestor origin/stable "$SHA"
+          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
+      - name: Download exact previously tested Web artifact
+        uses: actions/download-artifact@v4
+        with:
+          run-id: ${{ inputs.run_id }}
+          name: promysel-original-flutter-supabase-web
+          repository: ${{ github.repository }}
+          github-token: ${{ github.token }}
+          path: artifacts
+      - name: Extract and verify release assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f artifacts/promysel-original-flutter-supabase-web.zip
+          mkdir -p release
+          unzip -q artifacts/promysel-original-flutter-supabase-web.zip -d release
+          for f in index.html main.dart.js flutter_bootstrap.js manifest.json finish-registration.html; do test -f "release/$f"; done
+          if grep -q 'id="promysel-dev-mark"' release/index.html; then
+            echo "::error::Development badge detected, refusing production release"; exit 1
+          fi
+      - name: Publish to locked stable production URL
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${CLOUDFLARE_API_TOKEN:-}"
+          test -n "${CLOUDFLARE_ACCOUNT_ID:-}"
+          npx --yes wrangler@4 pages deploy release --project-name=promysel-web --branch=main
+      - name: Mark the commit running in stable
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ steps.check.outputs.sha }}
+        run: |
+          set -euo pipefail
+          gh api -X PATCH "repos/$REPO/git/refs/heads/stable" -f sha="$SHA" -F force=false
+          echo "::notice title=Production promoted::Working website promysel-web.pages.dev now runs $SHA"
