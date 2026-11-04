@@ -1,0 +1,41 @@
+name: Create VPN-free Web deployment bundle
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch most recent successful Flutter Web release from this repository
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          RUN_ID="$(gh run list -w web-ios.yml -b main -s success -L 1 --json databaseId --jq '.[0].databaseId')"
+          if [[ -z "${RUN_ID:-}" || "$RUN_ID" == "null" ]]; then
+            echo '::error::No successful Web build found on main'; exit 1
+          fi
+          mkdir -p "$RUNNER_TEMP/web-artifact" "$RUNNER_TEMP/web" "$RUNNER_TEMP/bundle/deploy"
+          gh run download "$RUN_ID" -n promysel-original-flutter-supabase-web -D "$RUNNER_TEMP/web-artifact"
+          unzip -q "$RUNNER_TEMP/web-artifact/promysel-original-flutter-supabase-web.zip" -d "$RUNNER_TEMP/web"
+      - name: Rewrite public Supabase URLs to same-origin API gateway
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 deploy/vpnfree/prepare_mirror.py --source "$RUNNER_TEMP/web" --output "$RUNNER_TEMP/bundle/site"
+          cp deploy/vpnfree/nginx-site.template deploy/vpnfree/install-ubuntu.sh deploy/vpnfree/check-access.sh "$RUNNER_TEMP/bundle/deploy/"
+          cp deploy/vpnfree/README.txt "$RUNNER_TEMP/bundle/README.txt"
+          test -f "$RUNNER_TEMP/bundle/site/main.dart.js"
+          if grep -r -l -F 'https://xptmcufhuvtcunqzlsme.supabase.co' "$RUNNER_TEMP/bundle/site" --include='*.js' --include='*.html' --include='*.json'; then
+            echo '::error::Direct blocked origin still found in Web bundle';exit 1
+          fi
+          (cd "$RUNNER_TEMP/bundle" && zip -qr "$GITHUB_WORKSPACE/promysel-vpnfree-web.zip" .)
+      - uses: actions/upload-artifact@v4
+        with:
+          name: promysel-vpnfree-web-deployment
+          path: promysel-vpnfree-web.zip
+          retention-days: 14
