@@ -8,6 +8,19 @@ const good=(x:unknown)=>!!x&&typeof x==="object"&&!Array.isArray(x);
 const txt=(x:unknown)=>typeof x==="string"?x.trim():"";
 const base=Deno.env.get("SUPABASE_URL")??"",publish=Deno.env.get("SUPABASE_ANON_KEY")??"",secret=Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")??"";
 const fieldTag=(x:unknown)=>txt(x).slice(0,128);
+// A second, independent Web origin can be configured after HTTPS and Auth redirect allow-list are ready.
+const configuredPublicOrigin=txt(Deno.env.get("PROMYSEL_PUBLIC_ORIGIN"));
+function validatedPublicOrigin(value:string):string{
+  try{
+    const url=new URL(value);
+    if(url.protocol==="https:"&&!url.username&&!url.password&&url.pathname==="/"&&!url.search&&!url.hash)
+      return url.origin;
+  }catch(_){}
+  return "";
+}
+const publicOrigin=validatedPublicOrigin(configuredPublicOrigin)||"https://promysel-web.pages.dev";
+const passwordSetupUrl=publicOrigin+"/finish-registration.html";
+
 const validEmail=(x:string)=>x.length<=254&&/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(x);
 type J=Record<string,unknown>;
 
@@ -109,7 +122,7 @@ Deno.serve(async(req:Request)=>{
   if(publicRoute&&route==="/v1/auth/forgot-password"){
    const email=txt(body.email).toLowerCase();
    if(!validEmail(email))return reply({detail:"Некорректная почта"},400);
-   const {error}=await guest.auth.resetPasswordForEmail(email,{redirectTo:"https://promysel-web.pages.dev/finish-registration.html"});
+   const {error}=await guest.auth.resetPasswordForEmail(email,{redirectTo:passwordSetupUrl});
    if(error)console.error("resetPasswordForEmail:",error.message);
    return reply({status:"ok",detail:"Если почта зарегистрирована, письмо отправлено"});
   }
@@ -212,7 +225,7 @@ Deno.serve(async(req:Request)=>{
    if(!invitedId){
      const {data:invited,error:inviteError}=await admin.auth.admin.inviteUserByEmail(String(decision.email),{
        data:{full_name:decision.fullName},
-       redirectTo:"https://promysel-web.pages.dev/finish-registration.html"
+       redirectTo:passwordSetupUrl
      });
      if(inviteError||!invited.user){
        console.error("post-approval invite:",inviteError?.message??"missing user");
@@ -230,7 +243,7 @@ Deno.serve(async(req:Request)=>{
    }
    if(!sent){
       const {error:mailErr}=await guest.auth.resetPasswordForEmail(String(decision.email),{
-        redirectTo:"https://promysel-web.pages.dev/finish-registration.html"
+        redirectTo:passwordSetupUrl
       });
       if(mailErr)console.error("approved existing user mail:",mailErr.message);
       sent=!mailErr;
