@@ -439,7 +439,12 @@ Deno.serve(async(req:Request)=>{
      .select("sequence,event_key,event_type,payload,client_updated_at,device_id")
      .eq("field_id",fieldId).gt("sequence",Number(cursor)).order("sequence",{ascending:true}).limit(200);
     if(error)throw error;
-    const repaired=await effectiveState(fieldId);
+    // Recovery is expensive: replay snapshots only when new structural state arrives,
+    // at initial sync, or via an explicit recover=1 request (no history is deleted).
+    const requireRecovery=cursor==="0"||url.searchParams.get("recover")==="1"||
+      (data??[]).some((x:J)=>x.event_type==="app_state");
+    const repaired=requireRecovery?await effectiveState(fieldId):
+      {snapshot:null,seq:0,changed:false};
     const output=(data??[]).filter((x:J)=>x.device_id!==device||x.event_type==="app_state"||x.event_type==="measurement")
       .map((x:J)=>({key:x.event_key,type:x.event_type,updatedAt:x.client_updated_at,payload:x.payload}));
     if(repaired.snapshot&&repaired.changed){
