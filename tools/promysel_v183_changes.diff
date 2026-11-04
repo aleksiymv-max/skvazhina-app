@@ -1,0 +1,357 @@
+--- a/lib/core/services/promysel_chat_service.dart
++++ b/lib/core/services/promysel_chat_service.dart
+@@ -1,4 +1,5 @@
+ import 'dart:async';
++import 'dart:math';
+ import 'package:flutter/foundation.dart';
+ import 'package:flutter/services.dart';
+ import 'dart:convert';
+@@ -17,20 +18,37 @@
+   final String baseUrl=ApiConfig.baseUrl.replaceFirst(RegExp(r'promysel-compat/?$'),'promysel-chat');
+   String get userId=>SessionService.instance.currentUser.id;
+   String get fieldId=>SessionService.instance.currentFieldId??'';
++  // Reuse a single TCP client and bound the complete operation (headers + body).
++  final http.Client _client=http.Client();
+   Future<Map<String,dynamic>> call(String method,String path,{Map<String,dynamic>? data,Map<String,String>? query})async{
+     await SessionService.instance.ensureFreshToken();
+     final token=SessionService.instance.api.token;
+     if(token==null||token.isEmpty)throw Exception('Требуется вход в приложение');
+-    final u=Uri.parse('$baseUrl$path').replace(queryParameters:query);
+-    final req=http.Request(method,u);
+-    req.headers.addAll({'Authorization':'Bearer $token','Content-Type':'application/json'});
+-    if(data!=null)req.body=jsonEncode(data);
+-    final streamed=await req.send().timeout(const Duration(seconds:18));
+-    final res=await http.Response.fromStream(streamed).timeout(const Duration(seconds:18));
+-    Map<String,dynamic> result;
+-    try{result=Map<String,dynamic>.from(jsonDecode(res.body) as Map);}catch(_){throw Exception('Некорректный ответ сервера чатов');}
+-    if(res.statusCode<200||res.statusCode>=300)throw Exception((result['detail']??'Ошибка чата ${res.statusCode}').toString());
+-    return result;
++    final uri=Uri.parse('$baseUrl$path').replace(queryParameters:query);
++    try{
++      final req=http.Request(method,uri);
++      req.headers.addAll({'Authorization':'Bearer $token','Content-Type':'application/json'});
++      if(data!=null)req.body=jsonEncode(data);
++      final res=await _client.send(req).then(http.Response.fromStream).timeout(const Duration(seconds:32));
++      Map<String,dynamic> result;
++      try{result=Map<String,dynamic>.from(jsonDecode(res.body) as Map);}
++      catch(_){throw Exception('Некорректный ответ сервера чатов');}
++      if(res.statusCode<200||res.statusCode>=300){
++        throw Exception((result['detail']??'Ошибка чата ${res.statusCode}').toString());
++      }
++      return result;
++    }on TimeoutException{
++      throw Exception('Сервер отвечает слишком долго. Переписка сохранена, повторите действие.');
++    }on http.ClientException{
++      throw Exception('Нет связи с сервером. Проверьте интернет.');
++    }
++  }
++  String newMessageId(){
++    final r=Random.secure();
++    final b=List<int>.generate(16,(_)=>r.nextInt(256));
++    b[6]=(b[6]&15)|64;b[8]=(b[8]&63)|128;
++    final h=b.map((x)=>x.toRadixString(16).padLeft(2,'0')).join();
++    return '${h.substring(0,8)}-${h.substring(8,12)}-${h.substring(12,16)}-${h.substring(16,20)}-${h.substring(20)}';
+   }
+   List<Map<String,dynamic>> _list(Map<String,dynamic> r)=>((r['items'] as List?)??[]).whereType<Map>().map((e)=>Map<String,dynamic>.from(e)).toList();
+   // Share in-flight requests between badge, list and open conversation.
+@@ -49,8 +67,17 @@
+     try{final result=await request;_roomsCache=result;_roomsUpdated=DateTime.now();return result;}
+     finally{_roomsPending=null;}
+   }
++  Map<String,dynamic>? cachedRoom(String id){
++    if(_roomsKey!='$userId:$fieldId')return null;
++    for(final room in _roomsCache??<Map<String,dynamic>>[]){if(room['id']==id)return room;}
++    return null;
++  }
+   Future<List<Map<String,dynamic>>> users()=>call('GET','/users',query:{'fieldId':fieldId}).then(_list);
+-  Future<List<Map<String,dynamic>>> messages(String id,{DateTime? before})=>call('GET','/rooms/$id/messages',query:before==null?null:{'before':before.toUtc().toIso8601String()}).then(_list);
++  Future<List<Map<String,dynamic>>> messages(String id,{DateTime? before,DateTime? after})=>
++    call('GET','/rooms/$id/messages',query:{
++      if(before!=null)'before':before.toUtc().toIso8601String(),
++      if(after!=null)'after':after.toUtc().toIso8601String(),
++    }).then(_list);
+   Future<String> create(String kind,{required List<String> people,String title=''})async{
+     final r=await call('POST','/rooms',data:{'fieldId':fieldId,'kind':kind,'title':title,'people':people});
+     invalidateRooms();return r['id'].toString();
+@@ -68,7 +95,11 @@
+     final url=(result['uploadUrl']??'').toString();
+     if(url.isEmpty)throw Exception('Не удалось получить адрес загрузки');
+     final bytes=await file.readAsBytes();
+-    final upload=await http.put(Uri.parse(url),headers:{'Content-Type':mime,'x-upsert':'false'},body:bytes).timeout(const Duration(minutes:3));
++    http.Response upload;
++    try{
++      upload=await _client.put(Uri.parse(url),headers:{'Content-Type':mime,'x-upsert':'false'},body:bytes)
++        .timeout(const Duration(minutes:2));
++    }on TimeoutException{throw Exception('Не удалось загрузить фото: превышено время ожидания. Повторите отправку.');}
+     if(upload.statusCode<200||upload.statusCode>=300)throw Exception('Не удалось загрузить вложение (${upload.statusCode})');
+     return '${result['path']}';
+   }
+@@ -76,6 +107,26 @@
+     final path=await upload(room,file,kind);
+     await call('POST','/rooms/$room/messages',data:{'kind':kind,'body':caption,'path':path,
+       'name':file.name,'mimeType':_mime(file.name,kind),'size':await file.length()});invalidateRooms();
++  }
++  /// A single captioned album in the chat history. Uploaded files can be reused after a retry.
++  /// The message ID remains constant across retries to prevent duplicate sends.
++  Future<void> sendAlbum(String room,List<XFile> photos,String caption,{
++    required String clientId,required Map<int,String> uploaded,
++    void Function(int,int)? onProgress,
++  })async{
++    if(photos.isEmpty||photos.length>10)throw Exception('Добавьте от 1 до 10 фотографий');
++    final attachments=<Map<String,dynamic>>[];
++    for(var i=0;i<photos.length;i++){
++      onProgress?.call(i+1,photos.length);
++      final f=photos[i];
++      final path=uploaded[i]??await upload(room,f,'image');
++      uploaded[i]=path;
++      attachments.add({'path':path,'name':f.name,'mimeType':_mime(f.name,'image'),'size':await f.length()});
++    }
++    await call('POST','/rooms/$room/messages',data:{
++      'kind':'album','body':caption.trim(),'clientId':clientId,'attachments':attachments,
++    });
++    invalidateRooms();
+   }
+   Future<void> groupAvatar(String room,XFile file)async{
+     final path=await upload(room,file,'image');
+--- a/lib/features/chat/promysel_chat_screen.dart
++++ b/lib/features/chat/promysel_chat_screen.dart
+@@ -1,4 +1,5 @@
+ import 'dart:async';
++import 'dart:typed_data';
+ import 'package:flutter/foundation.dart';
+ import 'package:flutter/material.dart';
+ import 'package:flutter/services.dart';
+@@ -23,7 +24,7 @@
+   return other.isEmpty?'Личный чат':'${other.first['name']??'Сотрудник'}';
+ }
+ String _preview(Map<String,dynamic>? m){if(m==null)return 'Сообщений пока нет';if(m['deleted_at']!=null)return 'Сообщение удалено';return switch(m['kind']){
+-  'image'=>'📷 Фото', 'video'=>'🎬 Видео', 'voice'=>'🎤 Голосовое сообщение','document'=>'📎 Документ',_=>'${m['body']??''}'
++  'album'=>'📷 Фото${(m['body']??'').toString().isEmpty?'':' · ${m['body']}'}', 'image'=>'📷 Фото', 'video'=>'🎬 Видео', 'voice'=>'🎤 Голосовое сообщение','document'=>'📎 Документ',_=>'${m['body']??''}'
+ };}
+ 
+ class PromyselChatScreen extends StatefulWidget{
+@@ -40,7 +41,7 @@
+ }
+ class _PromyselChatScreenState extends State<PromyselChatScreen>{
+  List<Map<String,dynamic>> rooms=[];bool loading=true;String? error;String search='';Timer? tick;int knownUnread=-1;bool busy=false,_fetching=false;
+- @override void initState(){super.initState();AvatarStore.instance.ensureLoaded();_load(force:true);tick=Timer.periodic(const Duration(seconds:50),(_)=>_load(silent:true));}
++ @override void initState(){super.initState();AvatarStore.instance.ensureLoaded();_load(force:true);tick=Timer.periodic(const Duration(seconds:75),(_){if(mounted&&GoRouter.of(context).routeInformationProvider.value.uri.path=='/chat')_load(silent:true);});}
+  @override void dispose(){tick?.cancel();super.dispose();}
+  Future<void> _load({bool silent=false,bool force=false})async{
+    if(!mounted||_fetching)return;_fetching=true;
+@@ -153,37 +154,101 @@
+ }
+ class _PromyselChatRoomScreenState extends State<PromyselChatRoomScreen>{
+  final text=TextEditingController(),list=ScrollController(),recorder=AudioRecorder();
+- List<Map<String,dynamic>> messages=[];Map<String,dynamic>? room;Timer? tick;int polls=0;bool loading=true,busy=false,recording=false,_fetching=false;
++ List<Map<String,dynamic>> messages=[];Map<String,dynamic>? room;Timer? tick;
++ int polls=0;bool loading=true,busy=false,recording=false,_fetching=false;
++ final List<XFile> _draftPhotos=[];
++ final Map<int,Uint8List> _thumbs={};
++ final Map<int,String> _uploadedPhotos={};
++ String? _draftId;String _progress='';
+  String search='';
+- @override void initState(){super.initState();AvatarStore.instance.ensureLoaded();_init();tick=Timer.periodic(const Duration(seconds:12),(_){_refresh(silent:true);if(++polls%4==0)_reloadRoom();});}
++ @override void initState(){super.initState();AvatarStore.instance.ensureLoaded();_init();tick=Timer.periodic(const Duration(seconds:18),(_){
++   if(!mounted||GoRouter.of(context).routeInformationProvider.value.uri.path!='/chat/${widget.roomId}')return;
++   _refresh(silent:true);if(++polls%10==0)_reloadRoom();
++ });}
+  @override void dispose(){tick?.cancel();text.dispose();list.dispose();recorder.dispose();super.dispose();}
+  Future<void> _init()async{
+-   try{final rooms=await _chat.rooms();room=rooms.where((r)=>r['id']==widget.roomId).firstOrNull;await _refresh();}
+-   catch(e){_report(e);if(mounted)setState(()=>loading=false);}
++   // Show history immediately; room metadata loads independently from shared cache.
++   final cached=_chat.cachedRoom(widget.roomId);
++   if(cached!=null)room=cached;
++   unawaited(_reloadRoom());
++   await _refresh();
+  }
+  Future<void> _refresh({bool silent=false})async{
+-   if(busy||_fetching)return;_fetching=true;
+-   try{final next=await _chat.messages(widget.roomId);if(!mounted)return;
+-     final changed=messages.isEmpty||next.length!=messages.length||next.lastOrNull?['id']!=messages.lastOrNull?['id']||
+-       (next.isNotEmpty&&messages.isNotEmpty&&next.last['body']!=messages.last['body']);
+-     if(changed)setState((){messages=next;loading=false;});else if(loading)setState(()=>loading=false);
+-     final lastReceived=next.where((x)=>x['sender_id']!=_chat.userId).lastOrNull;
++   if(!mounted||busy||_fetching)return;
++   _fetching=true;
++   try{
++     // Delta fetch avoids repeated download and signing of the same 60 photos.
++     final full=!silent||messages.isEmpty||polls%10==0;
++     final last=messages.isNotEmpty?DateTime.tryParse('${messages.last['created_at']??''}'):null;
++     final next=await _chat.messages(widget.roomId,after:full?null:last);
++     if(!mounted)return;
++     if(full){
++       final oldSignature=messages.map((x)=>'${x['id']}:${x['body']}:${x['edited_at']}:${x['deleted_at']}:${x['url']}:${x['attachments']}').join('|');
++       final newSignature=next.map((x)=>'${x['id']}:${x['body']}:${x['edited_at']}:${x['deleted_at']}:${x['url']}:${x['attachments']}').join('|');
++       if(oldSignature!=newSignature||loading)setState((){messages=next;loading=false;});
++     }else if(next.isNotEmpty){
++       final known=messages.map((x)=>x['id']).toSet();
++       setState((){messages=[...messages,...next.where((x)=>!known.contains(x['id']))];loading=false;});
++     }else if(loading){setState(()=>loading=false);}
++     final lastReceived=messages.where((x)=>x['sender_id']!=_chat.userId).lastOrNull;
+      final latestAt=DateTime.tryParse('${lastReceived?['created_at']??''}');
+      final readAt=DateTime.tryParse('${room?['lastReadAt']??''}');
+      if(latestAt!=null&&(readAt==null||latestAt.isAfter(readAt))){
+-       await _chat.settings(widget.roomId,read:true);if(room!=null)room!['lastReadAt']=DateTime.now().toUtc().toIso8601String();
++       // Do not hold up painting while saving read status.
++       if(room!=null)room!['lastReadAt']=DateTime.now().toUtc().toIso8601String();
++       unawaited(_chat.settings(widget.roomId,read:true).catchError((_){ }));
+      }
+-     if(next.isNotEmpty){
+-       if(changed&&!silent)WidgetsBinding.instance.addPostFrameCallback((_){if(list.hasClients)list.jumpTo(list.position.maxScrollExtent);});}
+-   }catch(e){if(!silent)_report(e);if(mounted&&loading)setState(()=>loading=false);}finally{_fetching=false;}
++   }catch(e){if(!silent)_report(e);if(mounted&&loading)setState(()=>loading=false);}
++   finally{_fetching=false;}
+  }
+  void _report(Object e){if(mounted)ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text(e.toString().replaceFirst('Exception: ',''))));}
+  Future<void> _send()async{
+-   final value=text.text.trim();if(value.isEmpty||busy)return;
+-   text.clear();setState(()=>busy=true);
+-   try{await _chat.sendText(widget.roomId,value);}
+-   catch(e){text.text=value;_report(e);}
+-   finally{if(mounted){setState(()=>busy=false);await _refresh();}}
++   final value=text.text.trim();
++   if(busy||(value.isEmpty&&_draftPhotos.isEmpty))return;
++   setState((){busy=true;_progress='';});
++   try{
++     if(_draftPhotos.isNotEmpty){
++       final id=_draftId??=_chat.newMessageId();
++       await _chat.sendAlbum(widget.roomId,List<XFile>.of(_draftPhotos),value,
++         clientId:id,uploaded:_uploadedPhotos,onProgress:(i,n){
++         if(mounted)setState(()=>_progress='Загрузка фото $i из $n');
++       });
++     }else{
++       await _chat.sendText(widget.roomId,value);
++     }
++     if(!mounted)return;
++     text.clear();
++     setState((){_draftPhotos.clear();_thumbs.clear();_uploadedPhotos.clear();_draftId=null;_progress='';});
++   }catch(e){
++     // Preserve the text, photo draft and successful uploads for a manual retry.
++     _report(e);
++   }finally{
++     if(mounted){setState((){busy=false;_progress='';});await _refresh();}
++   }
++ }
++ Future<void> _queuePhotos(List<XFile> items)async{
++   if(items.isEmpty||busy)return;
++   final space=10-_draftPhotos.length;
++   if(space<=0){_report('Максимум 10 фотографий в одном сообщении');return;}
++   final added=items.take(space).toList();
++   if(items.length>space)_report('В одно сообщение можно добавить не более 10 фотографий');
++   _uploadedPhotos.clear();_draftId=_chat.newMessageId();
++   for(final f in added){
++     final i=_draftPhotos.length;
++     try{_thumbs[i]=await f.readAsBytes();}
++     catch(_){continue;}
++     _draftPhotos.add(f);
++   }
++   if(mounted)setState((){});
++ }
++ void _removePhoto(int index){
++   if(busy||index<0||index>=_draftPhotos.length)return;
++   setState((){
++     _draftPhotos.removeAt(index);
++     final old=Map<int,Uint8List>.from(_thumbs);
++     _thumbs.clear();for(var i=0;i<_draftPhotos.length;i++)_thumbs[i]=old[i>=index?i+1:i]!;
++     _uploadedPhotos.clear();_draftId=_chat.newMessageId();
++   });
+  }
+  Future<void> _media(XFile file,String kind)async{
+    if(busy)return;setState(()=>busy=true);
+@@ -196,8 +261,8 @@
+        final picked=await FilePicker.pickFiles(type:FileType.any,withData:true);
+        if(picked!=null){for(final f in picked.xFiles){await _media(f,'document');}}
+      }else if(kind=='image'){
+-       if(camera){final x=await ImagePicker().pickImage(source:ImageSource.camera,imageQuality:80,maxWidth:2200);if(x!=null)await _media(x,'image');}
+-       else{final xs=await ImagePicker().pickMultiImage(imageQuality:80,maxWidth:2200);for(final x in xs)await _media(x,'image');}
++       if(camera){final x=await ImagePicker().pickImage(source:ImageSource.camera,imageQuality:76,maxWidth:1600);if(x!=null)await _queuePhotos([x]);}
++       else{final xs=await ImagePicker().pickMultiImage(imageQuality:76,maxWidth:1600);await _queuePhotos(xs);}
+      }else if(kind=='video'){
+        final x=await ImagePicker().pickVideo(source:camera?ImageSource.camera:ImageSource.gallery,maxDuration:const Duration(minutes:2));if(x!=null)await _media(x,'video');
+      }
+@@ -217,7 +282,6 @@
+    await showModalBottomSheet<void>(context:context,showDragHandle:true,builder:(sheet)=>SafeArea(child:Wrap(children:[
+      ListTile(leading:const Icon(Icons.photo_library_outlined),title:const Text('Фото из галереи'),onTap:(){Navigator.pop(sheet);_attachment('image');}),
+      ListTile(leading:const Icon(Icons.camera_alt_outlined),title:const Text('Снять фото'),onTap:(){Navigator.pop(sheet);_attachment('image',camera:true);}),
+-     ListTile(leading:const Icon(Icons.videocam_outlined),title:const Text('Снять видеосообщение'),onTap:(){Navigator.pop(sheet);_attachment('video',camera:true);}),
+      ListTile(leading:const Icon(Icons.video_library_outlined),title:const Text('Видео из галереи'),onTap:(){Navigator.pop(sheet);_attachment('video');}),
+      ListTile(leading:const Icon(Icons.attach_file),title:const Text('Документ'),onTap:(){Navigator.pop(sheet);_attachment('document');}),
+    ])));
+@@ -262,6 +326,13 @@
+        child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+          if(room?['kind']=='group'&&!mine)Padding(padding:const EdgeInsets.only(bottom:3),child:Text(who,style:const TextStyle(fontSize:12,fontWeight:FontWeight.w800))),
+          if(deleted)const Text('Сообщение удалено',style:TextStyle(fontStyle:FontStyle.italic)),
++          if(!deleted&&kind=='album')Wrap(spacing:4,runSpacing:4,children:[
++            for(final item in ((m['attachments'] as List?)??[]).whereType<Map>())
++              GestureDetector(onTap:()=>showDialog<void>(context:context,builder:(d)=>Dialog(child:InteractiveViewer(child:Image.network('${item['url']??''}',errorBuilder:(_,__,___)=>const Text('Фото недоступно'))))),
++                child:ClipRRect(borderRadius:BorderRadius.circular(8),child:Image.network('${item['url']??''}',
++                  width:((m['attachments'] as List?)??[]).length==1?250:126,height:((m['attachments'] as List?)??[]).length==1?190:112,
++                  fit:BoxFit.cover,errorBuilder:(_,__,___)=>const SizedBox(width:126,height:112,child:Icon(Icons.broken_image_outlined))))),
++          ]),
+          if(!deleted&&kind=='image'&&url.isNotEmpty)GestureDetector(onTap:()=>showDialog<void>(context:context,builder:(d)=>Dialog(child:InteractiveViewer(child:Image.network(url)))),
+            child:ClipRRect(borderRadius:BorderRadius.circular(10),child:Image.network(url,width:250,height:180,fit:BoxFit.cover,errorBuilder:(_,__,___)=>const Text('Не удалось загрузить фото')))),
+          if(!deleted&&kind=='voice')TextButton.icon(onPressed:()=>_openUrl(url),icon:const Icon(Icons.play_circle_outline),label:const Text('Прослушать голосовое')),
+@@ -288,7 +359,7 @@
+      ],
+    ]))),actions:[TextButton(onPressed:()=>Navigator.pop(d),child:const Text('Закрыть'))])));
+  }
+- Future<void> _reloadRoom()async{final rooms=await _chat.rooms();final next=rooms.where((x)=>x['id']==widget.roomId).firstOrNull;if(mounted)setState(()=>room=next);}
++ Future<void> _reloadRoom()async{try{final rooms=await _chat.rooms();final next=rooms.where((x)=>x['id']==widget.roomId).firstOrNull;if(mounted)setState(()=>room=next);}catch(_){/* Keep cached room while offline. */}}
+  Future<void> _changeAvatar()async{
+    try{final image=await ImagePicker().pickImage(source:ImageSource.gallery,imageQuality:80,maxWidth:1200);
+      if(image==null)return;await _chat.groupAvatar(widget.roomId,image);await _reloadRoom();
+@@ -322,15 +393,33 @@
+      body:Column(children:[if(loading)const LinearProgressIndicator(),
+        Expanded(child:visible.isEmpty?Center(child:Text(loading?'Загрузка…':search.isNotEmpty?'Ничего не найдено':'Напишите первое сообщение')):
+          ListView.builder(controller:list,padding:const EdgeInsets.symmetric(vertical:9),itemCount:visible.length,itemBuilder:(_,i)=>_bubble(visible[i]))),
+-       if(recording)Container(color:Theme.of(context).colorScheme.errorContainer,padding:const EdgeInsets.all(7),child:const Row(mainAxisAlignment:MainAxisAlignment.center,children:[Icon(Icons.mic,color:Colors.red),SizedBox(width:6),Text('Идёт запись голосового сообщения · нажмите ещё раз для отправки')])),
+-       SafeArea(top:false,child:Padding(padding:const EdgeInsets.fromLTRB(6,6,6,6),child:Row(children:[
+-         IconButton(tooltip:'Прикрепить файл',onPressed:busy?null:_attachMenu,icon:const Icon(Icons.add_circle_outline)),
+-         Expanded(child:TextField(controller:text,enabled:!busy,minLines:1,maxLines:4,textCapitalization:TextCapitalization.sentences,
+-           onSubmitted:(_)=>_send(),decoration:InputDecoration(hintText:'Сообщение',isDense:true,filled:true,border:OutlineInputBorder(borderRadius:BorderRadius.circular(22),borderSide:BorderSide.none)))),
+-         IconButton(tooltip:recording?'Завершить запись':'Голосовое сообщение',onPressed:busy?null:_startOrStopVoice,
+-           icon:Icon(recording?Icons.stop_circle_outlined:Icons.mic_none,color:recording?Colors.red:null)),
+-         IconButton(tooltip:'Отправить',onPressed:busy?null:_send,icon:const Icon(Icons.send_rounded)),
+-       ]))),
++        if(recording)Container(color:Theme.of(context).colorScheme.errorContainer,padding:const EdgeInsets.all(7),child:const Row(mainAxisAlignment:MainAxisAlignment.center,children:[Icon(Icons.mic,color:Colors.red),SizedBox(width:6),Text('Идёт запись · нажмите ещё раз для отправки')])),
++        if(_draftPhotos.isNotEmpty)SizedBox(height:105,child:ListView.builder(
++          scrollDirection:Axis.horizontal,itemCount:_draftPhotos.length,padding:const EdgeInsets.symmetric(horizontal:10,vertical:5),
++          itemBuilder:(context,i)=>Padding(padding:const EdgeInsets.only(right:8),child:Stack(children:[
++            ClipRRect(borderRadius:BorderRadius.circular(10),child:Image.memory(_thumbs[i]!,height:95,width:95,fit:BoxFit.cover)),
++            Positioned(top:0,right:0,child:CircleAvatar(radius:14,backgroundColor:Colors.black54,
++              child:IconButton(padding:EdgeInsets.zero,iconSize:16,tooltip:'Убрать фото',
++                onPressed:busy?null:()=>_removePhoto(i),icon:const Icon(Icons.close,color:Colors.white)))),
++          ])),
++        )),
++        if(_progress.isNotEmpty)Padding(padding:const EdgeInsets.symmetric(vertical:3),child:Text(_progress,style:Theme.of(context).textTheme.labelSmall)),
++        SafeArea(top:false,child:Padding(padding:const EdgeInsets.fromLTRB(6,6,6,6),child:Row(children:[
++          IconButton(tooltip:'Прикрепить файл',onPressed:busy?null:_attachMenu,icon:const Icon(Icons.add_circle_outline)),
++          Expanded(child:TextField(controller:text,enabled:!busy,minLines:1,maxLines:4,textCapitalization:TextCapitalization.sentences,
++            onSubmitted:(_)=>_send(),decoration:InputDecoration(hintText:_draftPhotos.isEmpty?'Сообщение':'Подпись к фотографиям',isDense:true,filled:true,border:OutlineInputBorder(borderRadius:BorderRadius.circular(22),borderSide:BorderSide.none)))),
++          ValueListenableBuilder<TextEditingValue>(valueListenable:text,builder:(ctx,value,_) {
++            if(value.text.trim().isNotEmpty||_draftPhotos.isNotEmpty){
++              return IconButton(tooltip:'Отправить сообщение',onPressed:busy?null:_send,icon:const Icon(Icons.send_rounded));
++            }
++            return Row(mainAxisSize:MainAxisSize.min,children:[
++              IconButton(tooltip:recording?'Завершить запись':'Голосовое сообщение',onPressed:busy?null:_startOrStopVoice,
++                icon:Icon(recording?Icons.stop_circle_outlined:Icons.mic_none,color:recording?Colors.red:null)),
++              IconButton(tooltip:'Снять видеосообщение',onPressed:busy?null:()=>_attachment('video',camera:true),
++                icon:const Icon(Icons.videocam_outlined)),
++            ]);
++          }),
++        ]))),
+      ]));
+  }
+ }--- a/pubspec.yaml
++++ b/pubspec.yaml
+@@ -1,7 +1,7 @@
+ name: oilman_app
+ description: Мобильное приложение для операторов нефтегазовых объектов.
+ publish_to: 'none'
+-version: 1.82.0+188
++version: 1.83.0+189
+ environment:
+   sdk: '>=3.3.0 <4.0.0'
+   flutter: '>=3.19.0'
