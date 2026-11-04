@@ -1,0 +1,237 @@
+# Manual ONLY. Requires a dedicated Linux x64 self-hosted runner labeled promysel-local.
+# No scheduled, push, or pull-request triggers. Production release workflow is unchanged.
+name: "Promysel Android APK - local laptop runner"
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: promysel-android-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  build:
+    name: Build Promysel Android ARM64
+    if: github.ref == 'refs/heads/main'
+    runs-on: [self-hosted, Linux, X64, promysel-local]
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Approval-first registration regression
+        run: python3 server/test_approval_before_invitation.py
+      - name: Registration server preflight
+        shell: bash
+        run: |
+          set -euo pipefail; export PYTHONPATH="$GITHUB_WORKSPACE/server"
+          python3 -m py_compile server/registration_rules.py server/registration_decisions.py server/registration_service.py server/registration_api.py server/mailer.py server/preflight_registration.py
+          python3 server/test_registration_rules.py; python3 server/test_registration_decisions.py; python3 server/test_registration_service.py; python3 server/preflight_registration.py
+      - name: Supabase compatibility endpoint preflight
+        shell: bash
+        run: |
+          set -euo pipefail
+          API="https://xptmcufhuvtcunqzlsme.supabase.co/functions/v1/promysel-compat/health"
+          curl --fail --silent --show-error --retry 3 --connect-timeout 10 "$API" -o /tmp/promysel-compat.json
+          python3 - <<'PY'
+          import json
+          j=json.load(open('/tmp/promysel-compat.json'))
+          assert j.get('status')=='ok' and j.get('service')=='promysel-compat',j
+          print('Supabase compatibility API is ready')
+          PY
+          # A healthy /health endpoint alone cannot prove that the backend has
+          # PostgreSQL service_role grants. This real read failed with HTTP 500
+          # when the initial administrator could authenticate but not enter.
+          curl --fail --silent --show-error --retry 3 --connect-timeout 10 \
+            "https://xptmcufhuvtcunqzlsme.supabase.co/functions/v1/promysel-compat/v1/registration/fields" \
+            -o /tmp/promysel-fields.json
+          python3 - <<'PY'
+          import json
+          response=json.load(open('/tmp/promysel-fields.json', encoding='utf-8'))
+          assert isinstance(response.get('items'), list), response
+          print('Supabase service-role data access is ready')
+          PY
+      - name: Extract base source
+        id: project
+        shell: bash
+        run: |
+          set -euo pipefail; DIR="$RUNNER_TEMP/promysel";rm -rf "$DIR";mkdir -p "$DIR";unzip -q "$GITHUB_WORKSPACE/neftyanik_v1.24.1_stable_hotfix.zip" -d "$DIR";PROJECT="$(dirname "$(find "$DIR" -name pubspec.yaml -print -quit)")";echo "project_dir=$PROJECT" >> "$GITHUB_OUTPUT"
+      - name: Install image tools
+        run: |
+          set -euo pipefail
+          if ! command -v identify >/dev/null || ! command -v rsvg-convert >/dev/null; then
+            sudo apt-get update -qq
+            sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq imagemagick librsvg2-bin
+          fi
+      - name: Apply Promysel updates and approved raster emblem
+        shell: bash
+        run: |
+          set -euo pipefail;cd "${{ steps.project.outputs.project_dir }}"
+          for s in prepare_promysel_v125.py prepare_promysel_v126.py prepare_promysel_v127.py prepare_promysel_v128.py prepare_promysel_v129.py prepare_promysel_v129_walk.py prepare_promysel_v129_problems.py prepare_promysel_v130.py prepare_promysel_v131.py prepare_promysel_v132.py prepare_promysel_v133.py prepare_promysel_v134.py prepare_promysel_v135.py prepare_promysel_v136.py prepare_promysel_v136_fix.py prepare_promysel_v137.py prepare_promysel_v137_corrections.py prepare_promysel_v138_problem_actions.py prepare_promysel_v139_problem_layout.py prepare_promysel_v140_problem_card.py prepare_promysel_v140_closed_lists.py prepare_promysel_v141_parameter_sync.py prepare_promysel_v142_user_fixes.py prepare_promysel_v143_exact_walk_and_dispatcher.py prepare_promysel_v144_requested_fixes.py prepare_promysel_v145.py prepare_promysel_v146.py prepare_promysel_v147.py prepare_promysel_v148.py prepare_promysel_v149.py prepare_promysel_v150.py prepare_promysel_v151.py prepare_promysel_v152.py prepare_promysel_v153.py prepare_promysel_v154a.py prepare_promysel_v154b.py prepare_promysel_v154c.py prepare_promysel_v154d.py prepare_promysel_v154e.py prepare_promysel_v154f.py prepare_promysel_v154g.py prepare_promysel_v154h.py prepare_promysel_v155.py prepare_promysel_v156.py prepare_promysel_v157a.py prepare_promysel_v157b.py prepare_promysel_v157c.py prepare_promysel_v157d.py prepare_promysel_v159.py prepare_promysel_v170.py;do python3 "$GITHUB_WORKSPACE/tools/$s";done
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_supabase_adapter.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_supabase_hardening.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_approval_performance_hotfix.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_history_init.py"
+          python3 "$GITHUB_WORKSPACE/tools/test_promysel_history_keyset.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_task_permissions.py"
+          python3 "$GITHUB_WORKSPACE/tools/test_promysel_task_permissions.py"
+          cp "$GITHUB_WORKSPACE/tools/task_photo_service.dart" lib/core/services/task_photo_service.dart
+          cp "$GITHUB_WORKSPACE/tools/task_photo_widgets.dart" lib/features/tasks/task_photo_widgets.dart
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_task_photos.py"
+          python3 "$GITHUB_WORKSPACE/tools/test_promysel_task_photos.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_sync_state_merge.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_sync_recovery.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_task_inbox_refresh.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_field_name_persistence.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_task_completion_comment.py"
+          cp "$GITHUB_WORKSPACE/tools/task_notification_service.dart" lib/core/services/task_notification_service.dart
+          cp "$GITHUB_WORKSPACE/tools/task_notifications_screen.dart" lib/features/tasks/task_notifications_screen.dart
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_task_notifications.py"
+          cp "$GITHUB_WORKSPACE/tools/task_completion_dialog.dart" lib/features/tasks/task_completion_dialog.dart
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_unified_task_completion.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_task_badge_login.py"
+          cp "$GITHUB_WORKSPACE/tools/task_launcher_badge.dart" lib/core/services/task_launcher_badge.dart
+          cp "$GITHUB_WORKSPACE/tools/task_badge_platform_stub.dart" lib/core/services/task_badge_platform_stub.dart
+          cp "$GITHUB_WORKSPACE/tools/task_badge_platform_mobile.dart" lib/core/services/task_badge_platform_mobile.dart
+          cp "$GITHUB_WORKSPACE/tools/task_badge_platform_web.dart" lib/core/services/task_badge_platform_web.dart
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_launcher_badge.py"
+          cp "$GITHUB_WORKSPACE/tools/task_notification_onboarding.dart" lib/core/services/task_notification_onboarding.dart
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_device_notification_onboarding.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_push_logout.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_pull_refresh.py"
+          cp "$GITHUB_WORKSPACE/tools/task_tabs_read_observer.dart" lib/features/tasks/task_tabs_read_observer.dart
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_tab_notifications.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_notification_settings.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_fast_task_notifications.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_performance.py"
+          cp "$GITHUB_WORKSPACE/tools/profile_avatar_editor.dart" lib/features/organization/profile_avatar_editor.dart
+          python3 "$GITHUB_WORKSPACE/tools/prepare_profile_layout.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_profile_avatar.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_profile_training_delete.py"
+          cp "$GITHUB_WORKSPACE/tools/work_schedule_store.dart" lib/core/services/work_schedule_store.dart
+          cp "$GITHUB_WORKSPACE/tools/work_schedule_screen.dart" lib/features/organization/work_schedule_screen.dart
+          python3 "$GITHUB_WORKSPACE/tools/prepare_personnel_access.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_work_schedule_integration.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_personnel_ui.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_profile_name_edit.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_organization_role_security.py"
+          mkdir -p lib/features/menu
+          cp "$GITHUB_WORKSPACE/tools/promysel_menu_screen.dart" lib/features/menu/menu_screen.dart
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_calendar_russian.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_profile_single_pencil.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_menu_navigation.py"
+          cp "$GITHUB_WORKSPACE/tools/training_store_events.dart" lib/core/services/training_store.dart
+          cp "$GITHUB_WORKSPACE/tools/training_screen_actions.dart" lib/features/organization/training_screen.dart
+          cp "$GITHUB_WORKSPACE/tools/work_schedule_events_screen.dart" lib/features/organization/work_schedule_screen.dart
+          python3 "$GITHUB_WORKSPACE/tools/prepare_work_schedule_day_editor.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_training_merge_safety.py"
+          cp "$GITHUB_WORKSPACE/tools/training_calendar_test.dart" test/training_calendar_test.dart
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_v179_feedback.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_v179_admin.py"
+          mkdir -p lib/features/chat
+          cp "$GITHUB_WORKSPACE/tools/promysel_chat_service.dart" lib/core/services/promysel_chat_service.dart
+          cp "$GITHUB_WORKSPACE/tools/promysel_chat_screen.dart" lib/features/chat/promysel_chat_screen.dart
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_v180.py"
+          python3 "$GITHUB_WORKSPACE/tools/test_promysel_chat_v180.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_v181.py"
+          python3 "$GITHUB_WORKSPACE/tools/test_promysel_v181.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_v182.py"
+          python3 "$GITHUB_WORKSPACE/tools/test_promysel_v182.py"
+          patch --batch -p1 < "$GITHUB_WORKSPACE/tools/promysel_v183_changes.diff"
+          python3 "$GITHUB_WORKSPACE/tools/test_promysel_v183.py"
+          patch --batch -p1 < "$GITHUB_WORKSPACE/tools/promysel_v184_changes.diff"
+          python3 "$GITHUB_WORKSPACE/tools/test_promysel_v184.py"
+          patch --batch -p1 < "$GITHUB_WORKSPACE/tools/promysel_v185_changes.diff"
+          python3 "$GITHUB_WORKSPACE/tools/test_promysel_v185.py"
+          patch --batch -p1 < "$GITHUB_WORKSPACE/tools/promysel_v186_perf.patch"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_v186_sync_lock.py"
+          python3 "$GITHUB_WORKSPACE/tools/test_promysel_v186.py"
+          patch --batch -p1 < "$GITHUB_WORKSPACE/tools/promysel_v187_changes.patch"
+          python3 "$GITHUB_WORKSPACE/tools/test_promysel_v187.py"
+          patch --batch -p1 < "$GITHUB_WORKSPACE/tools/promysel_v188_changes.patch"
+          python3 "$GITHUB_WORKSPACE/tools/test_promysel_v188.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_fund_bar.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_registration_fields_fix.py"
+          python3 "$GITHUB_WORKSPACE/tools/test_promysel_registration_fields.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_admin_registration_fix.py"
+          python3 "$GITHUB_WORKSPACE/tools/test_promysel_admin_registration_fix.py"
+          cp "$GITHUB_WORKSPACE/tools/work_schedule_test.dart" test/work_schedule_test.dart
+          mkdir -p test
+          cp "$GITHUB_WORKSPACE/tools/task_permission_test.dart" test/task_permission_test.dart
+          cp "$GITHUB_WORKSPACE/tools/history_empty_widget_test.dart" test/history_empty_widget_test.dart
+          cp "$GITHUB_WORKSPACE/tools/task_photo_widget_test.dart" test/task_photo_widget_test.dart
+          mkdir -p assets/icon
+          # The legacy base64 JPEG is corrupt (SOS before SOF). Use the approved SVG,
+          # which is already rendered and validated by the iPhone web pipeline.
+          rsvg-convert -w 1024 -h 1024 "$GITHUB_WORKSPACE/assets/promysel_icon_modern.svg" -o assets/icon/app_icon.png
+          cp assets/icon/app_icon.png assets/icon/app_icon_foreground.png
+          test "$(identify -format '%w' assets/icon/app_icon.png)" = 1024
+          test "$(identify -format '%h' assets/icon/app_icon.png)" = 1024
+          echo "Approved SVG emblem rendered and validated"
+      - name: Full generated source preflight
+        shell: bash
+        run: |
+          set -euo pipefail;cd "${{ steps.project.outputs.project_dir }}";mkdir -p "$GITHUB_WORKSPACE/artifacts";zip -qr "$GITHUB_WORKSPACE/artifacts/promysel-v1.88-source.zip" . -x 'android/*' 'build/*' '.dart_tool/*';unzip -t "$GITHUB_WORKSPACE/artifacts/promysel-v1.88-source.zip" >/dev/null
+      - uses: actions/upload-artifact@v4
+        continue-on-error: true
+        with: {name: promysel-v1.88-source, path: artifacts/promysel-v1.88-source.zip, retention-days: 30}
+      - uses: subosito/flutter-action@v2
+        with: {channel: stable, cache: true}
+      - name: Get dependencies and analyze
+        shell: bash
+        run: |
+          cd "${{ steps.project.outputs.project_dir }}";python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_ci_pubspec.py" android;flutter pub get;flutter analyze --no-fatal-infos --no-fatal-warnings;flutter test test/task_permission_test.dart test/history_empty_widget_test.dart test/task_photo_widget_test.dart test/work_schedule_test.dart test/training_calendar_test.dart
+      - name: Create Android project with approved launcher icon
+        shell: bash
+        run: |
+          set -euo pipefail;cd "${{ steps.project.outputs.project_dir }}";rm -rf android;flutter create --no-pub --platforms=android --project-name promysel --org ru.promysel .
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_launcher_badge_android.py"
+          if [[ -f android/app/build.gradle.kts ]]; then sed -i 's/minSdk = flutter.minSdkVersion/minSdk = 24/' android/app/build.gradle.kts; fi
+          if [[ -f android/app/build.gradle ]]; then sed -i 's/minSdkVersion flutter.minSdkVersion/minSdkVersion 24/' android/app/build.gradle; fi
+          M=android/app/src/main/AndroidManifest.xml;sed -i '/<manifest/a\\    <uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.CAMERA" />' "$M";sed -i 's/android:label="[^"]*"/android:label="Промысел"/' "$M"
+          sed -i '/<manifest/a\\    <uses-permission android:name="android.permission.RECORD_AUDIO" />' "$M"
+          rm -f android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml android/app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml
+          declare -A z=([mdpi]=48 [hdpi]=72 [xhdpi]=96 [xxhdpi]=144 [xxxhdpi]=192);for d in mdpi hdpi xhdpi xxhdpi xxxhdpi;do o="android/app/src/main/res/mipmap-$d";mkdir -p "$o";convert assets/icon/app_icon.png -resize "${z[$d]}x${z[$d]}" "$o/ic_launcher.png";cp "$o/ic_launcher.png" "$o/ic_launcher_round.png";done
+          sed -i 's#android:icon="[^"]*"#android:icon="@mipmap/ic_launcher"#' "$M"
+          test "$(identify -format '%w' android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png)" = 192
+      - name: Build optimized ARM64 APK and report size
+        shell: bash
+        run: |
+          set -euo pipefail;cd "${{ steps.project.outputs.project_dir }}"
+          rm -rf "$GITHUB_WORKSPACE/artifacts/symbols";mkdir -p "$GITHUB_WORKSPACE/artifacts/symbols" "$GITHUB_WORKSPACE/artifacts/apk"
+          # Flutter 3.47 + AGP 9 disables KGP in file_picker 11.x incorrectly.
+          # Apply Kotlin explicitly to the plugin's Gradle project and target JVM 17.
+          PICKER_GRADLE="$(find "${PUB_CACHE:-$HOME/.pub-cache}/hosted" -path '*/file_picker-11.0.3/android/build.gradle' -print -quit)"
+          test -n "$PICKER_GRADLE" && test -f "$PICKER_GRADLE"
+          cat >> "$PICKER_GRADLE" <<'KOTLIN_PATCH'
+          if (!plugins.hasPlugin('org.jetbrains.kotlin.android')) {
+              apply plugin: 'org.jetbrains.kotlin.android'
+          }
+          tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
+              compilerOptions {
+                  jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
+              }
+          }
+          KOTLIN_PATCH
+
+          flutter build apk --no-pub --release --target-platform android-arm64 --tree-shake-icons --obfuscate --split-debug-info="$GITHUB_WORKSPACE/artifacts/symbols" --dart-define=PROMYSEL_SYNC_URL=https://xptmcufhuvtcunqzlsme.supabase.co/functions/v1/promysel-compat
+          cp build/app/outputs/flutter-apk/app-release.apk "$GITHUB_WORKSPACE/artifacts/apk/promysel-v1.88-arm64.apk"
+          sha256sum "$GITHUB_WORKSPACE/artifacts/apk/promysel-v1.88-arm64.apk"
+      - uses: actions/upload-artifact@v4
+        continue-on-error: true
+        with: {name: promysel-v1.88-arm64-android, path: artifacts/apk/promysel-v1.88-arm64.apk, retention-days: 30}
+      - uses: actions/upload-artifact@v4
+        continue-on-error: true
+        with: {name: promysel-v1.88-debug-symbols, path: artifacts/symbols/**, retention-days: 30}
+      - name: Publish tested candidate APK as private GitHub prerelease
+        if: github.event_name != 'pull_request'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          TAG="promysel-supabase-1.88-rc"
+          APK="artifacts/apk/promysel-v1.88-arm64.apk"
+          test -s "$APK"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "$APK" --clobber
+          else
+            gh release create "$TAG" "$APK" --title "Promysel 1.88 Supabase candidate (Android)" --notes "Candidate: requires live E2E testing with real Supabase accounts. Legacy Beget is not used." --prerelease
+          fi
