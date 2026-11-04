@@ -14,8 +14,9 @@ function validHttpsOrigin(value:string):string{
  }catch(_){return "";}
 }
 const publicOrigin=validHttpsOrigin(publicOriginRaw);
+const devOrigin=validHttpsOrigin((Deno.env.get("PROMYSEL_DEV_ORIGIN")??"").trim());
 const allowedOrigins = new Set(["https://promysel-web.pages.dev","http://localhost:3000","http://localhost:8080",
-  ...(publicOrigin?[publicOrigin]:[])]);
+  ...(publicOrigin?[publicOrigin]:[]),...(devOrigin?[devOrigin]:[])]);
 const baseHeaders = {"content-type":"application/json","cache-control":"no-store"};
 function response(body:unknown,status=200,origin?:string){
   const h:Record<string,string>={...baseHeaders};
