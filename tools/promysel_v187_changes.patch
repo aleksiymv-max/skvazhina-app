@@ -211,7 +211,7 @@
 +    try{
 +      final result=await request;
 +      if(requestEpoch!=_roomsEpoch)return cachedRooms();
-+      final previous={for(final r in _roomsCache??<Map<String,dynamic>>[]):'${r['id']}':r};
++      final previous=<String,Map<String,dynamic>>{for(final r in _roomsCache??<Map<String,dynamic>>[]) '${r['id']}':r};
 +      final serverIds=result.map((r)=>'${r['id']}').toSet();
 +      for(final e in previous.entries){
 +        final latest=result.where((r)=>'${r['id']}'==e.key).firstOrNull;
