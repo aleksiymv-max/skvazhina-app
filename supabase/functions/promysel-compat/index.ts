@@ -240,13 +240,27 @@ Deno.serve(async(req:Request)=>{
      "Заявка согласована. Письмо отправить не удалось, обратитесь к администратору."});
   }
   if(req.method==="GET"&&(route==="/v1/users"||route==="/v1/registration/users")){
-   if(!administrator&&memberships.length===0)return reply({detail:"Нет доступа"},403);
-   const fields=administrator?null:memberships.map((m:J)=>String(m.field_id));
-   let query=admin.from("field_memberships").select("user_id,field_id,display_name,role,subrole,approved,blocked,chief_id").order("joined_at",{ascending:false}).limit(500);
-   if(fields&&fields.length)query=query.in("field_id",fields);query=query.in("field_id",activeFields.size?[...activeFields]:["__none__"]);
-   const {data,error}=await query;if(error)throw error;
-   return reply({items:(data??[]).map((m:J)=>({id:m.user_id,name:m.display_name,role:m.role,
-      subrole:m.subrole,fieldId:m.field_id,chiefId:m.chief_id,approved:m.approved===true&&m.blocked!==true}))});
+    if(!administrator&&memberships.length===0)return reply({detail:"Нет доступа"},403);
+    const fields=administrator?null:memberships.map((m:J)=>String(m.field_id));
+    // A complete response is atomic from the perspective of the Flutter client.
+    // Do not silently return the first 500 employees or any partial page.
+    const rows:J[]=[];const pageSize=200;
+    for(let offset=0;offset<10000;offset+=pageSize){
+      let q=admin.from("field_memberships")
+        .select("user_id,field_id,display_name,role,subrole,approved,blocked,chief_id")
+        .order("joined_at",{ascending:false}).order("user_id",{ascending:true})
+        .range(offset,offset+pageSize-1);
+      if(fields&&fields.length)q=q.in("field_id",fields);
+      q=q.in("field_id",activeFields.size?[...activeFields]:["__none__"]);
+      const {data,error}=await q;
+      if(error)throw error;
+      rows.push(...(data??[]));
+      if(!data||data.length<pageSize)break;
+      if(offset+pageSize>=10000)return reply({detail:"Список персонала превышает ограничение сервера"},503);
+    }
+    const items=rows.map((m:J)=>({id:m.user_id,name:m.display_name,role:m.role,
+      subrole:m.subrole,fieldId:m.field_id,chiefId:m.chief_id,approved:m.approved===true&&m.blocked!==true}));
+    return reply({items,count:items.length,complete:true,loadedAt:new Date().toISOString()});
   }
   const roleChange=route.match(/^\/v1\/users\/([0-9a-f-]{36})\/role$/i);
   if(req.method==="POST"&&roleChange){
