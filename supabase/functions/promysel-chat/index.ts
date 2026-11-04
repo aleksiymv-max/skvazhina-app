@@ -19,18 +19,27 @@ Deno.serve(async(req:Request)=>{
   const body=(req.method==='GET')?{}:await req.json().catch(()=>({}));
   const value=body&&typeof body==='object'&&!Array.isArray(body)?body as J:{};
   const field=str(url.searchParams.get('fieldId')||value.fieldId);
-  const {data:memberships,error:memErr}=await db.from('field_memberships').select('field_id').eq('user_id',uid).eq('approved',true).eq('blocked',false);
+  // One verified DB RPC per room request, instead of sequential membership/room/field lookups.
+  // The read-only listing RPC also validates membership and archived field status itself.
+  const isRoomRoute=/^\/rooms\/[0-9a-f-]{36}(?:\/|$)/i.test(path);
+  const isRoomList=req.method==='GET'&&path==='/rooms';
+  const {data:memberships,error:memErr}=(isRoomRoute||isRoomList)
+    ? {data:[] as J[],error:null}
+    : await db.from('field_memberships').select('field_id').eq('user_id',uid).eq('approved',true).eq('blocked',false);
   if(memErr)throw memErr;
-  const allowed=(memberships??[]).map(x=>String(x.field_id));
-  if(!allowed.length)return response({detail:'Нет допуска к месторождению'},403);
-  async function active(fid:string){if(!allowed.includes(fid))return false;const {data}=await db.from('oil_fields').select('id').eq('id',fid).is('archived_at',null).maybeSingle();return !!data;}
+  const allowed=(memberships??[]).map((x:J)=>String(x.field_id));
+  if(!isRoomRoute&&!isRoomList&&!allowed.length)return response({detail:'Нет допуска к месторождению'},403);
+  async function active(fid:string){
+    if(!allowed.includes(fid))return false;
+    const {data}=await db.from('oil_fields').select('id').eq('id',fid).is('archived_at',null).maybeSingle();
+    return !!data;
+  }
   async function roomAccess(roomId:string){
     if(!validUuid(roomId))return null;
-    const {data:member}=await db.from('promysel_chat_members').select('room_id,muted,sound_enabled,last_read_at').eq('room_id',roomId).eq('user_id',uid).maybeSingle();
-    if(!member)return null;
-    const {data:room}=await db.from('promysel_chat_rooms').select('*').eq('id',roomId).maybeSingle();
-    if(!room||!await active(String(room.field_id)))return null;
-    return {room,member};
+    const {data,error}=await db.rpc('promysel_chat_room_scope',{p_user:uid,p_room:roomId});
+    if(error)throw error;
+    if(!data||typeof data!=='object')return null;
+    return {room:data.room as J,member:data.member as J};
   }
   if(req.method==='GET'&&path==='/users'){
    if(!await active(field))return response({detail:'Месторождение недоступно'},403);
@@ -38,19 +47,19 @@ Deno.serve(async(req:Request)=>{
    if(error)throw error;return response({items:(data??[]).map(x=>({id:x.user_id,name:x.display_name,role:x.role}))});
   }
   if(req.method==='GET'&&path==='/rooms'){
-   if(!await active(field))return response({detail:'Месторождение недоступно'},403);
+   // Scope is verified by the SQL listing function in one round trip.
    // One SQL statement replaces the N+1 requests formerly triggered per room.
    const {data,error}=await db.rpc('promysel_chat_listing',{p_user:uid,p_field:field});
    if(error)throw error;
    const items=Array.isArray(data)?data as J[]:[];
-   // Only group photos live in private Storage. Individual user pictures use the synchronized profile avatar store.
-   const decorated=await Promise.all(items.map(async r=>{
-     const avatarPath=str(r.avatar_path);
-     if(!avatarPath||r.kind!=='group')return {...r,avatarUrl:null};
-     const {data:link}=await db.storage.from(B).createSignedUrl(avatarPath,1800);
-     return {...r,avatarUrl:link?.signedUrl??null};
-   }));
-   return response({items:decorated});
+   // Batch sign group avatars; private member photos are handled by AvatarStore.
+   const paths=[...new Set(items.filter(r=>r.kind==='group').map(r=>str(r.avatar_path)).filter(Boolean))];
+   const avatarUrls=new Map<string,string>();
+   if(paths.length){
+     const {data:links}=await db.storage.from(B).createSignedUrls(paths,1800);
+     for(const x of links??[])if(x.signedUrl)avatarUrls.set(x.path,x.signedUrl);
+   }
+   return response({items:items.map(r=>({...r,avatarUrl:avatarUrls.get(str(r.avatar_path))??null}))});
   }
   if(req.method==='POST'&&path==='/rooms'){
    if(!await active(field))return response({detail:'Месторождение недоступно'},403);
@@ -255,5 +264,9 @@ Deno.serve(async(req:Request)=>{
    return response({status:'left'});
   }
   return response({detail:'Маршрут не найден'},404);
- }catch(e){console.error('promysel-chat',e instanceof Error?e.message:String(e));return response({detail:'Ошибка сервера чатов'},500);}
+  }catch(e){
+   const diagnostic=e instanceof Error?e.message:String(e);
+   console.error('promysel-chat operation failed',diagnostic.slice(0,180));
+   return response({detail:'Сервер временно недоступен. Сообщения сохранены, попробуйте ещё раз.'},503);
+  }
 });
