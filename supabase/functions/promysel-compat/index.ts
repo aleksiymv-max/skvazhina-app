@@ -138,19 +138,36 @@ Deno.serve(async(req:Request)=>{
      if(!data)return reply({detail:"Месторождение не найдено"},404);
    }
    // APPLICATION ONLY: nobody is invited or created in Auth before approval.
-   const {data:existing,error:checkErr}=await admin.from("registration_requests")
-     .select("id").eq("email",email).eq("state","pending").limit(1);
-   if(checkErr)throw checkErr;
-   if(existing?.length)return reply({id:String(existing[0].id),
-     detail:"Заявка уже ожидает согласования. Письмо придёт после одобрения."});
+   // A partial UNIQUE INDEX on normalized email guarantees idempotency even
+   // when two phones or double taps race between SELECT and INSERT.
+   const existingRequest=async()=>{
+     const {data,error}=await admin.from("registration_requests")
+       .select("id,state").eq("email",email)
+       .in("state",["pending","approved"])
+       .order("created_at",{ascending:false}).limit(1);
+     if(error)throw error;
+     return data?.[0]??null;
+   };
+   const repeatedReply=(r:J|null)=>{
+     if(r?.state==="approved")
+       return reply({detail:"Эта электронная почта уже зарегистрирована. Войдите в приложение или восстановите пароль."},409);
+     return reply({id:r?.id!=null?String(r.id):null,alreadyExists:true,
+       detail:"Заявка на эту почту уже отправлена и ожидает согласования. Повторная отправка не требуется."},200);
+   };
+   const existing=await existingRequest();
+   if(existing)return repeatedReply(existing);
    const {data,error}=await admin.from("registration_requests").insert({
      requested_by:null,field_id:field||null,proposed_field_name:newField||null,
      requested_role:role,requested_subrole:role==="engineer"?subrole||null:null,
      full_name:name,email,state:"pending"
    }).select("id").single();
-   if(error)throw error;
+   if(error){
+     // Postgres 23505 means another concurrent registration won the race.
+     if(error.code==="23505")return repeatedReply(await existingRequest());
+     throw error;
+   }
    return reply({id:String(data.id),
-      detail:"Заявка отправлена на согласование. После одобрения придёт письмо для установки пароля."},201);
+     detail:"Заявка отправлена на согласование. После одобрения придёт письмо для установки пароля."},201);
   }
   if(!token)return reply({detail:"Необходимо войти в приложение"},401);
   const actorClient=createClient(base,publish,{global:{headers:{Authorization:"Bearer "+token}},
