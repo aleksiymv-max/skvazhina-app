@@ -190,10 +190,11 @@ Deno.serve(async(req:Request)=>{
        return response({detail:'Вложение не относится к этой переписке'},403);
    }
    if(isAlbum||kind!=='text'){
-     const prefix=roomId+'/'+uid;
-     const names=isAlbum?album.map(x=>str(x.path).split('/').pop()||''):[attachment.split('/').pop()||''];
-     const {data:files,error:findErr}=await db.storage.from(B).list(prefix,{limit:1000});
-     if(findErr||!files||!names.every(n=>files.some(f=>f.name===n)))
+     // Exact-file HEAD metadata verification. Do not list 1000 media objects
+     // on every voice or video message (this was a major upload bottleneck).
+     const paths=isAlbum?album.map(x=>str(x.path)):[attachment];
+     const checks=await Promise.all(paths.map(p=>db.storage.from(B).info(p)));
+     if(checks.some(x=>x.error||!x.data))
        return response({detail:'Вложение ещё не загружено. Повторите отправку.'},400);
    }
    const payload={
