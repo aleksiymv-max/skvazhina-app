@@ -1,0 +1,740 @@
+--- a/lib/core/services/registration_service.dart
++++ b/lib/core/services/registration_service.dart
+@@ -19,6 +19,12 @@
+  Future<Map<String,dynamic>> pending(String token)async=>body(await http.get(u('/v1/registration/pending'),headers:{'authorization':'Bearer '+token}).timeout(const Duration(seconds:12)));
+  Future<Map<String,dynamic>> approve(String token,String id,Map<String,dynamic> data)async=>body(await http.post(u('/v1/registration/'+id+'/approve'),headers:{'authorization':'Bearer '+token,'content-type':'application/json'},body:jsonEncode(data)).timeout(const Duration(seconds:12)));
+  Future<Map<String,dynamic>> reject(String token,String id)async=>body(await http.post(u('/v1/registration/'+id+'/reject'),headers:{'authorization':'Bearer '+token}).timeout(const Duration(seconds:12)));
++ Future<Map<String,dynamic>> presence(String token,String fieldId,String day)async=>
++   body(await http.get(u('/v1/presence?fieldId=${Uri.encodeQueryComponent(fieldId)}&day=$day'),
++     headers:{'authorization':'Bearer $token'}).timeout(const Duration(seconds:16)));
++ Future<Map<String,dynamic>> updatePresence(String token,String userId,String fieldId,String day,bool working)async=>
++   body(await http.patch(u('/v1/presence/$userId'),headers:{'authorization':'Bearer $token','content-type':'application/json'},
++     body:jsonEncode({'fieldId':fieldId,'day':day,'atWork':working})).timeout(const Duration(seconds:16)));
+  Future<Map<String,dynamic>> users(String token)async{for(final path in ['/v1/users','/v1/registration/users']){final res=await http.get(u(path),headers:{'authorization':'Bearer '+token}).timeout(const Duration(seconds:18));if(res.statusCode!=404)return body(res);}throw Exception('Сервер не поддерживает загрузку персонала');}
+  Future<Map<String,dynamic>> changeWorkerRole(String token,String id,String role,String? subrole)async=>
+    body(await http.post(u('/v1/users/'+id+'/role'),
+--- a/lib/core/services/session_service.dart
++++ b/lib/core/services/session_service.dart
+@@ -42,6 +42,35 @@
+  final List<OilFieldRegistration> fields=[];
+  final Map<String,String> userFields={};
+  final Map<String,bool> workPresence={};
++ String _presenceDay='';
++ DateTime? _presenceLastRead;
++ Future<void>? _presencePending;
++ static String _localDay(DateTime d)=>'${d.year.toString().padLeft(4,'0')}-${d.month.toString().padLeft(2,'0')}-${d.day.toString().padLeft(2,'0')}';
++ void _checkPresenceDay(){final day=_localDay(DateTime.now());if(day!=_presenceDay){_presenceDay=day;workPresence.clear();_presenceLastRead=null;}}
++ Future<void> refreshPresence({bool force=false})async{
++   _checkPresenceDay();
++   if(_presencePending!=null)return _presencePending!;
++   if(!force&&_presenceLastRead!=null&&DateTime.now().difference(_presenceLastRead!)<const Duration(seconds:18))return;
++   final future=_fetchPresence();_presencePending=future;
++   try{await future;}finally{_presencePending=null;}
++ }
++ Future<void> _fetchPresence()async{
++   await ensureFreshToken();final tok=api.token;
++   if(tok==null||tok.isEmpty||tok.startsWith('offline-'))return;
++   final day=_presenceDay;
++   final fieldIds=currentUser.role==UserRole.admin?fields.map((x)=>x.id).toList():<String>[if(currentFieldId!=null)currentFieldId!];
++   if(fieldIds.isEmpty)return;
++   final next=<String,bool>{};
++   for(final field in fieldIds){
++     final data=await RegistrationService.instance.presence(tok,field,day);
++     final items=data['items'];if(items is! List)continue;
++     for(final row in items){if(row is! Map)continue;final id='${row['id']??''}';if(id.isNotEmpty&&row['atWork'] is bool)next[id]=row['atWork'] as bool;}
++   }
++   if(day!=_presenceDay)return;
++   workPresence..clear()..addAll(next);
++   _presenceLastRead=DateTime.now();notifyListeners();
++ }
++
+  final List<AppUser> _workers=[];
+  final List<PendingUser> pendingUsers=[];
+  final Map<String,String> _passwords={};
+@@ -97,10 +126,26 @@
+  Future<void> refreshPending()async{final tok=api.token;if(tok==null)return;final d=await RegistrationService.instance.pending(tok);final raw=d['items'];pendingUsers.clear();if(raw is List){for(final x in raw){if(x is Map){final m=Map<String,dynamic>.from(x);final id=(m['id']??m['requestId']??m['request_id']??'').toString();final fid=(m['fieldId']??m['field_id']??'').toString();if(id.isEmpty)continue;pendingUsers.add(PendingUser(id:id,name:(m['name']??m['fullName']??m['full_name']??'').toString(),email:(m['email']??'').toString(),role:_role(m['role']),subrole:_subrole(m['subrole']),fieldId:fid,requiresAdmin:_role(m['role'])==UserRole.shopChief));}}}notifyListeners();}
+  static const _sessionKey='promysel_session_v2';
+  Future<void> _persistSession()async{final tok=api.token;if(tok==null||tok.isEmpty)return;final fid=currentFieldId;final u=currentUser;final prefs=await SharedPreferences.getInstance();await prefs.setString(_sessionKey,jsonEncode({'token':tok,'id':u.id,'name':u.name,'role':u.role.name,'subrole':u.itrSubrole?.name,'chiefId':u.chiefId,'fieldId':fid}));}
+- Future<bool> restoreSession()async{try{final prefs=await SharedPreferences.getInstance();await restoreFieldNames();final raw=prefs.getString(_sessionKey);if(raw==null||raw.isEmpty)return false;final m=Map<String,dynamic>.from(jsonDecode(raw));final tok=(m['token']??'').toString();final id=(m['id']??'').toString();if(tok.isEmpty||id.isEmpty)return false;api.token=tok;currentUser=AppUser(id:id,name:(m['name']??'').toString(),role:_role(m['role']),itrSubrole:_subrole(m['subrole']),chiefId:m['chiefId']?.toString(),approved:true);final fid=m['fieldId']?.toString();if(fid!=null&&fid.isNotEmpty){userFields[id]=fid;await AppStateStore.instance.loadLocal(fid);}try{await ensureFreshToken();}catch(_){/* can still work offline */}unawaited(refreshFields().catchError((_){ }));unawaited(refreshWorkers().catchError((_){ }));notifyListeners();return true;}catch(_){return false;}}
++ Future<bool> restoreSession()async{try{final prefs=await SharedPreferences.getInstance();await restoreFieldNames();final raw=prefs.getString(_sessionKey);if(raw==null||raw.isEmpty)return false;final m=Map<String,dynamic>.from(jsonDecode(raw));final tok=(m['token']??'').toString();final id=(m['id']??'').toString();if(tok.isEmpty||id.isEmpty)return false;api.token=tok;currentUser=AppUser(id:id,name:(m['name']??'').toString(),role:_role(m['role']),itrSubrole:_subrole(m['subrole']),chiefId:m['chiefId']?.toString(),approved:true);final fid=m['fieldId']?.toString();if(fid!=null&&fid.isNotEmpty){userFields[id]=fid;await AppStateStore.instance.loadLocal(fid);}try{await ensureFreshToken();}catch(_){/* can still work offline */}unawaited(refreshFields().catchError((_){ }));unawaited(refreshWorkers().then((_)=>(refreshPresence(force:true))).catchError((_){ }));notifyListeners();return true;}catch(_){return false;}}
+  Future<void> clearPersistedSession()async{api.token=null;final prefs=await SharedPreferences.getInstance();await prefs.remove(_sessionKey);await prefs.remove('promysel_refresh_token');}
+- bool isAtWork(String id){final rotation=WorkScheduleStore.instance.status(id,DateTime.now());if(rotation!='unset')return rotation=='work';return workPresence[id]??false;}
+- void setAtWork(String id,bool value){workPresence[id]=value;notifyListeners();}
++ bool isAtWork(String id){
++   _checkPresenceDay();
++   if(workPresence.containsKey(id))return workPresence[id]!;
++   return WorkScheduleStore.instance.status(id,DateTime.now())=='work';
++ }
++ Future<void> setAtWork(String id,bool value)async{
++   _checkPresenceDay();
++   final field=userFields[id]??currentFieldId;
++   if(field==null||field.isEmpty)throw const ApiException('Не определено месторождение сотрудника');
++   final old=workPresence[id];workPresence[id]=value;notifyListeners();
++   try{
++     await ensureFreshToken();final tok=api.token;
++     if(tok==null||tok.isEmpty)throw const ApiException('Требуется вход в приложение');
++     await RegistrationService.instance.updatePresence(tok,id,field,_presenceDay,value);
++     _presenceLastRead=null;
++   }catch(e){if(old==null){workPresence.remove(id);}else{workPresence[id]=old;}notifyListeners();rethrow;}
++ }
++
+  List<OilFieldRegistration> get approvedFields=>fields.where((f)=>f.approved).toList();
+  String? get currentFieldId=>currentUser.role==UserRole.admin?null:userFields[currentUser.id];
+  String fieldName(String id)=>displayFieldName(id);
+@@ -114,7 +159,7 @@
+  Future<bool> login(String username,String password)async{final d=await RegistrationService.instance.login(username.trim(),password);final tok=(d['token']??'').toString();if(tok.isEmpty)throw const ApiException('Сервер не вернул токен авторизации');api.token=tok;
+   final refresh=(d['refresh_token']??'').toString();
+   if(refresh.isNotEmpty)await (await SharedPreferences.getInstance()).setString('promysel_refresh_token',refresh);
+-  final u=d['user'];if(u is! Map)throw const ApiException('Сервер не вернул данные пользователя');final m=Map<String,dynamic>.from(u);final id=(m['id']??m['userId']??m['user_id']??username.trim()).toString();final fid=(m['fieldId']??m['field_id'])?.toString();currentUser=AppUser(id:id,name:(m['name']??m['fullName']??m['full_name']??username.trim()).toString(),role:_role(m['role']),itrSubrole:_subrole(m['subrole']),chiefId:(m['chiefId']??m['chief_id'])?.toString(),approved:true);if(fid!=null&&fid.isNotEmpty)userFields[id]=fid;await _persistSession();final activeField=currentFieldId;if(activeField!=null&&activeField.isNotEmpty)await AppStateStore.instance.loadLocal(activeField);try{await refreshWorkers();}catch(_){} unawaited(refreshFields().catchError((_){ }));unawaited(refreshPending().catchError((_){ }));notifyListeners();return d['mustChangePassword']==true;}
++  final u=d['user'];if(u is! Map)throw const ApiException('Сервер не вернул данные пользователя');final m=Map<String,dynamic>.from(u);final id=(m['id']??m['userId']??m['user_id']??username.trim()).toString();final fid=(m['fieldId']??m['field_id'])?.toString();currentUser=AppUser(id:id,name:(m['name']??m['fullName']??m['full_name']??username.trim()).toString(),role:_role(m['role']),itrSubrole:_subrole(m['subrole']),chiefId:(m['chiefId']??m['chief_id'])?.toString(),approved:true);if(fid!=null&&fid.isNotEmpty)userFields[id]=fid;await _persistSession();final activeField=currentFieldId;if(activeField!=null&&activeField.isNotEmpty)await AppStateStore.instance.loadLocal(activeField);try{await refreshWorkers();}catch(_){} unawaited(refreshPresence(force:true).catchError((_){ }));unawaited(refreshFields().catchError((_){ }));unawaited(refreshPending().catchError((_){ }));notifyListeners();return d['mustChangePassword']==true;}
+  Future<void> quickLogin(String username)async{final u=_workers.where((x)=>x.id==username).firstOrNull;if(u==null)throw const ApiException('Нет сохранённой учётной записи');currentUser=u;api.token='offline-$username';notifyListeners();}
+  Future<void> changePassword(String oldPassword,String newPassword)async{if(newPassword.length<8)throw const ApiException('Новый пароль должен содержать не менее 8 символов');final tok=api.token;if(tok==null)throw const ApiException('Нет токена авторизации');await RegistrationService.instance.changePassword(tok,oldPassword,newPassword);}
+  Future<void> setFirstPassword(String newPassword)async{if(newPassword.length<8)throw const ApiException('Пароль должен содержать не менее 8 символов');final tok=api.token;if(tok==null)throw const ApiException('Нет токена авторизации');final d=await RegistrationService.instance.firstPassword(tok,newPassword);final nt=(d['token']??'').toString();if(nt.isNotEmpty)api.token=nt;await _persistSession();notifyListeners();}
+--- a/lib/features/home/home_screen.dart
++++ b/lib/features/home/home_screen.dart
+@@ -14,12 +14,15 @@
+ 
+ class HomeScreen extends StatefulWidget { const HomeScreen({super.key}); @override State<HomeScreen> createState()=>_HomeScreenState(); }
+ class _HomeScreenState extends State<HomeScreen> {
+- final repo=MeasurementRepository(); Map<String,WellStatus> statuses={}; List<Measurement> problems=[]; bool loading=true;
+- @override void initState(){super.initState();SessionService.instance.addListener(_sessionChanged);_load();}
++ final repo=MeasurementRepository(); Map<String,WellStatus> statuses={}; List<Measurement> problems=[]; bool loading=true; Timer? _presenceTimer;
++ @override void initState(){super.initState();SessionService.instance.addListener(_sessionChanged);_load();
++  _presenceTimer=Timer.periodic(const Duration(seconds:25),(_){if(mounted)unawaited(SessionService.instance.refreshPresence(force:true).catchError((_){ }));});}
++
+  void _sessionChanged(){if(mounted)setState((){});}
+- @override void dispose(){SessionService.instance.removeListener(_sessionChanged);super.dispose();}
++ @override void dispose(){_presenceTimer?.cancel();SessionService.instance.removeListener(_sessionChanged);super.dispose();}
+  Future<void> _load()async{
+   unawaited(SessionService.instance.refreshWorkers().catchError((_){ }));
++  unawaited(SessionService.instance.refreshPresence(force:true).catchError((_){ }));
+   final results=await Future.wait<dynamic>([
+     repo.allWellStatuses(), repo.unresolvedProblems(),
+   ]);
+--- a/lib/features/organization/profile_screen.dart
++++ b/lib/features/organization/profile_screen.dart
+@@ -1,3 +1,4 @@
++import 'dart:async';
+ import 'package:flutter/material.dart';
+ import 'package:go_router/go_router.dart';
+ import 'package:image_picker/image_picker.dart';
+@@ -14,8 +15,11 @@
+ import '../../app/theme_controller.dart';
+ class ProfileScreen extends StatefulWidget { const ProfileScreen({super.key}); @override State<ProfileScreen> createState()=>_ProfileScreenState(); }
+ class _ProfileScreenState extends State<ProfileScreen> {
+- final picker=ImagePicker(); final secure=const FlutterSecureStorage();
+- @override void initState(){super.initState();_loadPhoto();}
++ final picker=ImagePicker(); final secure=const FlutterSecureStorage(); Timer? _presenceTimer;
++ @override void dispose(){_presenceTimer?.cancel();super.dispose();}
++ @override void initState(){super.initState();_loadPhoto();
++  unawaited(SessionService.instance.refreshPresence(force:true).catchError((_){ }));
++  _presenceTimer=Timer.periodic(const Duration(seconds:25),(_){if(mounted)unawaited(SessionService.instance.refreshPresence(force:true).catchError((_){ }));});}
+  Future<void> _loadPhoto()async{await AvatarStore.instance.ensureLoaded();if(mounted)setState((){});}
+ 
+  @override Widget build(BuildContext context)=>ListenableBuilder(
+@@ -46,7 +50,10 @@
+   title:const Text('Статус на работе'),
+   subtitle:Text(SessionService.instance.isAtWork(u.id)?'На работе':'Не на работе'),
+   value:SessionService.instance.isAtWork(u.id),
+-  onChanged:(v)=>setState(()=>SessionService.instance.setAtWork(u.id,v)))),
++  onChanged:(v)async{
++    try{await SessionService.instance.setAtWork(u.id,v);}
++    catch(e){if(mounted)ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text('Не удалось сохранить статус: $e')));}
++  })),
+  const SizedBox(height:18),
+  OutlinedButton.icon(onPressed:()async{
+    await SessionService.instance.logout();
+--- a/lib/features/organization/personnel_screen.dart
++++ b/lib/features/organization/personnel_screen.dart
+@@ -1,3 +1,4 @@
++import 'dart:async';
+ import 'package:flutter/material.dart';
+ import '../../core/services/session_service.dart';
+ import '../../core/services/avatar_store.dart';
+@@ -10,9 +11,11 @@
+   @override State<PersonnelScreen> createState()=>_PersonnelScreenState();
+ }
+ class _PersonnelScreenState extends State<PersonnelScreen> with SingleTickerProviderStateMixin {
+-  late final TabController tabs;
+-  @override void initState(){super.initState();tabs=TabController(length:2,vsync:this,initialIndex:widget.initialWorking==false?1:0);SessionService.instance.addListener(_changed);AvatarStore.instance.addListener(_changed);AvatarStore.instance.ensureLoaded();SessionService.instance.refreshWorkers().catchError((_){ });}
+-  @override void dispose(){SessionService.instance.removeListener(_changed);AvatarStore.instance.removeListener(_changed);tabs.dispose();super.dispose();}
++  late final TabController tabs; Timer? _presenceTimer;
++  @override void initState(){super.initState();tabs=TabController(length:2,vsync:this,initialIndex:widget.initialWorking==false?1:0);SessionService.instance.addListener(_changed);AvatarStore.instance.addListener(_changed);AvatarStore.instance.ensureLoaded();SessionService.instance.refreshWorkers().catchError((_){ });
++  unawaited(SessionService.instance.refreshPresence(force:true).catchError((_){ }));
++  _presenceTimer=Timer.periodic(const Duration(seconds:25),(_){if(mounted)unawaited(SessionService.instance.refreshPresence(force:true).catchError((_){ }));});}
++  @override void dispose(){_presenceTimer?.cancel();SessionService.instance.removeListener(_changed);AvatarStore.instance.removeListener(_changed);tabs.dispose();super.dispose();}
+   void _changed(){if(mounted)setState((){});}
+   List<AppUser> get users {
+     final s=SessionService.instance;
+@@ -145,6 +148,10 @@
+     final value=SessionService.instance.isAtWork(u.id);
+     return DropdownButton<bool>(value:value,underline:const SizedBox.shrink(),items:const[
+       DropdownMenuItem(value:true,child:Text('На работе')),DropdownMenuItem(value:false,child:Text('Отдыхает'))
+-    ],onChanged:(v){if(v!=null)SessionService.instance.setAtWork(u.id,v);});
++    ],onChanged:(v)async{
++      if(v==null)return;
++      try{await SessionService.instance.setAtWork(u.id,v);}
++      catch(e){if(mounted)ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text('Не удалось изменить статус: $e')));}
++    });
+   }
+ }
+--- a/lib/features/menu/menu_screen.dart
++++ b/lib/features/menu/menu_screen.dart
+@@ -2,14 +2,36 @@
+ import 'package:go_router/go_router.dart';
+ import '../../core/services/session_service.dart';
+ import '../../core/models/user.dart';
++import '../../core/services/avatar_store.dart';
+ 
+ /// Secondary sections remain on their original routes and deep links.
+ class PromyselMenuScreen extends StatelessWidget {
+  const PromyselMenuScreen({super.key});
+- @override Widget build(BuildContext context)=>Scaffold(
++ @override Widget build(BuildContext context){AvatarStore.instance.ensureLoaded();return Scaffold(
+   appBar:AppBar(title:const Text('Меню')),
+-  body:ListenableBuilder(listenable:SessionService.instance,builder:(context,_)=>ListView(padding:const EdgeInsets.all(16),children:[
+-    Card(child:ListTile(leading:const Icon(Icons.account_circle_outlined,size:32),title:Text(SessionService.instance.currentUser.name.isEmpty?'Пользователь':SessionService.instance.currentUser.name,style:const TextStyle(fontWeight:FontWeight.w800)),subtitle:Text(SessionService.instance.currentUser.role.label))),
++  body:ListenableBuilder(listenable:SessionService.instance,builder:(context,_)=>ListenableBuilder(
++    listenable:AvatarStore.instance,builder:(context,__)=>ListView(padding:const EdgeInsets.all(16),children:[
++    Card(
++      elevation:0,clipBehavior:Clip.antiAlias,
++      color:Theme.of(context).colorScheme.primaryContainer,
++      shape:RoundedRectangleBorder(borderRadius:BorderRadius.circular(20)),
++      child:ListTile(contentPadding:const EdgeInsets.symmetric(horizontal:17,vertical:14),
++        leading:ListenableBuilder(listenable:AvatarStore.instance,builder:(context,_){
++          final bytes=AvatarStore.instance.bytes(SessionService.instance.currentUser.id);
++          return CircleAvatar(radius:29,backgroundImage:bytes==null?null:MemoryImage(bytes),
++            child:bytes==null?const Icon(Icons.person_outline,size:28):null);
++        }),
++        title:Text(SessionService.instance.currentUser.name.isEmpty?'Пользователь':SessionService.instance.currentUser.name,
++          style:Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight:FontWeight.w900,
++            color:Theme.of(context).colorScheme.onPrimaryContainer)),
++        subtitle:Padding(padding:const EdgeInsets.only(top:5),child:Text(
++          SessionService.instance.currentUser.role==UserRole.engineer
++            ?(SessionService.instance.currentUser.itrSubrole?.label??'ИТР')
++            :SessionService.instance.currentUser.role.label,
++          style:TextStyle(fontWeight:FontWeight.w700,color:Theme.of(context).colorScheme.onPrimaryContainer))),
++        trailing:const Icon(Icons.chevron_right),onTap:()=>context.go('/profile'),
++      ),
++    ),
+     const SizedBox(height:8),
+    _entry(context,Icons.person_outline,'Профиль',
+     'Личные данные, график работы, обучение, настройки','/profile'),
+@@ -17,8 +39,9 @@
+     'Месторождение, кустовые площадки и скважины','/wells?from=menu'),
+    _entry(context,Icons.history_outlined,'История',
+     'История обходов, параметры и журналы','/history'),
+-  ])),
++  ]))),
+  );
++ }
+  Widget _entry(BuildContext context,IconData icon,String title,
+   String subtitle,String path)=>Card(
+    margin:const EdgeInsets.only(bottom:10),
+--- a/lib/core/services/promysel_chat_service.dart
++++ b/lib/core/services/promysel_chat_service.dart
+@@ -82,9 +82,10 @@
+     final r=await call('POST','/rooms',data:{'fieldId':fieldId,'kind':kind,'title':title,'people':people});
+     invalidateRooms();return r['id'].toString();
+   }
+-  Future<void> sendText(String room,String text)async{
++  Future<void> sendText(String room,String text,{String? clientId})async{
+     if(text.trim().isEmpty)return;
+-    await call('POST','/rooms/$room/messages',data:{'kind':'text','body':text.trim()});invalidateRooms();
++    await call('POST','/rooms/$room/messages',data:{'kind':'text','body':text.trim(),
++      'clientId':clientId??newMessageId()});invalidateRooms();
+   }
+   Future<String> upload(String room,XFile file,String kind)async{
+     final size=await file.length();
+@@ -147,7 +148,12 @@
+     await call('PATCH','/rooms/$room/settings',data:{if(muted!=null)'muted':muted,if(pinned!=null)'pinned':pinned,if(soundEnabled!=null)'soundEnabled':soundEnabled,
+       if(read)'read':true,if(title!=null)'title':title});invalidateRooms();
+   }
+-  Future<void> hideRoom(String room)async{await call('DELETE','/rooms/$room');invalidateRooms();}
++  Future<void> hideRoom(String room)async{
++    final result=await call('DELETE','/rooms/$room');
++    if(result['status']!='hidden')throw Exception('Сервер не подтвердил удаление чата');
++    _roomsCache?.removeWhere((x)=>x['id']==room);
++    invalidateRooms();
++  }
+   Future<void> changeMessage(String room,String id,String text)=>call('PATCH','/rooms/$room/messages/$id',data:{'body':text}).then((_){ });
+   Future<void> deleteMessage(String room,String id)=>call('DELETE','/rooms/$room/messages/$id').then((_){ });
+   Future<void> member(String room,String id,{required bool add})=>call(add?'POST':'DELETE','/rooms/$room/members',data:{'userId':id}).then((_){ });
+--- a/lib/features/chat/promysel_chat_screen.dart
++++ b/lib/features/chat/promysel_chat_screen.dart
+@@ -8,6 +8,7 @@
+ import 'package:image_picker/image_picker.dart';
+ import 'package:file_picker/file_picker.dart';
+ import 'package:record/record.dart';
++import 'package:camera/camera.dart';
+ import 'package:path_provider/path_provider.dart';
+ import 'package:url_launcher/url_launcher.dart';
+ import '../../core/services/session_service.dart';
+@@ -40,15 +41,16 @@
+   return null;
+ }
+ class _PromyselChatScreenState extends State<PromyselChatScreen>{
+- List<Map<String,dynamic>> rooms=[];bool loading=true;String? error;String search='';Timer? tick;int knownUnread=-1;bool busy=false,_fetching=false;
++ List<Map<String,dynamic>> rooms=[];bool loading=true;String? error;String search='';Timer? tick;int knownUnread=-1;bool busy=false,_fetching=false; final Set<String> _hiddenLocally={};
+  @override void initState(){super.initState();AvatarStore.instance.ensureLoaded();_load(force:true);tick=Timer.periodic(const Duration(seconds:75),(_){if(mounted&&GoRouter.of(context).routeInformationProvider.value.uri.path=='/chat')_load(silent:true);});}
+  @override void dispose(){tick?.cancel();super.dispose();}
+  Future<void> _load({bool silent=false,bool force=false})async{
+    if(!mounted||_fetching)return;_fetching=true;
+    try{final next=await _chat.rooms(force:force);if(!mounted)return;
+-     final total=next.where((r)=>r['muted']!=true).fold<int>(0,(a,r)=>a+((r['unread'] as num?)?.toInt()??0));
++     final visible=next.where((r)=>!_hiddenLocally.contains('${r['id']}')).toList();
++     final total=visible.where((r)=>r['muted']!=true).fold<int>(0,(a,r)=>a+((r['unread'] as num?)?.toInt()??0));
+      // The global unread monitor handles sound and badges without duplicate alerts.
+-     setState((){rooms=next;loading=false;error=null;knownUnread=total;});
++     setState((){rooms=visible;loading=false;error=null;knownUnread=total;});
+    }catch(e){if(mounted&&!silent&&rooms.isEmpty)setState((){loading=false;error='Не удалось обновить чаты. Проверьте соединение и повторите.';});}
+    finally{_fetching=false;}
+  }
+@@ -77,20 +79,63 @@
+            actions:[TextButton(onPressed:()=>Navigator.pop(d,false),child:const Text('Отмена')),
+              FilledButton(onPressed:()=>Navigator.pop(d,true),child:const Text('Удалить'))]));
+          if(ok!=true)return;
+-         try{await _chat.hideRoom(id);if(mounted)setState(()=>rooms.removeWhere((x)=>x['id']==id));}
+-         catch(e){_report(e);}
++         final previous=List<Map<String,dynamic>>.of(rooms);
++         if(mounted)setState((){_hiddenLocally.add(id);rooms.removeWhere((x)=>x['id']==id);});
++         try{await _chat.hideRoom(id);}
++         catch(e){if(mounted)setState((){_hiddenLocally.remove(id);rooms=previous;});_report(e);}
+        }),
+    ])));
+   }
+- Future<void> _pickPerson({bool group=false})async{
+-   try{final people=(await _chat.users()).where((x)=>x['id']!=_chat.userId).toList();
++ Future<void> _newChatMenu()async{
++   try{
++     final people=(await _chat.users()).where((x)=>x['id']!=_chat.userId).toList()
++       ..sort((a,b)=>'${a['name']}'.toLowerCase().replaceAll('ё','е').compareTo(
++         '${b['name']}'.toLowerCase().replaceAll('ё','е')));
+      if(!mounted)return;
+-     if(group){await _groupDialog(people);return;}
+-     await showModalBottomSheet<void>(context:context,isScrollControlled:true,showDragHandle:true,builder:(sheet)=>SafeArea(child:FractionallySizedBox(heightFactor:.65,child:Column(children:[
+-       const Padding(padding:EdgeInsets.all(16),child:Text('Новый личный чат',style:TextStyle(fontSize:19,fontWeight:FontWeight.w800))),
+-       Expanded(child:ListView(children:[for(final p in people)ListTile(leading:const CircleAvatar(child:Icon(Icons.person_outline)),title:Text('${p['name']}'),onTap:(){Navigator.pop(sheet);_create('private',personId:'${p['id']}');})])),
+-     ]))));
++     var query='';
++     await showModalBottomSheet<void>(context:context,isScrollControlled:true,showDragHandle:true,
++       builder:(sheet)=>SafeArea(child:SizedBox(height:MediaQuery.sizeOf(sheet).height*.78,
++         child:StatefulBuilder(builder:(sheet,refresh){
++           final visible=people.where((p)=>'${p['name']}'.toLowerCase().contains(query.toLowerCase())).toList();
++           return Column(children:[
++             Padding(padding:const EdgeInsets.fromLTRB(16,5,16,12),child:Row(children:[
++               const Expanded(child:Text('Новое сообщение',style:TextStyle(fontSize:21,fontWeight:FontWeight.w900))),
++               IconButton(tooltip:'Закрыть',onPressed:()=>Navigator.pop(sheet),icon:const Icon(Icons.close))])),
++             Padding(padding:const EdgeInsets.symmetric(horizontal:12),child:TextField(
++               onChanged:(value)=>refresh(()=>query=value),decoration:const InputDecoration(
++                 prefixIcon:Icon(Icons.search),hintText:'Найти сотрудника',border:OutlineInputBorder()))),
++             const SizedBox(height:8),
++             ListTile(leading:const Icon(Icons.group_add_outlined),title:const Text('Создать группу',style:TextStyle(fontWeight:FontWeight.w700)),
++               onTap:(){Navigator.pop(sheet);_groupDialog(people);}),
++             ListTile(leading:const Icon(Icons.bookmark_border),title:const Text('Избранное',style:TextStyle(fontWeight:FontWeight.w700)),
++               onTap:(){Navigator.pop(sheet);_openNewChat(saved:true);}),
++             const Divider(height:1),
++             Expanded(child:ListView.builder(itemCount:visible.length,itemBuilder:(context,i){
++               final p=visible[i],id='${p['id']}',bytes=AvatarStore.instance.bytes(id);
++               return ListTile(
++                 leading:CircleAvatar(backgroundImage:bytes==null?null:MemoryImage(bytes),
++                   child:bytes==null?const Icon(Icons.person_outline):null),
++                 title:Text('${p['name']}',maxLines:1,overflow:TextOverflow.ellipsis),
++                 onTap:(){Navigator.pop(sheet);_openNewChat(personId:id,name:'${p['name']}');});
++             })),
++           ]);
++         }))));
+    }catch(e){_report(e);}
++ }
++ void _openNewChat({String? personId,String name='',bool saved=false}){
++   // When an existing conversation is visible, open it directly. Otherwise use
++   // a draft route: the server creates the room only on first actual send.
++   for(final room in rooms){
++     final kind=room['kind'];
++     if(saved&&kind=='saved'){context.go('/chat/${room['id']}');return;}
++     if(!saved&&kind=='private'){
++       final members=((room['people'] as List?)??[]).whereType<Map>();
++       if(members.any((m)=>m['id']==personId)){context.go('/chat/${room['id']}');return;}
++     }
++   }
++   final location=Uri(path:'/chat/new',queryParameters:{if(saved)'saved':'1',
++     if(personId!=null)'personId':personId,if(!saved)'name':name});
++   context.go(location.toString());
+  }
+  Future<void> _groupDialog(List<Map<String,dynamic>> people)async{
+    final title=TextEditingController();final chosen=<String>{};
+@@ -122,14 +167,9 @@
+    final filtered=rooms.where((r)=>_name(r).toLowerCase().contains(search.toLowerCase())||_preview(r['last'] is Map?Map<String,dynamic>.from(r['last']):null).toLowerCase().contains(search.toLowerCase())).toList();
+    return Scaffold(appBar:AppBar(leading:IconButton(tooltip:'Назад в меню',icon:const Icon(Icons.arrow_back),onPressed:()=>context.go('/menu')),
+      title:const Text('Чаты'),actions:[IconButton(tooltip:'Настройки чата',onPressed:_settings,icon:const Icon(Icons.settings_outlined)),
+-       IconButton(tooltip:'Обновить',onPressed:()=>_load(force:true),icon:const Icon(Icons.refresh))]),
+-     floatingActionButton:FloatingActionButton.extended(onPressed:busy?null:()=>_pickPerson(),icon:const Icon(Icons.chat_bubble_outline),label:const Text('Написать')),
++       IconButton(tooltip:'Новый чат или группа',onPressed:busy?null:_newChatMenu,icon:const Icon(Icons.add))]),
+      body:Column(children:[Padding(padding:const EdgeInsets.fromLTRB(12,8,12,0),child:TextField(onChanged:(v)=>setState(()=>search=v),
+        decoration:InputDecoration(hintText:'Поиск по чатам',prefixIcon:const Icon(Icons.search),filled:true,border:OutlineInputBorder(borderRadius:BorderRadius.circular(15),borderSide:BorderSide.none)))),
+-       Padding(padding:const EdgeInsets.fromLTRB(12,6,12,6),child:Row(children:[
+-         TextButton.icon(onPressed:busy?null:()=>_create('saved'),icon:const Icon(Icons.bookmark_border),label:const Text('Избранное')),
+-         const SizedBox(width:8),TextButton.icon(onPressed:busy?null:()=>_pickPerson(group:true),icon:const Icon(Icons.group_add_outlined),label:const Text('Новая группа')),
+-       ])),
+        if(error!=null)Padding(padding:const EdgeInsets.symmetric(horizontal:12),child:Text(error!,style:TextStyle(color:Theme.of(context).colorScheme.error))),
+        if(loading)const LinearProgressIndicator(),
+        Expanded(child:RefreshIndicator(onRefresh:()=>_load(force:true),child:filtered.isEmpty?ListView(children:[const SizedBox(height:80),Center(child:Text('Чатов пока нет. Создайте личный чат или группу.'))]):ListView.builder(itemCount:filtered.length,itemBuilder:(context,i){
+@@ -149,38 +189,57 @@
+ }
+ 
+ class PromyselChatRoomScreen extends StatefulWidget{
+- const PromyselChatRoomScreen({super.key,required this.roomId});final String roomId;
++ const PromyselChatRoomScreen({super.key,this.roomId='',this.draftUserId,this.draftName='',this.draftSaved=false});
++ final String roomId;final String? draftUserId;final String draftName;final bool draftSaved;
+  @override State<PromyselChatRoomScreen> createState()=>_PromyselChatRoomScreenState();
+ }
+ class _PromyselChatRoomScreenState extends State<PromyselChatRoomScreen>{
+  final text=TextEditingController(),list=ScrollController(),recorder=AudioRecorder();
++ String _resolvedRoomId='';
++ String get _roomId=>_resolvedRoomId;
++ CameraController? _videoController;
++ bool _held=false,_recordLocked=false,_recordStarting=false,_endingRecording=false;
++ bool _recordingVideo=false,_cancelPending=false;
++ String? _recordType;
++ Timer? _recordLimit;
++
+  List<Map<String,dynamic>> messages=[];Map<String,dynamic>? room;Timer? tick;
+  int polls=0;bool loading=true,busy=false,recording=false,_fetching=false;
+  final List<XFile> _draftPhotos=[];
+  final Map<int,Uint8List> _thumbs={};
+  final Map<int,String> _uploadedPhotos={};
+- String? _draftId;String _progress='';
++ String? _draftId,_textSendId;String _textForId='',_progress='';
+  String search='';
+- @override void initState(){super.initState();AvatarStore.instance.ensureLoaded();_init();tick=Timer.periodic(const Duration(seconds:18),(_){
+-   if(!mounted||GoRouter.of(context).routeInformationProvider.value.uri.path!='/chat/${widget.roomId}')return;
++ @override void initState(){super.initState();_resolvedRoomId=widget.roomId;AvatarStore.instance.ensureLoaded();_init();tick=Timer.periodic(const Duration(seconds:18),(_){
++   if(!mounted||_roomId.isEmpty||GoRouter.of(context).routeInformationProvider.value.uri.path!='/chat/${_roomId}')return;
+    _refresh(silent:true);if(++polls%10==0)_reloadRoom();
+  });}
+- @override void dispose(){tick?.cancel();text.dispose();list.dispose();recorder.dispose();super.dispose();}
++ @override void dispose(){tick?.cancel();_recordLimit?.cancel();_videoController?.dispose();text.dispose();list.dispose();recorder.dispose();super.dispose();}
+  Future<void> _init()async{
++   if(_roomId.isEmpty){
++     room=widget.draftSaved?{
++       'kind':'saved','title':'Избранное','people':[{'id':_chat.userId,'name':'Вы'}]
++     }:{'kind':'private','title':'','people':[
++       {'id':_chat.userId,'name':'Вы'},
++       {'id':widget.draftUserId??'','name':widget.draftName}
++     ]};
++     if(mounted)setState(()=>loading=false);
++     return;
++   }
+    // Show history immediately; room metadata loads independently from shared cache.
+-   final cached=_chat.cachedRoom(widget.roomId);
++   final cached=_chat.cachedRoom(_roomId);
+    if(cached!=null)room=cached;
+    unawaited(_reloadRoom());
+    await _refresh();
+  }
+  Future<void> _refresh({bool silent=false})async{
+-   if(!mounted||busy||_fetching)return;
++   if(!mounted||_roomId.isEmpty||busy||_fetching)return;
+    _fetching=true;
+    try{
+      // Delta fetch avoids repeated download and signing of the same 60 photos.
+      final full=!silent||messages.isEmpty||polls%10==0;
+      final last=messages.isNotEmpty?DateTime.tryParse('${messages.last['created_at']??''}'):null;
+-     final next=await _chat.messages(widget.roomId,after:full?null:last);
++     final next=await _chat.messages(_roomId,after:full?null:last);
+      if(!mounted)return;
+      if(full){
+        final oldSignature=messages.map((x)=>'${x['id']}:${x['body']}:${x['edited_at']}:${x['deleted_at']}:${x['url']}:${x['attachments']}').join('|');
+@@ -196,29 +255,41 @@
+      if(latestAt!=null&&(readAt==null||latestAt.isAfter(readAt))){
+        // Do not hold up painting while saving read status.
+        if(room!=null)room!['lastReadAt']=DateTime.now().toUtc().toIso8601String();
+-       unawaited(_chat.settings(widget.roomId,read:true).catchError((_){ }));
++       unawaited(_chat.settings(_roomId,read:true).catchError((_){ }));
+      }
+    }catch(e){if(!silent)_report(e);if(mounted&&loading)setState(()=>loading=false);}
+    finally{_fetching=false;}
+  }
+  void _report(Object e){if(mounted)ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text(e.toString().replaceFirst('Exception: ',''))));}
++ Future<String> _ensureRoom()async{
++   if(_roomId.isNotEmpty)return _roomId;
++   final kind=widget.draftSaved?'saved':'private';
++   final to=widget.draftUserId;
++   if(kind=='private'&&(to==null||to.isEmpty))throw Exception('Сотрудник не выбран');
++   final id=await _chat.create(kind,people:kind=='saved'?[]:[to!]);
++   _resolvedRoomId=id;
++   return id;
++ }
+  Future<void> _send()async{
+    final value=text.text.trim();
+    if(busy||(value.isEmpty&&_draftPhotos.isEmpty))return;
+    setState((){busy=true;_progress='';});
+    try{
++     final destination=await _ensureRoom();
+      if(_draftPhotos.isNotEmpty){
+        final id=_draftId??=_chat.newMessageId();
+-       await _chat.sendAlbum(widget.roomId,List<XFile>.of(_draftPhotos),value,
++       await _chat.sendAlbum(destination,List<XFile>.of(_draftPhotos),value,
+          clientId:id,uploaded:_uploadedPhotos,onProgress:(i,n){
+          if(mounted)setState(()=>_progress='Загрузка фото $i из $n');
+        });
+      }else{
+-       await _chat.sendText(widget.roomId,value);
++       if(_textForId!=value){_textForId=value;_textSendId=_chat.newMessageId();}
++       await _chat.sendText(destination,value,clientId:_textSendId);
+      }
+      if(!mounted)return;
+-     text.clear();
++     text.clear();_textSendId=null;_textForId='';
+      setState((){_draftPhotos.clear();_thumbs.clear();_uploadedPhotos.clear();_draftId=null;_progress='';});
++     if(widget.roomId.isEmpty){context.go('/chat/$destination');}
+    }catch(e){
+      // Preserve the text, photo draft and successful uploads for a manual retry.
+      _report(e);
+@@ -252,8 +323,11 @@
+  }
+  Future<void> _media(XFile file,String kind)async{
+    if(busy)return;setState(()=>busy=true);
+-   try{await _chat.sendMedia(widget.roomId,file,kind);await _refresh();}
+-   catch(e){_report(e);}finally{if(mounted)setState(()=>busy=false);}
++   try{final destination=await _ensureRoom();await _chat.sendMedia(destination,file,kind);
++     if(widget.roomId.isEmpty){if(mounted)context.go('/chat/$destination');}
++     else{await _refresh();}
++   }
++   catch(e){_report(e);}finally{if(mounted){setState(()=>busy=false);await _refresh();}}
+  }
+  Future<void> _attachment(String kind,{bool camera=false})async{
+    try{
+@@ -268,15 +342,90 @@
+      }
+    }catch(e){_report(e);}
+  }
+- Future<void> _startOrStopVoice()async{
++ void _recordStart(String type){
++   if(busy||_recordType!=null)return;
++   _held=true;_recordLocked=false;_recordStarting=true;_cancelPending=false;
++   _recordType=type;_recordingVideo=type=='video';
++   setState(()=>recording=false);
++   unawaited(_startRecording());
++ }
++ Future<void> _startRecording()async{
+    try{
+-     if(recording){final file=await recorder.stop();setState(()=>recording=false);if(file!=null&&file.isNotEmpty)await _media(XFile(file,name:kIsWeb?'voice.webm':'voice.m4a'),'voice');return;}
+-     final allowed=await recorder.hasPermission();if(!allowed){_report('Разрешите доступ к микрофону');return;}
+-     final stamp=DateTime.now().microsecondsSinceEpoch;
+-     final path=kIsWeb?'voice_$stamp.webm':'${(await getTemporaryDirectory()).path}/voice_$stamp.m4a';
+-     await recorder.start(RecordConfig(encoder:kIsWeb?AudioEncoder.opus:AudioEncoder.aacLc),path:path);
++     if(_recordingVideo){
++       final cameras=await availableCameras();
++       if(cameras.isEmpty)throw Exception('Камера недоступна');
++       final front=cameras.where((c)=>c.lensDirection==CameraLensDirection.front);
++       final controller=CameraController(front.isNotEmpty?front.first:cameras.first,
++         ResolutionPreset.medium,enableAudio:true);
++       _videoController=controller;
++       await controller.initialize();
++       if((_cancelPending||!_held)&&!_recordLocked){await controller.dispose();_videoController=null;
++         _recordType=null;_recordStarting=false;_cancelPending=false;if(mounted)setState(()=>recording=false);return;}
++       await controller.startVideoRecording();
++     }else{
++       if(!await recorder.hasPermission())throw Exception('Разрешите доступ к микрофону');
++       final stamp=DateTime.now().microsecondsSinceEpoch;
++       final path=kIsWeb?'voice_$stamp.webm':'${(await getTemporaryDirectory()).path}/voice_$stamp.m4a';
++       await recorder.start(RecordConfig(encoder:kIsWeb?AudioEncoder.opus:AudioEncoder.aacLc),path:path);
++     }
++     _recordStarting=false;
++     _recordLimit?.cancel();_recordLimit=Timer(const Duration(minutes:2),(){unawaited(_finishRecording(send:true));});
+      if(mounted)setState(()=>recording=true);
+-   }catch(e){if(mounted)setState(()=>recording=false);_report(e);}
++     if(_cancelPending)unawaited(_finishRecording(send:false));
++     else if(!_held&&!_recordLocked)unawaited(_finishRecording(send:true));
++   }catch(e){
++     _recordStarting=false;_recordType=null;_cancelPending=false;_recordLimit?.cancel();
++     try{await _videoController?.dispose();}catch(_){}
++     _videoController=null;
++     if(mounted){setState(()=>recording=false);_report(e);}
++   }
++ }
++ void _recordMoved(LongPressMoveUpdateDetails details){
++   if(_recordType!=null&&!_recordLocked&&details.offsetFromOrigin.dy<-65){
++     setState(()=>_recordLocked=true);
++   }
++ }
++ void _recordReleased(){
++   _held=false;
++   if(!_recordLocked&&!_recordStarting)unawaited(_finishRecording(send:true));
++ }
++ Future<void> _finishRecording({required bool send})async{
++   if(_endingRecording||_recordType==null)return;
++   if(_recordStarting){
++     if(!send){_cancelPending=true;_held=false;_recordLocked=false;}
++     return;
++   }
++   _endingRecording=true;
++   final wasVideo=_recordingVideo;
++   _recordLimit?.cancel();
++   try{
++     XFile? media;
++     if(wasVideo){
++       final controller=_videoController;
++       if(controller!=null&&controller.value.isRecordingVideo)media=await controller.stopVideoRecording();
++       await controller?.dispose();_videoController=null;
++     }else{
++       final path=await recorder.stop();
++       if(path!=null&&path.isNotEmpty)media=XFile(path,name:kIsWeb?'voice.webm':'voice.m4a');
++     }
++     _held=false;_recordLocked=false;_recordType=null;_recordingVideo=false;_cancelPending=false;
++     if(mounted)setState(()=>recording=false);
++     if(send&&media!=null)await _media(media,wasVideo?'video':'voice');
++   }catch(e){_report(e);}
++   finally{_endingRecording=false;}
++ }
++ Widget _holdToRecord(String type,IconData icon){
++   final locked=_recordLocked&&_recordType==type;
++   return GestureDetector(
++     onTap:(){if(locked){unawaited(_finishRecording(send:true));}
++       else{_report('Для записи удерживайте кнопку. Сдвиньте вверх, чтобы закрепить.');}},
++     onLongPressStart:(_)=>_recordStart(type),
++     onLongPressMoveUpdate:_recordMoved,
++     onLongPressEnd:(_)=>_recordReleased(),
++     child:Semantics(button:true,label:type=='video'?'Удерживайте для видеосообщения':'Удерживайте для голосового',
++       child:SizedBox(width:42,height:48,child:Icon(locked?Icons.send_rounded:icon,
++         color:_recordType==type?Colors.red:null))),
++   );
+  }
+  Future<void> _attachMenu()async{
+    await showModalBottomSheet<void>(context:context,showDragHandle:true,builder:(sheet)=>SafeArea(child:Wrap(children:[
+@@ -299,13 +448,13 @@
+      TextButton(onPressed:()=>Navigator.pop(d,false),child:const Text('Отмена')),
+      FilledButton(onPressed:()=>Navigator.pop(d,true),child:const Text('Сохранить'))]));
+    final value=control.text.trim();control.dispose();if(ok!=true||value.isEmpty)return;
+-   try{await _chat.changeMessage(widget.roomId,'${m['id']}',value);await _refresh();}catch(e){_report(e);}
++   try{await _chat.changeMessage(_roomId,'${m['id']}',value);await _refresh();}catch(e){_report(e);}
+  }
+  Future<void> _delete(Map<String,dynamic> m)async{
+    final ok=await showDialog<bool>(context:context,builder:(d)=>AlertDialog(title:const Text('Удалить сообщение?'),content:const Text('Сообщение станет недоступно всем участникам.'),actions:[
+      TextButton(onPressed:()=>Navigator.pop(d,false),child:const Text('Отмена')),
+      FilledButton(onPressed:()=>Navigator.pop(d,true),child:const Text('Удалить'))]));
+-   if(ok!=true)return;try{await _chat.deleteMessage(widget.roomId,'${m['id']}');await _refresh();}catch(e){_report(e);}
++   if(ok!=true)return;try{await _chat.deleteMessage(_roomId,'${m['id']}');await _refresh();}catch(e){_report(e);}
+  }
+  Future<void> _openUrl(String value)async{
+    if(value.isEmpty)return;
+@@ -346,11 +495,11 @@
+  Future<void> _roomSettings()async{
+    if(room==null)return;final r=room!;bool muted=r['muted']==true,sound=r['soundEnabled']!=false;
+    await showDialog<void>(context:context,builder:(d)=>StatefulBuilder(builder:(d,refresh)=>AlertDialog(title:Text(_name(r)),content:SizedBox(width:420,child:SingleChildScrollView(child:Column(mainAxisSize:MainAxisSize.min,crossAxisAlignment:CrossAxisAlignment.start,children:[
+-     SwitchListTile(title:const Text('Без уведомлений'),value:muted,onChanged:(v)async{try{await _chat.settings(widget.roomId,muted:v);refresh(()=>muted=v);setState(()=>r['muted']=v);}catch(e){_report(e);}}),
+-     SwitchListTile(title:const Text('Звук сообщений'),value:sound,onChanged:(v)async{try{await _chat.settings(widget.roomId,soundEnabled:v);refresh(()=>sound=v);setState(()=>r['soundEnabled']=v);}catch(e){_report(e);}}),
++     SwitchListTile(title:const Text('Без уведомлений'),value:muted,onChanged:(v)async{try{await _chat.settings(_roomId,muted:v);refresh(()=>muted=v);setState(()=>r['muted']=v);}catch(e){_report(e);}}),
++     SwitchListTile(title:const Text('Звук сообщений'),value:sound,onChanged:(v)async{try{await _chat.settings(_roomId,soundEnabled:v);refresh(()=>sound=v);setState(()=>r['soundEnabled']=v);}catch(e){_report(e);}}),
+      if(r['kind']=='group')...[const Divider(),const Text('Участники',style:TextStyle(fontWeight:FontWeight.w800)),
+        for(final p in ((r['people'] as List?)??[]).whereType<Map>())ListTile(dense:true,title:Text('${p['name']}'),
+-         trailing:r['created_by']==_chat.userId&&p['id']!=_chat.userId?IconButton(icon:const Icon(Icons.person_remove_outlined),onPressed:()async{try{await _chat.member(widget.roomId,'${p['id']}',add:false);await _reloadRoom();refresh((){});}catch(e){_report(e);}}):null),
++         trailing:r['created_by']==_chat.userId&&p['id']!=_chat.userId?IconButton(icon:const Icon(Icons.person_remove_outlined),onPressed:()async{try{await _chat.member(_roomId,'${p['id']}',add:false);await _reloadRoom();refresh((){});}catch(e){_report(e);}}):null),
+        if(r['created_by']==_chat.userId)...[
+          TextButton.icon(icon:const Icon(Icons.add_a_photo_outlined),label:const Text('Фотография группы'),onPressed:(){Navigator.pop(d);_changeAvatar();}),
+          TextButton.icon(icon:const Icon(Icons.person_add_outlined),label:const Text('Добавить участника'),onPressed:()async{Navigator.pop(d);await _addMember();}),
+@@ -359,10 +508,10 @@
+      ],
+    ]))),actions:[TextButton(onPressed:()=>Navigator.pop(d),child:const Text('Закрыть'))])));
+  }
+- Future<void> _reloadRoom()async{try{final rooms=await _chat.rooms();final next=rooms.where((x)=>x['id']==widget.roomId).firstOrNull;if(mounted)setState(()=>room=next);}catch(_){/* Keep cached room while offline. */}}
++ Future<void> _reloadRoom()async{try{final rooms=await _chat.rooms();final next=rooms.where((x)=>x['id']==_roomId).firstOrNull;if(mounted)setState(()=>room=next);}catch(_){/* Keep cached room while offline. */}}
+  Future<void> _changeAvatar()async{
+    try{final image=await ImagePicker().pickImage(source:ImageSource.gallery,imageQuality:80,maxWidth:1200);
+-     if(image==null)return;await _chat.groupAvatar(widget.roomId,image);await _reloadRoom();
++     if(image==null)return;await _chat.groupAvatar(_roomId,image);await _reloadRoom();
+    }catch(e){_report(e);}
+  }
+  Future<void> _addMember()async{
+@@ -370,17 +519,17 @@
+      final people=(await _chat.users()).where((p)=>!existing.contains('${p['id']}')).toList();if(!mounted)return;
+      await showModalBottomSheet<void>(context:context,showDragHandle:true,builder:(d)=>SafeArea(child:ListView(shrinkWrap:true,children:[
+        const Padding(padding:EdgeInsets.all(16),child:Text('Добавить в группу',style:TextStyle(fontWeight:FontWeight.w800,fontSize:19))),
+-       for(final p in people)ListTile(title:Text('${p['name']}'),onTap:()async{Navigator.pop(d);try{await _chat.member(widget.roomId,'${p['id']}',add:true);await _reloadRoom();}catch(e){_report(e);}})
++       for(final p in people)ListTile(title:Text('${p['name']}'),onTap:()async{Navigator.pop(d);try{await _chat.member(_roomId,'${p['id']}',add:true);await _reloadRoom();}catch(e){_report(e);}})
+      ])));
+    }catch(e){_report(e);}
+  }
+  Future<void> _renameGroup()async{
+    final c=TextEditingController(text:'${room?['title']??''}');
+    final ok=await showDialog<bool>(context:context,builder:(d)=>AlertDialog(title:const Text('Название группы'),content:TextField(controller:c,maxLength:100),actions:[TextButton(onPressed:()=>Navigator.pop(d,false),child:const Text('Отмена')),FilledButton(onPressed:()=>Navigator.pop(d,true),child:const Text('Сохранить'))]));
+-   final n=c.text.trim();c.dispose();if(ok==true&&n.isNotEmpty){try{await _chat.settings(widget.roomId,title:n);await _reloadRoom();}catch(e){_report(e);}}
++   final n=c.text.trim();c.dispose();if(ok==true&&n.isNotEmpty){try{await _chat.settings(_roomId,title:n);await _reloadRoom();}catch(e){_report(e);}}
+  }
+  Future<void> _leave()async{
+-   try{await _chat.leave(widget.roomId);if(mounted)context.go('/chat');}catch(e){_report(e);}
++   try{await _chat.leave(_roomId);if(mounted)context.go('/chat');}catch(e){_report(e);}
+  }
+  @override Widget build(BuildContext context){
+    final visible=messages.where((m)=>search.isEmpty||'${m['body']??''}'.toLowerCase().contains(search.toLowerCase())).toList();
+@@ -393,7 +542,20 @@
+      body:Column(children:[if(loading)const LinearProgressIndicator(),
+        Expanded(child:visible.isEmpty?Center(child:Text(loading?'Загрузка…':search.isNotEmpty?'Ничего не найдено':'Напишите первое сообщение')):
+          ListView.builder(controller:list,padding:const EdgeInsets.symmetric(vertical:9),itemCount:visible.length,itemBuilder:(_,i)=>_bubble(visible[i]))),
+-        if(recording)Container(color:Theme.of(context).colorScheme.errorContainer,padding:const EdgeInsets.all(7),child:const Row(mainAxisAlignment:MainAxisAlignment.center,children:[Icon(Icons.mic,color:Colors.red),SizedBox(width:6),Text('Идёт запись · нажмите ещё раз для отправки')])),
++        if(_recordType!=null)Container(color:Theme.of(context).colorScheme.errorContainer,
++          padding:const EdgeInsets.all(9),child:Row(children:[
++          if(_recordingVideo&&_videoController?.value.isInitialized==true)
++            SizedBox(height:100,width:80,child:CameraPreview(_videoController!))
++          else Icon(_recordingVideo?Icons.videocam:Icons.mic,color:Colors.red),
++          const SizedBox(width:10),
++          Expanded(child:Text(_recordStarting?'Подключение…':_recordLocked?
++            'Запись закреплена · отправьте или отмените':'Идёт запись · проведите вверх для фиксации',
++            maxLines:2)),
++          IconButton(tooltip:'Отменить запись',onPressed:()=>_finishRecording(send:false),
++            icon:const Icon(Icons.delete_outline)),
++          if(_recordLocked)IconButton(tooltip:'Отправить запись',onPressed:()=>_finishRecording(send:true),
++            icon:const Icon(Icons.send_rounded)),
++        ])),
+         if(_draftPhotos.isNotEmpty)SizedBox(height:105,child:ListView.builder(
+           scrollDirection:Axis.horizontal,itemCount:_draftPhotos.length,padding:const EdgeInsets.symmetric(horizontal:10,vertical:5),
+           itemBuilder:(context,i)=>Padding(padding:const EdgeInsets.only(right:8),child:Stack(children:[
+@@ -413,10 +575,8 @@
+               return IconButton(tooltip:'Отправить сообщение',onPressed:busy?null:_send,icon:const Icon(Icons.send_rounded));
+             }
+             return Row(mainAxisSize:MainAxisSize.min,children:[
+-              IconButton(tooltip:recording?'Завершить запись':'Голосовое сообщение',onPressed:busy?null:_startOrStopVoice,
+-                icon:Icon(recording?Icons.stop_circle_outlined:Icons.mic_none,color:recording?Colors.red:null)),
+-              IconButton(tooltip:'Снять видеосообщение',onPressed:busy?null:()=>_attachment('video',camera:true),
+-                icon:const Icon(Icons.videocam_outlined)),
++              _holdToRecord('voice',Icons.mic_none),
++              _holdToRecord('video',Icons.videocam_outlined),
+             ]);
+           }),
+         ]))),
+--- a/lib/app/app.dart
++++ b/lib/app/app.dart
+@@ -69,7 +69,12 @@
+           StatefulShellBranch(routes: [GoRoute(path: '/history', builder: (_, __) => const HistoryScreen())]),
+           StatefulShellBranch(routes: [GoRoute(path: '/profile', builder: (_, __) => const ProfileScreen())]),
+           StatefulShellBranch(routes: [GoRoute(path: '/menu', builder: (_, __) => const PromyselMenuScreen())]),
+-          StatefulShellBranch(routes: [GoRoute(path: '/chat', builder: (_, __) => const PromyselChatScreen(),routes:[GoRoute(path: ':roomId',builder: (_,s)=>PromyselChatRoomScreen(roomId:s.pathParameters['roomId']!))])]),
++          StatefulShellBranch(routes: [GoRoute(path: '/chat', builder: (_, __) => const PromyselChatScreen(),routes:[
++            GoRoute(path:'new',builder:(_,s)=>PromyselChatRoomScreen(
++              draftUserId:s.uri.queryParameters['personId'],
++              draftName:s.uri.queryParameters['name']??'',
++              draftSaved:s.uri.queryParameters['saved']=='1')),
++            GoRoute(path: ':roomId',builder: (_,s)=>PromyselChatRoomScreen(roomId:s.pathParameters['roomId']!))])]),
+         ],
+       ),
+       GoRoute(path: '/correction', parentNavigatorKey: _rootKey, builder: (_, s) => CorrectionScreen(measurement:s.extra! as Measurement)),
+--- a/pubspec.yaml
++++ b/pubspec.yaml
+@@ -1,7 +1,7 @@
+ name: oilman_app
+ description: Мобильное приложение для операторов нефтегазовых объектов.
+ publish_to: 'none'
+-version: 1.83.0+189
++version: 1.84.0+190
+ environment:
+   sdk: '>=3.3.0 <4.0.0'
+   flutter: '>=3.19.0'
+@@ -28,6 +28,7 @@
+   url_launcher: 6.3.2
+   record: 7.1.2
+   file_picker: 11.0.3
++  camera: 0.12.2
+ 
+   # Следующий этап: локальная БД/offline-first.
+   # drift: ^2.20.0
