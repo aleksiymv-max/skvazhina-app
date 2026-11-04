@@ -85,16 +85,32 @@ Deno.serve(async(req:Request)=>{
    return response({status:'hidden',historyPreserved:true});
   }
   if(req.method==='GET'&&action==='messages'){
-   let q=db.from('promysel_chat_messages').select('*').eq('room_id',roomId).order('created_at',{ascending:false}).limit(60);
-   const before=str(url.searchParams.get('before'));if(before)q=q.lt('created_at',before);
+   // Polling 'after' only fetches additions and avoids re-signing every historical image.
+   const after=str(url.searchParams.get('after')),before=str(url.searchParams.get('before'));
+   let q=db.from('promysel_chat_messages').select('*').eq('room_id',roomId)
+     .order('created_at',{ascending:!!after}).limit(after?40:60);
+   if(after)q=q.gt('created_at',after);
+   else if(before)q=q.lt('created_at',before);
    const {data,error}=await q;if(error)throw error;
-   const items=await Promise.all((data??[]).map(async v=>{
-    if(v.deleted_at)return {...v,body:'',attachment_path:null,url:null};
-    if(!v.attachment_path)return {...v,url:null};
-    const {data:link}=await db.storage.from(B).createSignedUrl(v.attachment_path,1800);
-    return {...v,url:link?.signedUrl??null};
-   }));
-   return response({items:items.reverse()});
+   const rows=after?(data??[]):(data??[]).reverse();
+   const assets=[...new Set(rows.flatMap((v:J)=>{
+     if(v.deleted_at)return [];
+     if(v.kind==='album'&&Array.isArray(v.attachments))
+       return (v.attachments as J[]).map(x=>str(x.path)).filter(Boolean);
+     return v.attachment_path?[str(v.attachment_path)]:[];
+   }))];
+   const signed=new Map<string,string>();
+   if(assets.length){
+     const {data:links,error:linkError}=await db.storage.from(B).createSignedUrls(assets,1800);
+     if(linkError)console.warn('chat signed URLs',linkError.message);
+     for(const item of links??[])if(item.signedUrl)signed.set(item.path,item.signedUrl);
+   }
+   return response({items:rows.map((v:J)=>{
+     if(v.deleted_at)return {...v,body:'',attachment_path:null,attachments:[],url:null};
+     if(v.kind==='album'&&Array.isArray(v.attachments))
+       return {...v,url:null,attachments:(v.attachments as J[]).map(x=>({...x,url:signed.get(str(x.path))??null}))};
+     return {...v,url:v.attachment_path?signed.get(str(v.attachment_path))??null:null};
+   })});
   }
   if(req.method==='POST'&&action==='upload'){
    const type=str(value.mimeType),size=Number(value.size),name=safeName(str(value.name));
@@ -107,19 +123,44 @@ Deno.serve(async(req:Request)=>{
   }
   if(req.method==='POST'&&action==='messages'){
    const kind=str(value.kind)||'text',bodyText=str(value.body),attachment=str(value.path),clientId=str(value.clientId);
-   if(!['text','image','video','voice','document'].includes(kind)||bodyText.length>8000)return response({detail:'Некорректное сообщение'},400);
+   const isAlbum=kind==='album';
+   if(!['text','image','video','voice','document','album'].includes(kind)||bodyText.length>8000)
+     return response({detail:'Некорректное сообщение'},400);
    if(kind==='text'&&!bodyText)return response({detail:'Введите сообщение'},400);
-   if(kind!=='text'&&!attachment.startsWith(`${roomId}/${uid}/`))return response({detail:'Недоступное вложение'},403);
+   if(!isAlbum&&kind!=='text'&&!attachment.startsWith(roomId+'/'+uid+'/'))
+     return response({detail:'Недоступное вложение'},403);
    if(clientId&&!validUuid(clientId))return response({detail:'Некорректный идентификатор'},400);
-   if(kind!=='text'){
-     const prefix=`${roomId}/${uid}`,name=attachment.split('/').pop()||'';
-     const {data:files,error:findErr}=await db.storage.from(B).list(prefix,{search:name,limit:10});
-     if(findErr||!files?.some(f=>f.name===name))return response({detail:'Загрузите вложение перед отправкой'},400);
+   const rawFiles=Array.isArray(value.attachments)?value.attachments:[];
+   let album:J[]=[];
+   if(isAlbum){
+     if(rawFiles.length<1||rawFiles.length>10)return response({detail:'Можно прикрепить от 1 до 10 фотографий'},400);
+     album=rawFiles.map(x=>({
+       path:str(x?.path),name:safeName(str(x?.name)),mimeType:str(x?.mimeType),size:Number(x?.size),
+     }));
+     const valid=album.every(x=>str(x.path).startsWith(roomId+'/'+uid+'/')&&
+       str(x.mimeType).startsWith('image/')&&Number.isFinite(x.size)&&Number(x.size)>0&&Number(x.size)<=50*1024*1024);
+     if(!valid||new Set(album.map(x=>str(x.path))).size!==album.length)
+       return response({detail:'Вложение не относится к этой переписке'},403);
    }
-   const payload={room_id:roomId,sender_id:uid,kind,body:bodyText,attachment_path:kind==='text'?null:attachment,
-     attachment_name:str(value.name).slice(0,160)||null,mime_type:str(value.mimeType)||null,
-     bytes:Math.max(0,Number(value.size)||0),client_id:clientId||null};
-   const {data,error}=await db.from('promysel_chat_messages').upsert(payload,{onConflict:'room_id,sender_id,client_id',ignoreDuplicates:true}).select('id').maybeSingle();
+   if(isAlbum||kind!=='text'){
+     const prefix=roomId+'/'+uid;
+     const names=isAlbum?album.map(x=>str(x.path).split('/').pop()||''):[attachment.split('/').pop()||''];
+     const {data:files,error:findErr}=await db.storage.from(B).list(prefix,{limit:1000});
+     if(findErr||!files||!names.every(n=>files.some(f=>f.name===n)))
+       return response({detail:'Вложение ещё не загружено. Повторите отправку.'},400);
+   }
+   const payload={
+     room_id:roomId,sender_id:uid,kind,body:bodyText,
+     attachment_path:kind==='text'||isAlbum?null:attachment,
+     attachments:isAlbum?album:[],
+     attachment_name:isAlbum?null:str(value.name).slice(0,160)||null,
+     mime_type:isAlbum?null:str(value.mimeType)||null,
+     bytes:isAlbum?album.reduce((a,x)=>a+Number(x.size),0):Math.max(0,Number(value.size)||0),
+     client_id:clientId||null,
+   };
+   const {data,error}=await db.from('promysel_chat_messages').upsert(payload,{
+     onConflict:'room_id,sender_id,client_id',ignoreDuplicates:true,
+   }).select('id').maybeSingle();
    if(error)throw error;
    await db.from('promysel_chat_members').update({hidden:false}).eq('room_id',roomId);
    await db.from('promysel_chat_rooms').update({updated_at:new Date().toISOString()}).eq('id',roomId);
@@ -133,7 +174,7 @@ Deno.serve(async(req:Request)=>{
     const {error}=await db.from('promysel_chat_messages').update({body:newText,edited_at:new Date().toISOString()}).eq('id',msgId);if(error)throw error;
     return response({status:'edited'});
    }
-   const {error}=await db.from('promysel_chat_messages').update({body:'',deleted_at:new Date().toISOString()}).eq('id',msgId);if(error)throw error;
+   const {error}=await db.from('promysel_chat_messages').update({body:'',attachments:[],deleted_at:new Date().toISOString()}).eq('id',msgId);if(error)throw error;
    return response({status:'deleted'});
   }
   if(req.method==='PATCH'&&action==='settings'){
