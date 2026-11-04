@@ -1,0 +1,91 @@
+# "Промысел" — independent HTTPS origin without Cloudflare.
+# Replace __HOSTNAME__ with your domain name; Certbot adds HTTPS automatically.
+# The server must reach xptmcufhuvtcunqzlsme.supabase.co over HTTPS.
+server {
+    listen 80;
+    listen [::]:80;
+    server_name __HOSTNAME__;
+    root /srv/promysel/current/site;
+    index index.html;
+    charset utf-8;
+    client_max_body_size 90m;
+    resolver 127.0.0.53 8.8.8.8 valid=60s ipv6=off;
+    set $supabase_upstream xptmcufhuvtcunqzlsme.supabase.co;
+    server_tokens off;
+    add_header X-Content-Type-Options nosniff always;
+    add_header Referrer-Policy strict-origin-when-cross-origin always;
+    add_header X-Frame-Options DENY always;
+
+    location = /vpnfree-health {
+        add_header Cache-Control "no-store" always;
+        default_type text/plain;
+        return 200 "promysel-mirror-ready\n";
+    }
+
+    # Authentication, postgrest and Edge Functions use same-origin paths.
+    location ~ ^/(functions|auth|rest)/v1/ {
+        proxy_pass https://$supabase_upstream$request_uri;
+        proxy_ssl_server_name on;
+        proxy_ssl_name xptmcufhuvtcunqzlsme.supabase.co;
+        proxy_set_header Host xptmcufhuvtcunqzlsme.supabase.co;
+        proxy_set_header X-Forwarded-Host $http_host;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_http_version 1.1;
+        proxy_set_header Connection "";
+        proxy_connect_timeout 10s;
+        proxy_send_timeout 100s;
+        proxy_read_timeout 100s;
+        proxy_request_buffering off;
+        # Signed photo/audio links returned by Edge Functions must also use our origin.
+        proxy_set_header Accept-Encoding "";
+        sub_filter 'https://xptmcufhuvtcunqzlsme.supabase.co' '$scheme://$http_host';
+        sub_filter_once off;
+        sub_filter_types application/json text/plain application/javascript;
+        proxy_redirect https://xptmcufhuvtcunqzlsme.supabase.co/ $scheme://$http_host/;
+    }
+
+    # Let files stream, preserving Range for videos and large voice recordings.
+    location ^~ /storage/v1/ {
+        proxy_pass https://$supabase_upstream$request_uri;
+        proxy_ssl_server_name on;
+        proxy_ssl_name xptmcufhuvtcunqzlsme.supabase.co;
+        proxy_set_header Host xptmcufhuvtcunqzlsme.supabase.co;
+        proxy_set_header X-Forwarded-Host $http_host;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_http_version 1.1;
+        proxy_set_header Connection "";
+        proxy_connect_timeout 10s;
+        proxy_read_timeout 120s;
+        proxy_send_timeout 120s;
+        proxy_request_buffering off;
+        proxy_buffering off;
+        proxy_redirect https://xptmcufhuvtcunqzlsme.supabase.co/ $scheme://$http_host/;
+    }
+
+    # Supabase Realtime WebSockets (if enabled in a future version).
+    location ^~ /realtime/v1/ {
+        proxy_pass https://$supabase_upstream$request_uri;
+        proxy_ssl_server_name on;
+        proxy_ssl_name xptmcufhuvtcunqzlsme.supabase.co;
+        proxy_set_header Host xptmcufhuvtcunqzlsme.supabase.co;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_http_version 1.1;
+        proxy_read_timeout 3600s;
+    }
+
+    # New deployments must not leave old main.dart.js cached by the browser.
+    location ~ ^/(main\.dart\.js|flutter_bootstrap\.js|flutter_service_worker\.js|manifest\.json)$ {
+        add_header Cache-Control "no-cache, must-revalidate" always;
+        try_files $uri =404;
+    }
+    location ~* \.(js|wasm|json|png|jpg|jpeg|svg|woff2?|ttf|webp|mp3|mp4|ogg)$ {
+        expires 7d;
+        try_files $uri =404;
+    }
+    location / {
+        add_header Cache-Control "no-cache" always;
+        try_files $uri $uri/ /index.html;
+    }
+}
