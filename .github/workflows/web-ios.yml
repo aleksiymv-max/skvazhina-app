@@ -8,7 +8,7 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: promysel-web-ios-${{ github.ref }}
+  group: promysel-web-registration-fix-${{ github.ref }}
   cancel-in-progress: true
 jobs:
   build:
