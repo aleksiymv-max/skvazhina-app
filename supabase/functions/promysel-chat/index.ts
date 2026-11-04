@@ -72,6 +72,44 @@ Deno.serve(async(req:Request)=>{
    if(joinErr){await db.from('promysel_chat_rooms').delete().eq('id',room.id);throw joinErr;}
    return response({id:room.id},201);
   }
+  const transcriptRoute=path.match(/^\/rooms\/([0-9a-f-]{36})\/messages\/([0-9a-f-]{36})\/transcribe$/i);
+  if(req.method==='POST'&&transcriptRoute){
+    const requestedRoom=transcriptRoute[1],messageId=transcriptRoute[2];
+    if(!await roomAccess(requestedRoom))return response({detail:'Нет доступа к переписке'},403);
+    const {data:message,error:readError}=await db.from('promysel_chat_messages')
+      .select('id,kind,attachment_path,mime_type,attachment_name,transcript,deleted_at,bytes')
+      .eq('room_id',requestedRoom).eq('id',messageId).maybeSingle();
+    if(readError)throw readError;
+    if(!message||message.kind!=='voice'||message.deleted_at||!message.attachment_path)
+      return response({detail:'Голосовое сообщение не найдено'},404);
+    if(message.transcript)return response({text:message.transcript});
+    const speechKey=Deno.env.get('OPENAI_API_KEY')??'';
+    if(!speechKey)return response({detail:'Распознавание речи ещё не подключено администратором'},503);
+    if(Number(message.bytes)>25*1024*1024)return response({detail:'Для распознавания файл должен быть меньше 25 МБ'},413);
+    const {data:audio,error:downloadError}=await db.storage.from(B).download(String(message.attachment_path));
+    if(downloadError||!audio)return response({detail:'Не удалось получить аудиофайл'},502);
+    if(audio.size>25*1024*1024)return response({detail:'Файл слишком большой'},413);
+    const filename=str(message.attachment_name)||
+       (str(message.mime_type).includes('webm')?'recording.webm':'recording.m4a');
+    const form=new FormData();
+    form.set('model','gpt-transcribe');
+    form.set('file',new File([audio],filename,{type:str(message.mime_type)||'audio/mp4'}));
+    let upstream:Response;
+    try{
+      upstream=await fetch('https://api.openai.com/v1/audio/transcriptions',{
+        method:'POST',headers:{Authorization:'Bearer '+speechKey},body:form,
+        signal:AbortSignal.timeout(55_000),
+      });
+    }catch(_){return response({detail:'Сервис распознавания временно недоступен'},504);}
+    if(!upstream.ok)return response({detail:'Распознавание временно недоступно'},502);
+    const decoded=await upstream.json().catch(()=>({}));
+    const transcript=str(decoded?.text).slice(0,12000);
+    if(!transcript)return response({detail:'В записи не удалось распознать речь'},422);
+    const {error:saveError}=await db.from('promysel_chat_messages')
+      .update({transcript}).eq('id',messageId).eq('room_id',requestedRoom);
+    if(saveError)throw saveError;
+    return response({text:transcript});
+  }
   const m=path.match(/^\/rooms\/([0-9a-f-]{36})(?:\/(messages|upload|settings|members|leave))?(?:\/([0-9a-f-]{36}))?$/i);
   if(!m)return response({detail:'Маршрут не найден'},404);
   const roomId=m[1],action=m[2]??'',msgId=m[3];
@@ -115,7 +153,7 @@ Deno.serve(async(req:Request)=>{
   if(req.method==='POST'&&action==='upload'){
    const type=str(value.mimeType),size=Number(value.size),name=safeName(str(value.name));
    const kind=str(value.kind);
-   const mimeAllowed=kind==='image'?type.startsWith('image/'):kind==='video'?type.startsWith('video/'):kind==='voice'?type.startsWith('audio/'):kind==='document'?/^(application\/|text\/|image\/)/.test(type):false;
+   const mimeAllowed=kind==='image'?type.startsWith('image/'):(kind==='video'||kind==='video_note')?type.startsWith('video/'):kind==='voice'?type.startsWith('audio/'):kind==='document'?/^(application\/|text\/|image\/)/.test(type):false;
    if(!mimeAllowed||!Number.isFinite(size)||size<1||size>50*1024*1024)return response({detail:'Недопустимый формат или размер файла (до 50 МБ)'},400);
    const filePath=`${roomId}/${uid}/${crypto.randomUUID()}-${name}`;
    const {data,error}=await db.storage.from(B).createSignedUploadUrl(filePath);
@@ -124,7 +162,7 @@ Deno.serve(async(req:Request)=>{
   if(req.method==='POST'&&action==='messages'){
    const kind=str(value.kind)||'text',bodyText=str(value.body),attachment=str(value.path),clientId=str(value.clientId);
    const isAlbum=kind==='album';
-   if(!['text','image','video','voice','document','album'].includes(kind)||bodyText.length>8000)
+   if(!['text','image','video','video_note','voice','document','album'].includes(kind)||bodyText.length>8000)
      return response({detail:'Некорректное сообщение'},400);
    if(kind==='text'&&!bodyText)return response({detail:'Введите сообщение'},400);
    if(!isAlbum&&kind!=='text'&&!attachment.startsWith(roomId+'/'+uid+'/'))
@@ -157,6 +195,9 @@ Deno.serve(async(req:Request)=>{
      mime_type:isAlbum?null:str(value.mimeType)||null,
      bytes:isAlbum?album.reduce((a,x)=>a+Number(x.size),0):Math.max(0,Number(value.size)||0),
      client_id:clientId||null,
+     duration_ms:kind==='voice'||kind==='video_note'?Math.max(0,Math.min(120000,Number(value.durationMs)||0)):null,
+     waveform:kind==='voice'&&Array.isArray(value.waveform)?value.waveform.slice(-65)
+       .map(Number).filter((v:number)=>Number.isFinite(v)&&v>=0&&v<=1):[],
    };
    const {data,error}=await db.from('promysel_chat_messages').upsert(payload,{
      onConflict:'room_id,sender_id,client_id',ignoreDuplicates:true,
