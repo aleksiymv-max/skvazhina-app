@@ -366,6 +366,49 @@ Deno.serve(async(req:Request)=>{
    return reply({status:"removed",historyPreserved:true});
   }
 
+
+  // Daily presence is shared across profile, roster and dashboard. Supervisor edits are
+  // field-scoped and audited with the server-authenticated user.
+  if(route==="/v1/presence"&&req.method==="GET"){
+    const u=new URL(req.url);
+    const fid=fieldTag(u.searchParams.get("fieldId")),day=txt(u.searchParams.get("day"));
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(day)||!fid)return reply({detail:"Неверная дата или месторождение"},400);
+    if(!administrator&&!canField(fid))return reply({detail:"Нет доступа к месторождению"},403);
+    const {data,error}=await admin.from("promysel_daily_presence")
+      .select("user_id,is_working,updated_at").eq("field_id",fid).eq("work_day",day).limit(1000);
+    if(error)throw error;
+    return reply({fieldId:fid,day,items:(data??[]).map((x:J)=>({
+      id:x.user_id,atWork:x.is_working,updatedAt:x.updated_at
+    }))});
+  }
+  const presenceRoute=route.match(/^\/v1\/presence\/([0-9a-f-]{36})$/i);
+  if(presenceRoute&&req.method==="PATCH"){
+    const fid=fieldTag(body.fieldId),day=txt(body.day),target=presenceRoute[1];
+    if(!fid||!/^\d{4}-\d{2}-\d{2}$/.test(day)||typeof body.atWork!=="boolean")
+      return reply({detail:"Неверные данные статуса"},400);
+    const todayUTC=new Date();
+    const parsed=Date.parse(day+"T12:00:00Z");
+    if(!Number.isFinite(parsed)||Math.abs(parsed-todayUTC.getTime())>3*86400000)
+      return reply({detail:"Разрешено менять только текущий день"},400);
+    const membership=canField(fid);
+    const supervisor=administrator||membership?.role==="shopChief"||
+      (membership?.role==="engineer"&&membership?.subrole==="master");
+    if(!administrator&&!membership)return reply({detail:"Нет доступа к месторождению"},403);
+    if(target!==user.id&&!supervisor)return reply({detail:"Изменять статус другого сотрудника может только руководитель"},403);
+    const {data:worker,error:check}=await admin.from("field_memberships")
+      .select("user_id").eq("field_id",fid).eq("user_id",target)
+      .eq("approved",true).eq("blocked",false).maybeSingle();
+    if(check)throw check;
+    if(!worker)return reply({detail:"Сотрудник не найден в месторождении"},404);
+    const atWork=body.atWork as boolean;
+    const {error}=await admin.from("promysel_daily_presence").upsert({
+      field_id:fid,user_id:target,work_day:day,
+      is_working:atWork,changed_by:user.id,updated_at:new Date().toISOString()
+    },{onConflict:"field_id,user_id,work_day"});
+    if(error)throw error;
+    return reply({id:target,fieldId:fid,day,atWork,status:"updated"});
+  }
+
   const padWellsRoute=route.match(new RegExp("^/api/v1/pads/([^/]+)/wells$"));
   if(req.method==="GET"&&(padWellsRoute||route==="/api/v1/pads")){
     const allowed=memberships.map((m:J)=>String(m.field_id));
