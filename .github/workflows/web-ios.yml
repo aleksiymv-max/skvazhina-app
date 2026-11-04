@@ -125,6 +125,8 @@ jobs:
           python3 "$GITHUB_WORKSPACE/tools/test_promysel_chat_v180.py"
           python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_v181.py"
           python3 "$GITHUB_WORKSPACE/tools/test_promysel_v181.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_v182.py"
+          python3 "$GITHUB_WORKSPACE/tools/test_promysel_v182.py"
           cp "$GITHUB_WORKSPACE/tools/work_schedule_test.dart" test/work_schedule_test.dart
           mkdir -p test
           cp "$GITHUB_WORKSPACE/tools/task_permission_test.dart" test/task_permission_test.dart
