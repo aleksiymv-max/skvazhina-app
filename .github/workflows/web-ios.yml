@@ -136,6 +136,8 @@ jobs:
           patch --batch -p1 < "$GITHUB_WORKSPACE/tools/promysel_v186_perf.patch"
           python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_v186_sync_lock.py"
           python3 "$GITHUB_WORKSPACE/tools/test_promysel_v186.py"
+          patch --batch -p1 < "$GITHUB_WORKSPACE/tools/promysel_v187_changes.patch"
+          python3 "$GITHUB_WORKSPACE/tools/test_promysel_v187.py"
           cp "$GITHUB_WORKSPACE/tools/work_schedule_test.dart" test/work_schedule_test.dart
           mkdir -p test
           cp "$GITHUB_WORKSPACE/tools/task_permission_test.dart" test/task_permission_test.dart
