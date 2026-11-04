@@ -1,6 +1,12 @@
-name: Create VPN-free Web deployment bundle
+name: "Timeweb Cloud — пакет рабочей версии без VPN"
 on:
   workflow_dispatch:
+    inputs:
+      stable_run_id:
+        description: "Успешная Web-сборка утверждённого stable (сейчас: 41800117647)"
+        required: true
+        default: "41800117647"
+        type: string
 permissions:
   contents: read
   actions: read
@@ -9,19 +15,26 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Fetch most recent successful Flutter Web release from this repository
+      - name: Verify released stable commit and download its exact artifact
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ inputs.stable_run_id }}
         run: |
           set -euo pipefail
-          RUN_ID="$(gh run list -w web-ios.yml -b main -s success -L 1 --json databaseId --jq '.[0].databaseId')"
-          if [[ -z "${RUN_ID:-}" || "$RUN_ID" == "null" ]]; then
-            echo '::error::No successful Web build found on main'; exit 1
+          [[ "$RUN_ID" =~ ^[0-9]+$ ]]
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID" > /tmp/promysel-stable-run.json
+          jq -e '.conclusion=="success" and .name=="Build Promysel Web for iPhone" and .event!="pull_request"' /tmp/promysel-stable-run.json
+          RELEASE_SHA="$(jq -r .head_sha /tmp/promysel-stable-run.json)"
+          STABLE_SHA="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/stable" --jq '.object.sha')"
+          if [[ "$RELEASE_SHA" != "$STABLE_SHA" ]]; then
+            echo "::error::Selected build is not the approved stable commit. Refusing to deploy development."
+            exit 1
           fi
           mkdir -p "$RUNNER_TEMP/web-artifact" "$RUNNER_TEMP/web" "$RUNNER_TEMP/bundle/deploy"
-          gh run download "$RUN_ID" -n promysel-original-flutter-supabase-web -D "$RUNNER_TEMP/web-artifact"
+          gh run download "$RUN_ID" -R "$GITHUB_REPOSITORY" -n promysel-original-flutter-supabase-web -D "$RUNNER_TEMP/web-artifact"
           unzip -q "$RUNNER_TEMP/web-artifact/promysel-original-flutter-supabase-web.zip" -d "$RUNNER_TEMP/web"
+          echo "Verified stable commit: $STABLE_SHA"
       - name: Rewrite public Supabase URLs to same-origin API gateway
         shell: bash
         run: |
@@ -30,6 +43,7 @@ jobs:
           cp deploy/vpnfree/nginx-site.template deploy/vpnfree/install-ubuntu.sh deploy/vpnfree/check-access.sh "$RUNNER_TEMP/bundle/deploy/"
           cp deploy/vpnfree/README.txt "$RUNNER_TEMP/bundle/README.txt"
           test -f "$RUNNER_TEMP/bundle/site/main.dart.js"
+          ! grep -q 'promysel-dev-mark\|promysel-channel-indicator' "$RUNNER_TEMP/bundle/site/index.html"
           if grep -r -l -F 'https://xptmcufhuvtcunqzlsme.supabase.co' "$RUNNER_TEMP/bundle/site" --include='*.js' --include='*.html' --include='*.json'; then
             echo '::error::Direct blocked origin still found in Web bundle';exit 1
           fi
