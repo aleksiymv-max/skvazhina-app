@@ -44,11 +44,12 @@ jobs:
         run: |
           python3 - <<'PY'
           from pathlib import Path
-          for p in ('web-ios.yml','android.yml','stability-preflight.yml'):
+          for p in ('web-ios.yml','stability-preflight.yml'):
               s=(Path('.github/workflows')/p).read_text()
               assert 'workflow_dispatch:' in s and '  push:' not in s and '  schedule:' not in s,p
           promotion=Path('.github/workflows/promysel-promote-stable.yml').read_text()
           assert 'cancel-in-progress: false' in promotion
           assert 'environment: production' in promotion
-          print('PASS: heavy workflows are manual, stable deployment is serialized')
+          assert not Path('.github/workflows/android.yml').exists(), 'Android APK build must be disabled'\n          assert Path('tools/archive/android-build.workflow.yml.txt').exists()\n          print('PASS: Web manual, Android source-only, stable deployment serialized')
           PY
+      - name: Verify Web and Android source parity (no APK build)\n        run: python3 tools/check_promysel_android_source_sync.py\n
