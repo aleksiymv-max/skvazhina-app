@@ -281,6 +281,35 @@ chat=patch('lib/core/services/promysel_chat_service.dart',[
       rethrow;
     }"""),
 ])
+# Never hide a definitive 401/403 or expired local JWT with a stale chat cache.
+chat=chat.replace(
+    "import '../network/api_config.dart';",
+    "import '../network/api_config.dart';\nimport '../network/api_client.dart';",1)
+chat=chat.replace(
+    'class PromyselChatService {',
+    "class ChatAccessException implements Exception {\n"
+    "  ChatAccessException(this.status,this.detail);\n"
+    "  final int status; final String detail;\n"
+    "  @override String toString()=>detail;\n"
+    "}\nclass PromyselChatService {",1)
+chat=chat.replace(
+    "      if(res.statusCode<200||res.statusCode>=300){\n        throw Exception((result['detail']??'Ошибка чата ${res.statusCode}').toString());",
+    "      if(res.statusCode<200||res.statusCode>=300){\n"
+    "        if(res.statusCode==401||res.statusCode==403)\n"
+    "          throw ChatAccessException(res.statusCode,(result['detail']??'Доступ к чату запрещён').toString());\n"
+    "        throw Exception((result['detail']??'Ошибка чата ${res.statusCode}').toString());",1)
+chat=chat.replace(
+    "    }catch(_){\n      if(_roomsCache!=null)return cachedRooms();",
+    "    }catch(e){\n      if(e is ChatAccessException||e is ApiException)rethrow;\n      if(_roomsCache!=null)return cachedRooms();",1)
+chat=chat.replace(
+    "    }catch(_){if(_peopleCache!=null)return List<Map<String,dynamic>>.from(_peopleCache!);rethrow;}",
+    "    }catch(e){if(e is ChatAccessException||e is ApiException)rethrow;if(_peopleCache!=null)return List<Map<String,dynamic>>.from(_peopleCache!);rethrow;}",1)
+chat=chat.replace(
+    "    }catch(_){\n      // Only a full-page request may use its own cached copy.",
+    "    }catch(e){\n      if(e is ChatAccessException||e is ApiException)rethrow;\n      // Only a full-page request may use its own cached copy.",1)
+assert chat.count('if(e is ChatAccessException||e is ApiException)rethrow;')==3
+Path('lib/core/services/promysel_chat_service.dart').write_text(chat,encoding='utf-8')
+
 patch('lib/features/home/home_screen.dart',[
     ('sync status import', "import '../../core/services/session_service.dart';",
      "import '../../core/services/session_service.dart';\nimport '../../core/services/sync_service.dart';"),

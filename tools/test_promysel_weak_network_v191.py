@@ -41,6 +41,7 @@ checks={
     'chat GET retries, POST remains single-attempt':"final res=method=='GET'" in chat and "WeakNetwork.read(execute" in chat and ":await execute().timeout(" in chat,
     'chat preserves in-memory history':"if(before==null&&after==null&&cachedMessages(id).isNotEmpty)return cachedMessages(id);" in chat,
     'chat unread & room cache stays scoped':"_roomsKey!='$userId:$fieldId'" in chat and "if(_roomsCache!=null)return cachedRooms();" in chat,
+    'auth rejection never masked by chat cache':"class ChatAccessException" in chat and chat.count("if(e is ChatAccessException||e is ApiException)rethrow;")==3,
     'chat writes keep deduplication keys':"'clientId':clientId??newMessageId()" in chat,
     'home screen labels connection status':"ListenableBuilder(listenable:SyncService.instance" in home and "sync.status" in home,
     'web and Android share same Dart paths':all(Path('lib',p).exists() for p in ('core/services/session_service.dart','core/network/weak_network.dart')),
