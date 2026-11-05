@@ -42,4 +42,5 @@ excerpts('app_state',[
  ('snapshot','Map<String,dynamic> snapshot('),
  ('reconcile','reconcileWithCurrent'),
 ],1800)
+excerpts('sync',[('pull-full','Future<void> _pull()')],11000)
 print('PASS generated source inspection completed')
