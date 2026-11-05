@@ -55,10 +55,21 @@ sub(person,
 'chief delete success')
 
 adm='lib/features/admin/admin_home_screen.dart'
-sub(adm,
-"const Text('Персонал',style:TextStyle(fontSize:21,fontWeight:FontWeight.w900))",
-"Row(children:[const Expanded(child:Text('Персонал',style:TextStyle(fontSize:21,fontWeight:FontWeight.w900))),TextButton(onPressed:_cleanupDeletedAccount,child:const Text('Очистить старый аккаунт'))])",
-'admin legacy cleanup visible')
+# The admin-registration patch already makes a Row with a refresh icon,
+# so insert the cleanup action at the beginning of the Users ListView.
+p=Path(adm);admin_text=p.read_text(encoding='utf-8')
+users=admin_text.index('Widget _users()=>')
+requests=admin_text.index('Widget _requests()=>',users)
+headpos=admin_text.find('children:[',users,requests)
+assert headpos>=0, 'admin users list missing'
+headpos+=len('children:[')
+admin_text=admin_text[:headpos]+"""TextButton.icon(
+  onPressed:_cleanupDeletedAccount,
+  icon:const Icon(Icons.person_remove_outlined),
+  label:const Text('Очистить ранее удалённый аккаунт')), 
+ """+admin_text[headpos:]
+p.write_text(admin_text,encoding='utf-8')
+
 sub(adm,
 "final given=control.text.trim();control.dispose();if(confirmed!=true)return;if(given!=u.name){_report('ФИО не совпадают. Удаление отменено.');return;}\n try{await s.adminDeleteUser(u.id,fid,u.name);_report('Доступ сотрудника отозван.');}",
 "final given=control.text.trim();control.dispose();if(confirmed!=true)return;if(given!=u.name){_report('ФИО не совпадают. Удаление отменено.');return;}\n try{await s.adminDeleteUser(u.id,fid,u.name);_report('Учётная запись удалена, почта свободна для регистрации.');}",

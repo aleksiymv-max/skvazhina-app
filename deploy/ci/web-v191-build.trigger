@@ -9,3 +9,5 @@ source_commit: 792ae07454ee4bcb0cd2d870c82ffa18b188398a
 release_requested: v1.93 employee deletion changes, Web DEV first
 
 retry_web: v1.93 robust registration service replacement after initial patch mismatch
+
+retry_web: v1.93 admin layout insensitive cleanup button
