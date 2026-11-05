@@ -41,6 +41,7 @@ jobs:
           python3 server/test_registration_rules.py
           python3 server/test_registration_decisions.py
           python3 server/test_registration_service.py
+          python3 server/test_promysel_sync_cursor_v210.py
       - name: Validate Supabase Edge Function TypeScript syntax (no deployment)
         run: |
           set -euo pipefail
