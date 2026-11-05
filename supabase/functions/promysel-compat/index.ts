@@ -76,7 +76,9 @@ function filterDeletedStructure(state:J):J{
    .filter(good).filter((x:J)=>!pads.has(String(x.id??""))&&
      !areas.has(String(x.areaId??"")))
    .map((x:J)=>({...x,wells:(Array.isArray(x.wells)?x.wells:[])
-     .filter((w:unknown)=>good(w)&&!wells.has(String((w as J).id??"")))}));
+     .filter((w:unknown)=>good(w)&&
+       !wells.has(String(x.id??"")+":"+String((w as J).id??""))&&
+       !wells.has(String((w as J).id??"")))}));
  return {...state,structureDeleted:del,areas:activeAreas,pads:activePads};
 }
 function mergeState(a:J,b:J):J{
