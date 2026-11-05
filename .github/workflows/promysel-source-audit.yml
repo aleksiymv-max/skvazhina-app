@@ -1,0 +1,174 @@
+name: One-shot Flutter source audit
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['deploy/ci/source-audit.trigger']
+permissions:
+  contents: read
+jobs:
+  source:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Extract base source
+        id: project
+        shell: bash
+        run: |
+          set -euo pipefail
+          DIR="$RUNNER_TEMP/promysel";rm -rf "$DIR";mkdir -p "$DIR"
+          unzip -q "$GITHUB_WORKSPACE/neftyanik_v1.24.1_stable_hotfix.zip" -d "$DIR"
+          PROJECT="$(dirname "$(find "$DIR" -name pubspec.yaml -print -quit)")"
+          echo "project_dir=$PROJECT" >> "$GITHUB_OUTPUT"
+      - name: Install image tools
+        run: |
+          set -euo pipefail
+          if ! command -v identify >/dev/null || ! command -v rsvg-convert >/dev/null; then
+            sudo apt-get update -qq
+            sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq imagemagick librsvg2-bin
+          fi
+      - name: Apply current Promysel updates
+        shell: bash
+        run: |
+          set -euo pipefail;cd "${{ steps.project.outputs.project_dir }}"
+          for s in prepare_promysel_v125.py prepare_promysel_v126.py prepare_promysel_v127.py prepare_promysel_v128.py prepare_promysel_v129.py prepare_promysel_v129_walk.py prepare_promysel_v129_problems.py prepare_promysel_v130.py prepare_promysel_v131.py prepare_promysel_v132.py prepare_promysel_v133.py prepare_promysel_v134.py prepare_promysel_v135.py prepare_promysel_v136.py prepare_promysel_v136_fix.py prepare_promysel_v137.py prepare_promysel_v137_corrections.py prepare_promysel_v138_problem_actions.py prepare_promysel_v139_problem_layout.py prepare_promysel_v140_problem_card.py prepare_promysel_v140_closed_lists.py prepare_promysel_v141_parameter_sync.py prepare_promysel_v142_user_fixes.py prepare_promysel_v143_exact_walk_and_dispatcher.py prepare_promysel_v144_requested_fixes.py prepare_promysel_v145.py prepare_promysel_v146.py prepare_promysel_v147.py prepare_promysel_v148.py prepare_promysel_v149.py prepare_promysel_v150.py prepare_promysel_v151.py prepare_promysel_v152.py prepare_promysel_v153.py prepare_promysel_v154a.py prepare_promysel_v154b.py prepare_promysel_v154c.py prepare_promysel_v154d.py prepare_promysel_v154e.py prepare_promysel_v154f.py prepare_promysel_v154g.py prepare_promysel_v154h.py prepare_promysel_v155.py prepare_promysel_v156.py prepare_promysel_v157a.py prepare_promysel_v157b.py prepare_promysel_v157c.py prepare_promysel_v157d.py prepare_promysel_v159.py prepare_promysel_v170.py;do python3 "$GITHUB_WORKSPACE/tools/$s";done
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_supabase_adapter.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_supabase_hardening.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_approval_performance_hotfix.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_history_init.py"
+          python3 "$GITHUB_WORKSPACE/tools/test_promysel_history_keyset.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_task_permissions.py"
+          python3 "$GITHUB_WORKSPACE/tools/test_promysel_task_permissions.py"
+          cp "$GITHUB_WORKSPACE/tools/task_photo_service.dart" lib/core/services/task_photo_service.dart
+          cp "$GITHUB_WORKSPACE/tools/task_photo_widgets.dart" lib/features/tasks/task_photo_widgets.dart
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_task_photos.py"
+          python3 "$GITHUB_WORKSPACE/tools/test_promysel_task_photos.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_sync_state_merge.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_sync_recovery.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_task_inbox_refresh.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_field_name_persistence.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_task_completion_comment.py"
+          cp "$GITHUB_WORKSPACE/tools/task_notification_service.dart" lib/core/services/task_notification_service.dart
+          cp "$GITHUB_WORKSPACE/tools/task_notifications_screen.dart" lib/features/tasks/task_notifications_screen.dart
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_task_notifications.py"
+          cp "$GITHUB_WORKSPACE/tools/task_completion_dialog.dart" lib/features/tasks/task_completion_dialog.dart
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_unified_task_completion.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_task_badge_login.py"
+          cp "$GITHUB_WORKSPACE/tools/task_launcher_badge.dart" lib/core/services/task_launcher_badge.dart
+          cp "$GITHUB_WORKSPACE/tools/task_badge_platform_stub.dart" lib/core/services/task_badge_platform_stub.dart
+          cp "$GITHUB_WORKSPACE/tools/task_badge_platform_mobile.dart" lib/core/services/task_badge_platform_mobile.dart
+          cp "$GITHUB_WORKSPACE/tools/task_badge_platform_web.dart" lib/core/services/task_badge_platform_web.dart
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_launcher_badge.py"
+          cp "$GITHUB_WORKSPACE/tools/task_notification_onboarding.dart" lib/core/services/task_notification_onboarding.dart
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_device_notification_onboarding.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_push_logout.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_pull_refresh.py"
+          cp "$GITHUB_WORKSPACE/tools/task_tabs_read_observer.dart" lib/features/tasks/task_tabs_read_observer.dart
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_tab_notifications.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_notification_settings.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_fast_task_notifications.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_performance.py"
+          cp "$GITHUB_WORKSPACE/tools/profile_avatar_editor.dart" lib/features/organization/profile_avatar_editor.dart
+          python3 "$GITHUB_WORKSPACE/tools/prepare_profile_layout.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_profile_avatar.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_profile_training_delete.py"
+          cp "$GITHUB_WORKSPACE/tools/work_schedule_store.dart" lib/core/services/work_schedule_store.dart
+          cp "$GITHUB_WORKSPACE/tools/work_schedule_screen.dart" lib/features/organization/work_schedule_screen.dart
+          python3 "$GITHUB_WORKSPACE/tools/prepare_personnel_access.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_work_schedule_integration.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_personnel_ui.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_profile_name_edit.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_organization_role_security.py"
+          mkdir -p lib/features/menu
+          cp "$GITHUB_WORKSPACE/tools/promysel_menu_screen.dart" lib/features/menu/menu_screen.dart
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_calendar_russian.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_profile_single_pencil.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_menu_navigation.py"
+          cp "$GITHUB_WORKSPACE/tools/training_store_events.dart" lib/core/services/training_store.dart
+          cp "$GITHUB_WORKSPACE/tools/training_screen_actions.dart" lib/features/organization/training_screen.dart
+          cp "$GITHUB_WORKSPACE/tools/work_schedule_events_screen.dart" lib/features/organization/work_schedule_screen.dart
+          python3 "$GITHUB_WORKSPACE/tools/prepare_work_schedule_day_editor.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_training_merge_safety.py"
+          cp "$GITHUB_WORKSPACE/tools/training_calendar_test.dart" test/training_calendar_test.dart
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_v179_feedback.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_v179_admin.py"
+          mkdir -p lib/features/chat
+          cp "$GITHUB_WORKSPACE/tools/promysel_chat_service.dart" lib/core/services/promysel_chat_service.dart
+          cp "$GITHUB_WORKSPACE/tools/promysel_chat_screen.dart" lib/features/chat/promysel_chat_screen.dart
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_v180.py"
+          python3 "$GITHUB_WORKSPACE/tools/test_promysel_chat_v180.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_v181.py"
+          python3 "$GITHUB_WORKSPACE/tools/test_promysel_v181.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_v182.py"
+          python3 "$GITHUB_WORKSPACE/tools/test_promysel_v182.py"
+          patch --batch -p1 < "$GITHUB_WORKSPACE/tools/promysel_v183_changes.diff"
+          python3 "$GITHUB_WORKSPACE/tools/test_promysel_v183.py"
+          patch --batch -p1 < "$GITHUB_WORKSPACE/tools/promysel_v184_changes.diff"
+          python3 "$GITHUB_WORKSPACE/tools/test_promysel_v184.py"
+          patch --batch -p1 < "$GITHUB_WORKSPACE/tools/promysel_v185_changes.diff"
+          python3 "$GITHUB_WORKSPACE/tools/test_promysel_v185.py"
+          patch --batch -p1 < "$GITHUB_WORKSPACE/tools/promysel_v186_perf.patch"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_v186_sync_lock.py"
+          python3 "$GITHUB_WORKSPACE/tools/test_promysel_v186.py"
+          patch --batch -p1 < "$GITHUB_WORKSPACE/tools/promysel_v187_changes.patch"
+          python3 "$GITHUB_WORKSPACE/tools/test_promysel_v187.py"
+          patch --batch -p1 < "$GITHUB_WORKSPACE/tools/promysel_v188_changes.patch"
+          python3 "$GITHUB_WORKSPACE/tools/test_promysel_v188.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_fund_bar.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_registration_fields_fix.py"
+          python3 "$GITHUB_WORKSPACE/tools/test_promysel_registration_fields.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_admin_registration_fix.py"
+          python3 "$GITHUB_WORKSPACE/tools/test_promysel_admin_registration_fix.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_chat_polish_v189.py"
+          python3 "$GITHUB_WORKSPACE/tools/test_promysel_chat_polish_v189.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_weak_network_v191.py"
+          python3 "$GITHUB_WORKSPACE/tools/test_promysel_weak_network_v191.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_request_optimizer_v192.py"
+          python3 "$GITHUB_WORKSPACE/tools/test_promysel_request_optimizer_v192.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_account_erasure_v193.py"
+          python3 "$GITHUB_WORKSPACE/tools/test_promysel_account_erasure_v193.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_structure_integrity_v194.py"
+          python3 "$GITHUB_WORKSPACE/tools/test_promysel_structure_integrity_v194.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_structure_versions_v195.py"
+          python3 "$GITHUB_WORKSPACE/tools/test_promysel_structure_versions_v195.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_chief_approval_invite.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_home_compact_v196.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_problem_backfill_v196.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_network_resilience_v197.py"
+          python3 "$GITHUB_WORKSPACE/tools/test_promysel_network_resilience_v197.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_chat_media_v198.py"
+          python3 "$GITHUB_WORKSPACE/tools/test_promysel_chat_media_v198.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_chat_reference_v199.py"
+          python3 "$GITHUB_WORKSPACE/tools/test_promysel_chat_reference_v199.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_chat_inline_fast_v200.py"
+          python3 "$GITHUB_WORKSPACE/tools/test_promysel_chat_inline_fast_v200.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_global_perf_v202.py"
+          python3 "$GITHUB_WORKSPACE/tools/test_promysel_global_perf_v202.py"
+          python3 "$GITHUB_WORKSPACE/tools/inspect_promysel_home_layout.py"
+          cp "$GITHUB_WORKSPACE/tools/work_schedule_test.dart" test/work_schedule_test.dart
+          mkdir -p test
+          cp "$GITHUB_WORKSPACE/tools/task_permission_test.dart" test/task_permission_test.dart
+          cp "$GITHUB_WORKSPACE/tools/history_empty_widget_test.dart" test/history_empty_widget_test.dart
+          cp "$GITHUB_WORKSPACE/tools/task_photo_widget_test.dart" test/task_photo_widget_test.dart
+          cp "$GITHUB_WORKSPACE/tools/weak_network_test.dart" test/weak_network_test.dart
+          cp "$GITHUB_WORKSPACE/tools/structure_integrity_test.dart" test/structure_integrity_test.dart
+          cp "$GITHUB_WORKSPACE/tools/structure_versions_test.dart" test/structure_versions_test.dart
+          cp "$GITHUB_WORKSPACE/tools/chat_media_reference_v199_test.dart" test/chat_media_reference_v199_test.dart
+          cp "$GITHUB_WORKSPACE/tools/chat_inline_fast_v200_test.dart" test/chat_inline_fast_v200_test.dart
+          cp "$GITHUB_WORKSPACE/tools/performance_v202_test.dart" test/performance_v202_test.dart
+          mkdir -p assets/icon
+          rsvg-convert -w 1024 -h 1024 "$GITHUB_WORKSPACE/assets/promysel_icon_modern.svg" -o assets/icon/app_icon.png
+          cp assets/icon/app_icon.png assets/icon/app_icon_foreground.png
+      - name: Archive fully patched Flutter source
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "${{ steps.project.outputs.project_dir }}"
+          tar -czf "$GITHUB_WORKSPACE/promysel-audit-source.tar.gz" lib test
+          ls -lh "$GITHUB_WORKSPACE/promysel-audit-source.tar.gz"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: promysel-audit-source
+          path: promysel-audit-source.tar.gz
+          retention-days: 1
