@@ -121,3 +121,5 @@ retry_v206: add Flutter test widget import for TextEditingController
 release: v2.07
 fix: pad-selected parameters only in walk UI, mandatory PKV/PID confirmation, immutable historical measurement snapshot
 regression: hidden_both;pkv_only;pid_only;both_enabled;captured_selection;web_and_android_source
+
+retry_v207: target actual async handler _saveMeasurement
