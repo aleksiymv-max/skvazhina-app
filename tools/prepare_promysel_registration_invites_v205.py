@@ -120,8 +120,8 @@ patch(path,
 
 path='lib/features/admin/admin_home_screen.dart'
 patch(path,
- "ListTile(title:Text(p.name),subtitle:Text('\${p.role.label} · \${p.fieldId.isEmpty?'Новое месторождение':s.fieldName(p.fieldId)}')),",
- "ListTile(title:Text(p.name),subtitle:Text('\${p.role.label} · \${p.fieldId.isEmpty?'Новое месторождение':s.fieldName(p.fieldId)}\\n\${p.invitationDescription}')),",
+ "ListTile(title:Text(p.name),subtitle:Text('${p.role.label} · ${p.fieldId.isEmpty?'Новое месторождение':s.fieldName(p.fieldId)}')),",
+ "ListTile(title:Text(p.name),subtitle:Text('${p.role.label} · ${p.fieldId.isEmpty?'Новое месторождение':s.fieldName(p.fieldId)}\\n${p.invitationDescription}')),",
  'admin queue state appears')
 patch(path,
  """         OutlinedButton.icon(icon:const Icon(Icons.close,size:17),
