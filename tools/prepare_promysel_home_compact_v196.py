@@ -6,7 +6,10 @@ if imp not in s:s=imp+'\n'+s
 
 def swap(src,a,b,text):
     i=src.index(a)
-    j=src.index(b,i)
+    boundaries=['\n Widget ','\n Future<void> ','\n Future<','\n void ']
+    ends=[pos for marker in boundaries if (pos:=src.find(marker,i+len(a)))>=0]
+    if not ends:raise ValueError('No following member after '+a)
+    j=min(ends)
     return src[:i]+text+'\n'+src[j:]
 
 s=swap(s,' Widget _fieldDashboard()=>',' Widget _problemsDashboard()',"""
