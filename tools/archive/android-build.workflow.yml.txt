@@ -168,6 +168,8 @@ jobs:
           python3 "$GITHUB_WORKSPACE/tools/test_promysel_network_resilience_v197.py"
           python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_chat_media_v198.py"
           python3 "$GITHUB_WORKSPACE/tools/test_promysel_chat_media_v198.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_chat_reference_v199.py"
+          python3 "$GITHUB_WORKSPACE/tools/test_promysel_chat_reference_v199.py"
           python3 "$GITHUB_WORKSPACE/tools/inspect_promysel_home_layout.py"
           cp "$GITHUB_WORKSPACE/tools/work_schedule_test.dart" test/work_schedule_test.dart
           mkdir -p test
@@ -177,6 +179,7 @@ jobs:
           cp "$GITHUB_WORKSPACE/tools/weak_network_test.dart" test/weak_network_test.dart
           cp "$GITHUB_WORKSPACE/tools/structure_integrity_test.dart" test/structure_integrity_test.dart
           cp "$GITHUB_WORKSPACE/tools/structure_versions_test.dart" test/structure_versions_test.dart
+          cp "$GITHUB_WORKSPACE/tools/chat_media_reference_v199_test.dart" test/chat_media_reference_v199_test.dart
           mkdir -p assets/icon
           # The legacy base64 JPEG is corrupt (SOS before SOF). Use the approved SVG,
           # which is already rendered and validated by the iPhone web pipeline.
@@ -197,7 +200,7 @@ jobs:
       - name: Get dependencies and analyze
         shell: bash
         run: |
-          cd "${{ steps.project.outputs.project_dir }}";python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_ci_pubspec.py" android;flutter pub get;flutter analyze --no-fatal-infos --no-fatal-warnings;flutter test test/task_permission_test.dart test/history_empty_widget_test.dart test/task_photo_widget_test.dart test/work_schedule_test.dart test/training_calendar_test.dart test/weak_network_test.dart test/structure_integrity_test.dart test/structure_versions_test.dart
+          cd "${{ steps.project.outputs.project_dir }}";python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_ci_pubspec.py" android;flutter pub get;flutter analyze --no-fatal-infos --no-fatal-warnings;flutter test test/task_permission_test.dart test/history_empty_widget_test.dart test/task_photo_widget_test.dart test/work_schedule_test.dart test/training_calendar_test.dart test/weak_network_test.dart test/structure_integrity_test.dart test/structure_versions_test.dart test/chat_media_reference_v199_test.dart
       - name: Create Android project with approved launcher icon
         shell: bash
         run: |
