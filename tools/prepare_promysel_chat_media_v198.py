@@ -19,8 +19,8 @@ once("import '../../core/services/promysel_chat_service.dart';",
 once('class _PromyselChatRoomScreenState extends State<PromyselChatRoomScreen>{',
      'class _PromyselChatRoomScreenState extends State<PromyselChatRoomScreen>{\n final ChatMediaHub _mediaHub=ChatMediaHub();',
      'room player')
-once('recorder.dispose();super.dispose();',
-     'recorder.dispose();_mediaHub.dispose();super.dispose();','player lifecycle')
+once('_recordFrames.dispose();super.dispose();',
+     '_recordFrames.dispose();_mediaHub.dispose();super.dispose();','player lifecycle')
 once('body:Column(children:[if(loading)const LinearProgressIndicator(),',
      'body:Column(children:[ChatMediaBar(hub:_mediaHub),if(loading)const LinearProgressIndicator(),',
      'top media bar')
