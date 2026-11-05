@@ -11,3 +11,9 @@ release_requested: v1.93 employee deletion changes, Web DEV first
 retry_web: v1.93 robust registration service replacement after initial patch mismatch
 
 retry_web: v1.93 admin layout insensitive cleanup button
+
+web_release: v1.94
+purpose: area, pad and well CRUD with durable tombstones
+source_commit: 9cb4c4e7f88032fe0c572141370149df8eca3ddc
+no_apk: true
+production: promote only after confirmed DEV tests
