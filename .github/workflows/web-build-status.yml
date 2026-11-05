@@ -1,0 +1,52 @@
+name: Report Promysel Web build status
+on:
+  workflow_run:
+    workflows:
+      - Build Promysel Web for iPhone
+    types:
+      - completed
+permissions:
+  contents: write
+  actions: read
+jobs:
+  report:
+    if: ${{ github.event.workflow_run.head_branch == 'main' && github.event.workflow_run.head_repository.full_name == github.repository }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout current main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: true
+      - name: Record source run and artifact presence
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+          SOURCE_SHA: ${{ github.event.workflow_run.head_sha }}
+          RESULT: ${{ github.event.workflow_run.conclusion }}
+          RUN_URL: ${{ github.event.workflow_run.html_url }}
+          STARTED_AT: ${{ github.event.workflow_run.run_started_at }}
+          UPDATED_AT: ${{ github.event.workflow_run.updated_at }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          artifact_count="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID/artifacts" \
+            --jq '[.artifacts[] | select(.name=="promysel-original-flutter-supabase-web" and (.expired|not))] | length' || echo 0)"
+          mkdir -p deploy/ci
+          jq -n \
+            --argjson run_id "$RUN_ID" \
+            --arg head_sha "$SOURCE_SHA" \
+            --arg conclusion "$RESULT" \
+            --arg run_url "$RUN_URL" \
+            --arg started_at "$STARTED_AT" \
+            --arg updated_at "$UPDATED_AT" \
+            --argjson artifact_count "$artifact_count" \
+            '{run_id:$run_id,head_sha:$head_sha,conclusion:$conclusion,run_url:$run_url,started_at:$started_at,updated_at:$updated_at,artifact_available:($artifact_count>0)}' \
+            > deploy/ci/web-last-run.json
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add deploy/ci/web-last-run.json
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "ci: record Web build run $RUN_ID ($RESULT)"
+          git pull --rebase origin main
+          git push origin HEAD:main
