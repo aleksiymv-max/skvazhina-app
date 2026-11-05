@@ -38,15 +38,15 @@ s=s[:save_method.end()]+"""
 # Previously save forced a hidden PKV or PID checkbox even when the pad
 # configured neither of those parameters. Other forms' mandatory checks
 # should remain unchanged.
-old=re.compile(r'if\s*\(\s*!pkvConfirmed\s*\|\|\s*!pidConfirmed\s*\)')
+old=re.compile(r'\(\s*!pkvConfirmed\s*\|\|\s*!pidConfirmed\s*\)')
 matches=list(old.finditer(s))
 if len(matches)!=1:
-    contexts=[s[max(0,m.start()-300):m.end()+400]
-      for m in re.finditer('pkvConfirmed|pidConfirmed|Сначала подтвердите',s)]
-    raise RuntimeError('Could not find the PKV/PID mandatory guard; context:\n'
-                       +repr(contexts[:8]))
-s=old.sub("""if(WalkParameterSaveRules.requiresProgramConfirmation(
-      walkSelection,pkvConfirmed:pkvConfirmed,pidConfirmed:pidConfirmed))""",s,count=1)
+    contexts=[s[max(0,m.start()-250):m.end()+340]
+      for m in re.finditer('Сначала подтвердите|pkvConfirmed',s)]
+    raise RuntimeError('Could not find PKV/PID confirmation expression; context:\n'
+                       +repr(contexts[-3:]))
+s=old.sub("""WalkParameterSaveRules.requiresProgramConfirmation(
+      walkSelection,pkvConfirmed:pkvConfirmed,pidConfirmed:pidConfirmed)""",s,count=1)
 
 s=replace_exact(
     s,
