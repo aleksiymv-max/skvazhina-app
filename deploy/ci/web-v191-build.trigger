@@ -123,3 +123,5 @@ fix: pad-selected parameters only in walk UI, mandatory PKV/PID confirmation, im
 regression: hidden_both;pkv_only;pid_only;both_enabled;captured_selection;web_and_android_source
 
 retry_v207: target actual async handler _saveMeasurement
+
+retry_v207_guard: actual existing well.type==oil composite requires conditional selected pads
