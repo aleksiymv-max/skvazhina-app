@@ -117,6 +117,7 @@ class AvatarStore extends ChangeNotifier {
 
   Future<void> apply(Map raw,{String? fieldId,Map? revisions})async{
     await ensureLoaded();
+    final _versionsBeforeApply=Map<String,int>.from(_versions);
     final incoming=<String,String>{};
     for(final e in raw.entries){
       if(e.value is String)incoming[e.key.toString()]=e.value as String;
@@ -127,6 +128,16 @@ class AvatarStore extends ChangeNotifier {
           final key=_scope(fieldId,e.key.toString()),next=(e.value as num).toInt();
           if(next>(_versions[key]??0))_versions[key]=next;
         }
+      }
+    }
+    // Out-of-order network responses are possible on a weak connection.
+    // Never replace a locally acknowledged revision with a lower revision.
+    if(fieldId!=null&&fieldId.isNotEmpty){
+      for(final e in data.entries){
+        final key=_scope(fieldId,e.key);
+        final known=_versionsBeforeApply[key]??0;
+        final remote=(revisions?[e.key] as num?)?.toInt()??0;
+        if(known>remote)incoming[e.key]=e.value;
       }
     }
     data..clear()..addAll(incoming);
