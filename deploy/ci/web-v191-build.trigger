@@ -42,3 +42,5 @@ retry: v1.96 current menu uses documentation; deep link is registration-only
 web_release: v1.96-home
 purpose: compact dashboard, chief invitation direct login URL, problem recovery audit
 apk: no
+
+retry: v1.96 home source method boundary alignment
