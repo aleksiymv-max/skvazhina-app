@@ -44,3 +44,5 @@ purpose: compact dashboard, chief invitation direct login URL, problem recovery 
 apk: no
 
 retry: v1.96 home source method boundary alignment
+
+retry: v1.96 preserve status dashboard and metrics method boundaries
