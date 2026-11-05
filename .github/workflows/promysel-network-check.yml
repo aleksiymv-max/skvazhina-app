@@ -1,0 +1,28 @@
+name: Promysel public connectivity without VPN
+on:
+  push:
+    paths:
+      - 'deploy/ci/promysel-network-check.trigger'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Probe public websites and public registration API
+        shell: bash
+        run: |
+          set -euo pipefail
+          failed=0
+          for URL in "https://promysel-web.pages.dev/" "https://dev.promysel-web.pages.dev/" "https://xptmcufhuvtcunqzlsme.supabase.co/functions/v1/promysel-compat/v1/registration/fields"; do
+            printf 'NO_VPN_CONNECT %s ' "$URL"
+            if curl --silent --show-error --location --max-time 20 -o /dev/null -w 'HTTP=%{http_code} DNS=%{time_namelookup}s TCP=%{time_connect}s TLS=%{time_appconnect}s TTFB=%{time_starttransfer}s TOTAL=%{time_total}s\\n' "$URL"; then
+              echo 'REACHABLE'
+            else
+              echo 'UNREACHABLE'
+              failed=1
+            fi
+          done
+          exit "$failed"
