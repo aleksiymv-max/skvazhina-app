@@ -119,13 +119,13 @@ Deno.serve(async (request:Request)=>{
        const {data:invited,error:inviteError}=await admin.auth.admin.inviteUserByEmail(
          String(decision.email),{
          data:{full_name:decision.fullName},
-         redirectTo:"https://promysel-web.pages.dev/finish-registration.html"
+         redirectTo:"https://promysel-app.tuqo.ru/finish-registration.html"
        });
        if(inviteError||!invited?.user)deliveryError=inviteError??new Error("invite_user_missing");
        else userId=invited.user.id;
      }else{
        const {error:resetError}=await client.auth.resetPasswordForEmail(String(decision.email),{
-         redirectTo:"https://promysel-web.pages.dev/finish-registration.html"
+         redirectTo:"https://promysel-app.tuqo.ru/finish-registration.html"
        });
        if(resetError)deliveryError=resetError;
      }
