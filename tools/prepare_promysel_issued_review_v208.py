@@ -39,7 +39,7 @@ new=""" Widget _issuedReviewSections(List<WorkTask> issued){
    ]);
  }
 """
-assert '_issuedReviewSections(' not in s
+assert ' Widget _issuedReviewSections(' not in s
 s=s.replace(anchor,new+anchor,1)
 # Existing issued filter used to hide confirmed tasks; include them for completed section.
 oldfilter="t.status!=WorkTaskStatus.confirmed&&_isTaskInCurrentField(t)"
