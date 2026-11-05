@@ -68,3 +68,5 @@ request: 2026-11-05 chat media polish
 retry: v1.98 chat state disposal matching 2026-11-05-08:14 UTC
 
 retry: v1.98 compile types and video surface nesting fix 2026-11-05-08:17 UTC
+
+final: v1.98 signed URL refresh reuse stable decoder 2026-11-05-08:23 UTC
