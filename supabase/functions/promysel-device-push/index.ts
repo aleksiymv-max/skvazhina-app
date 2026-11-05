@@ -15,7 +15,7 @@ function validHttpsOrigin(value:string):string{
 }
 const publicOrigin=validHttpsOrigin(publicOriginRaw);
 const devOrigin=validHttpsOrigin((Deno.env.get("PROMYSEL_DEV_ORIGIN")??"").trim());
-const allowedOrigins = new Set(["https://promysel-web.pages.dev","http://localhost:3000","http://localhost:8080",
+const allowedOrigins = new Set(["https://promysel-web.pages.dev","https://dev.promysel-web.pages.dev","https://promysel-app.tuqo.app","https://promysel-app.tuqo.ru","http://localhost:3000","http://localhost:8080",
   ...(publicOrigin?[publicOrigin]:[]),...(devOrigin?[devOrigin]:[])]);
 const baseHeaders = {"content-type":"application/json","cache-control":"no-store"};
 function response(body:unknown,status=200,origin?:string){
@@ -64,6 +64,49 @@ Deno.serve(async(req:Request)=>{
       return response({status:"ok",service:"promysel-device-push"},200,origin);
     if(route==="/public-key"&&req.method==="GET")
       return response({publicKey:(await vapid()).public_key},200,origin);
+    // Server-side, membership-scoped notification feed. Never accept a
+    // userId supplied by the browser. This is the sole read path for events.
+    if(route==="/inbox"&&req.method==="GET"){
+      const fieldId=String(new URL(req.url).searchParams.get("fieldId")??"");
+      if(!/^field-[0-9a-z-]{1,90}$/i.test(fieldId))return response({detail:"Неверное месторождение"},400,origin);
+      const userId=await signedIn(req,fieldId);
+      if(!userId)return response({detail:"Доступ запрещён"},403,origin);
+      const {data,error}=await db.from("promysel_push_events")
+        .select("id,category,title,body,route,created_at,read_at,priority")
+        .eq("field_id",fieldId).eq("user_id",userId)
+        .order("id",{ascending:false}).limit(60);
+      if(error)throw error;
+      return response({items:data??[],serverTime:new Date().toISOString()},200,origin);
+    }
+    if(route==="/read"&&req.method==="POST"){
+      const payload=await req.json().catch(()=>({}));
+      const fieldId=String(payload?.fieldId??"");
+      const id=Number(payload?.id??0);
+      if(!/^field-[0-9a-z-]{1,90}$/i.test(fieldId)||!Number.isSafeInteger(id)||id<1)
+        return response({detail:"Неверный запрос"},400,origin);
+      const userId=await signedIn(req,fieldId);
+      if(!userId)return response({detail:"Доступ запрещён"},403,origin);
+      const {error}=await db.from("promysel_push_events")
+        .update({read_at:new Date().toISOString()})
+        .eq("id",id).eq("field_id",fieldId).eq("user_id",userId).is("read_at",null);
+      if(error)throw error;
+      return response({status:"read"},200,origin);
+    }
+    if(route==="/status"&&req.method==="GET"){
+      const fieldId=String(new URL(req.url).searchParams.get("fieldId")??"");
+      if(!/^field-[0-9a-z-]{1,90}$/i.test(fieldId))return response({detail:"Неверное месторождение"},400,origin);
+      const userId=await signedIn(req,fieldId);
+      if(!userId)return response({detail:"Доступ запрещён"},403,origin);
+      const [devices,events]=await Promise.all([
+        db.from("promysel_push_subscriptions").select("endpoint",{count:"exact",head:true})
+          .eq("field_id",fieldId).eq("user_id",userId).eq("enabled",true),
+        db.from("promysel_push_events").select("id",{count:"exact",head:true})
+          .eq("field_id",fieldId).eq("user_id",userId).is("read_at",null),
+      ]);
+      if(devices.error||events.error)throw devices.error??events.error;
+      return response({registeredDevices:devices.count??0,unread:events.count??0,
+        serverTime:new Date().toISOString()},200,origin);
+    }
     if(route==="/subscribe"&&req.method==="POST"){
       const body=await req.json().catch(()=>({}));
       const fieldId=String(body?.fieldId??"");
@@ -104,6 +147,7 @@ Deno.serve(async(req:Request)=>{
       const fieldId=String(body?.fieldId??"");
       if(!/^field-[0-9a-z-]{1,90}$/i.test(fieldId))return response({detail:"Неверное месторождение"},400,origin);
       let dispatchEventId=0;
+      let requestingUser:string|null=null;
       if(route==="/dispatch"){
         dispatchEventId=Number(body?.eventId??0);
         const supplied=String(body?.signature??"").toLowerCase();
@@ -121,36 +165,47 @@ Deno.serve(async(req:Request)=>{
         for(let i=0;i<sig.length;i++) mismatch |= sig[i]^parseInt(supplied.slice(i*2,i*2+2),16);
         if(mismatch!==0)return response({detail:"Нет доступа"},403,origin);
       }else{
-        const userId=await signedIn(req,fieldId);
-        if(!userId)return response({detail:"Нет доступа"},403,origin);
+        requestingUser=await signedIn(req,fieldId);
+        if(!requestingUser)return response({detail:"Нет доступа"},403,origin);
       }
       const keys=await vapid();
       webpush.setVapidDetails(publicOrigin||"https://promysel-web.pages.dev",
         keys.public_key,keys.private_key);
       let query=db.from("promysel_push_events")
-        .select("id,user_id,event_key,title,body,task_id,send_attempts")
+        .select("id,user_id,event_key,title,body,task_id,category,route,priority,send_attempts")
         .eq("field_id",fieldId).is("sent_at",null).lt("send_attempts",5)
         .gte("created_at",new Date(Date.now()-7*86400000).toISOString());
       if(dispatchEventId)query=query.eq("id",dispatchEventId);
+      else query=query.eq("user_id",requestingUser!);
       const {data:pending,error}=await query.order("id",{ascending:true})
         .limit(dispatchEventId?1:25);
       if(error)throw error;
       let pushed=0;
       for(const event of pending??[]){
+        // Re-validate recipient membership at actual delivery time, so a
+        // transferred or blocked employee never receives another user's data.
+        const {data:access}=await db.from("field_memberships")
+          .select("user_id").eq("user_id",event.user_id)
+          .eq("field_id",fieldId).eq("approved",true).eq("blocked",false).maybeSingle();
+        if(!access)continue;
         const {data:devices}=await db.from("promysel_push_subscriptions")
           .select("endpoint,p256dh,auth_secret,user_id,field_id")
           .eq("field_id",fieldId).eq("user_id",event.user_id)
           .eq("enabled",true).limit(8);
         if(!devices?.length)continue;
         const payload=JSON.stringify({
-          title:event.title,body:event.body,url:"/tasks",tag:"promysel-"+event.event_key,
+          title:event.title,body:event.body,
+          url:typeof event.route==="string"&&/^\/(tasks|chat\/[0-9a-f-]{36}|menu|profile|history|wells)(?:$|\?)/i.test(event.route)
+              ?event.route:"/menu",
+          category:event.category||"task",
+          tag:"promysel-"+event.event_key,
           taskId:event.task_id,badgeCount:Math.min(99,(pending??[]).filter((e)=>e.user_id===event.user_id).length)
         });
         let anySent=false;
         for(const d of devices as Subscription[]){
           try{
             await webpush.sendNotification({endpoint:d.endpoint,keys:{p256dh:d.p256dh,auth:d.auth_secret}},payload,
-              {TTL:86400,urgency:"normal",topic:"promysel-tasks"});
+              {TTL:86400,urgency:event.priority==="critical"?"high":"normal"});
             anySent=true;
           }catch(err){
             const status=Number((err as {statusCode?:number})?.statusCode??0);
@@ -166,7 +221,7 @@ Deno.serve(async(req:Request)=>{
         }else await db.from("promysel_push_events")
           .update({send_attempts:event.send_attempts+1}).eq("id",event.id).is("sent_at",null);
       }
-      return response({status:"ok",sent:pushed},200,origin);
+      return response({status:"ok",sent:pushed,queued:(pending??[]).length},200,origin);
     }
     return response({detail:"Маршрут не найден"},404,origin);
   }catch(err){
