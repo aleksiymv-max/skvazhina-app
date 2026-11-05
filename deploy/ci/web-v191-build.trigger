@@ -32,3 +32,5 @@ web_release: v1.96
 purpose: chief registrations and field-scoped invitation, dashboard inspection
 build: DEV only; APK disabled
 request: 2026-11-05
+
+retry: v1.96 corrected menu and lazy invite registration anchors
