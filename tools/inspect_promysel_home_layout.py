@@ -17,3 +17,7 @@ for i,line in enumerate(lines[93:135],94):print(f'H{i:03d} {line[:500]}')
 print('SYNC CURSOR INSPECTION')
 for i,line in enumerate(Path('lib/core/services/sync_service.dart').read_text().splitlines(),1):
  if any(k in line for k in ['_cursor','recover','syncNow(','_pull(']):print('S',i,line[:500])
+
+print('SYNC PULL EXACT')
+for i,line in enumerate(Path('lib/core/services/sync_service.dart').read_text().splitlines(),1):
+ if 135<=i<=185:print(f'S{i:03d}',line[:700])
