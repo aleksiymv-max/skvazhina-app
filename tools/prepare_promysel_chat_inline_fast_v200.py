@@ -79,7 +79,7 @@ s=patch(s,
      ..._textPending.values.where((x)=>!confirmed.contains(x['client_id']))];""",
   'show all pending messages, not only the latest one')
 s=patch(s,
-  '  Future<void> _send()async{\n',
+  'Future<void> _send()async{\n',
   '''  void _sendFastText(String value){
     final id=_chat.newMessageId();
     final pending=<String,dynamic>{
