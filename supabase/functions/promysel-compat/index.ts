@@ -725,8 +725,37 @@ Deno.serve(async(req:Request)=>{
               updatedAt:e.client_updated_at,payload:e.payload});
           }
         }
+        // The field-wide snapshot is for synchronization, not an entitlement
+        // to see every colleague's personal task or completed history.
+        // Apply the SAME rules server-side: browser devtools cannot bypass it.
+        const snapshot={...repaired.snapshot};
+        const allTasks=Array.isArray(snapshot.tasks)?snapshot.tasks as J[]:[];
+        const viewerId=user.id;
+        const chief=String(member.role)==="shopChief";
+        const master=String(member.role)==="engineer"&&String(member.subrole)==="master";
+        let operatorIds=new Set<string>();
+        if(master){
+          const {data:operators,error:operatorsError}=await admin.from("field_memberships")
+            .select("user_id").eq("field_id",fieldId).eq("role","operator")
+            .eq("approved",true).eq("blocked",false);
+          if(operatorsError)throw operatorsError;
+          operatorIds=new Set((operators??[]).map(x=>String(x.user_id)));
+        }
+        snapshot.tasks=allTasks.filter(t=>{
+          if(chief)return true;
+          const related=t.createdById===viewerId||
+            (t.targetType==="personal"&&t.targetId===viewerId)||
+            t.completedById===viewerId||t.confirmedById===viewerId;
+          if(related)return true;
+          if(master&&t.targetType==="personal"&&operatorIds.has(String(t.targetId)))return true;
+          // Open common work is visible to its field until confirmed. Its
+          // completed history remains limited to actual participants.
+          return t.status!=="confirmed"&&(t.targetType==="area"||t.targetType==="pad");
+        });
+        snapshot.notifications=(Array.isArray(snapshot.notifications)?snapshot.notifications as J[]:[])
+          .filter(n=>String(n.userId??"")===viewerId);
         output.push({key:"recovered:"+fieldId+":"+String(repaired.seq),
-          type:"app_state",updatedAt:new Date().toISOString(),payload:repaired.snapshot});
+          type:"app_state",updatedAt:new Date().toISOString(),payload:snapshot});
         stateDeliveredSeq=repaired.seq;
       }
     }
