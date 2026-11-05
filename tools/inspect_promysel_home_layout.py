@@ -13,3 +13,7 @@ print('HOME FIRST 60 LINES')
 for i,line in enumerate(lines[:60],1):print(f'H{i:03d} {line[:500]}')
 print('HOME PROBLEM MODAL LINES')
 for i,line in enumerate(lines[93:135],94):print(f'H{i:03d} {line[:500]}')
+
+print('SYNC CURSOR INSPECTION')
+for i,line in enumerate(Path('lib/core/services/sync_service.dart').read_text().splitlines(),1):
+ if any(k in line for k in ['_cursor','recover','syncNow(','_pull(']):print('S',i,line[:500])
