@@ -167,6 +167,8 @@ jobs:
           python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_chief_approval_invite.py"
           python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_home_compact_v196.py"
           python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_problem_backfill_v196.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_network_resilience_v197.py"
+          python3 "$GITHUB_WORKSPACE/tools/test_promysel_network_resilience_v197.py"
           python3 "$GITHUB_WORKSPACE/tools/inspect_promysel_home_layout.py"
           cp "$GITHUB_WORKSPACE/tools/work_schedule_test.dart" test/work_schedule_test.dart
           mkdir -p test
@@ -214,6 +216,16 @@ jobs:
           PY
           python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_launcher_badge_web.py"
           test -f web/sqlite3.wasm;test -f web/sqflite_sw.js;test -f web/apple-touch-icon.png
+      - name: Public connectivity probe without VPN
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          for URL in "https://promysel-web.pages.dev/" "https://xptmcufhuvtcunqzlsme.supabase.co/functions/v1/promysel-compat/v1/registration/fields"; do
+            printf 'NO_VPN_CONNECT %s ' "$URL"
+            curl --silent --show-error --location --max-time 15 -o /dev/null \\
+              -w 'http=%{http_code} dns=%{time_namelookup}s connect=%{time_connect}s tls=%{time_appconnect}s first_byte=%{time_starttransfer}s total=%{time_total}s\\n' "$URL" || true
+          done
       - name: Analyze and build web release
         shell: bash
         run: |
@@ -222,6 +234,8 @@ jobs:
           flutter test test/task_permission_test.dart test/history_empty_widget_test.dart test/task_photo_widget_test.dart test/work_schedule_test.dart test/training_calendar_test.dart test/weak_network_test.dart test/structure_integrity_test.dart test/structure_versions_test.dart
           flutter build web --no-pub --release --pwa-strategy=offline-first --dart-define=PROMYSEL_SYNC_URL=https://xptmcufhuvtcunqzlsme.supabase.co/functions/v1/promysel-compat
           python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_web_push.py"
+          # Debug symbols are not loaded at runtime; avoid shipping multi-MB maps on slow links.
+          find build/web/canvaskit -type f -name '*.symbols' -delete
           test -f build/web/index.html;test -f build/web/flutter_bootstrap.js;test -f build/web/manifest.json;test -f build/web/sqlite3.wasm;test -f build/web/sqflite_sw.js;test -f build/web/apple-touch-icon.png
       - name: Add first-run account setup and Cloudflare hosting metadata
         shell: bash
