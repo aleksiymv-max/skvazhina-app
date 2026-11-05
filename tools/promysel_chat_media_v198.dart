@@ -371,7 +371,9 @@ class _ChatVideoMediaState extends State<ChatVideoMedia>{
   @override void didUpdateWidget(covariant ChatVideoMedia old){
     super.didUpdateWidget(old);
     if(old.scroll!=widget.scroll){old.scroll.removeListener(_check);widget.scroll.addListener(_check);}
-    if(old.id!=widget.id||old.url!=widget.url){
+    // Signed playback links can rotate on every history refresh. Keep the
+    // already initialized decoder when the immutable message ID is unchanged.
+    if(old.id!=widget.id){
       widget.hub.videoVisible(old.id,old.url,false);_visible=false;
       WidgetsBinding.instance.addPostFrameCallback((_){_check();});
     }
