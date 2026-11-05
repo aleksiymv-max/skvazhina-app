@@ -10,12 +10,12 @@ permissions:
   contents: read
 concurrency:
   group: promysel-web-dev-build-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 jobs:
   build:
     name: Build Promysel Web/PWA for iPhone
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 18
     steps:
       - uses: actions/checkout@v4
       - name: Approval-first registration regression
