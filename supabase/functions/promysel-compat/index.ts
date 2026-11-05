@@ -784,7 +784,7 @@ Deno.serve(async(req:Request)=>{
       !Number.isSafeInteger(expected)||expected<0)
       return reply({detail:"Некорректная версия фотографии"},400);
     const value=kind==="delete"?"__deleted__":txt(body.avatar);
-    if(kind==="set"&&(value.length<24||value.length>320000||
+    if(kind==="set"&&(value.length<24||value.length>900000||
       !/^[A-Za-z0-9+/=]+$/.test(value)))
       return reply({detail:"Некорректное изображение"},400);
     const {data:result,error}=await admin.rpc("promysel_avatar_commit_v206",{
