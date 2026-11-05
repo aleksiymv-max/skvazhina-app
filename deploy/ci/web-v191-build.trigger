@@ -64,3 +64,5 @@ apk: disabled
 release: v1.98
 purpose: chat round video autoplay muted; expanded audio; unified mini media player; modern recorder icons; faster video send
 request: 2026-11-05 chat media polish
+
+retry: v1.98 chat state disposal matching 2026-11-05-08:14 UTC
