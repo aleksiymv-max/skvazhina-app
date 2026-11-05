@@ -1,0 +1,71 @@
+name: Stage verified Promysel Web for TUQO
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: Successful GitHub Web build run ID
+        required: true
+        type: string
+      confirmation:
+        description: Enter STAGE to replace TUQO production branch contents
+        required: true
+        type: string
+permissions:
+  actions: read
+  contents: write
+concurrency:
+  group: promysel-tuqo-stage
+  cancel-in-progress: false
+jobs:
+  stage:
+    if: ${{ inputs.confirmation == 'STAGE' }}
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Verify successful original Web build
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ inputs.run_id }}
+          REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$RUN_ID" =~ ^[0-9]+$ ]]
+          gh api "repos/$REPO/actions/runs/$RUN_ID" > /tmp/build.json
+          jq -e '.conclusion=="success" and .name=="Build Promysel Web for iPhone" and .head_branch=="main" and .event!="pull_request"' /tmp/build.json
+          echo "SOURCE_SHA=$(jq -r .head_sha /tmp/build.json)" >> "$GITHUB_ENV"
+      - name: Download exact verified artifact
+        uses: actions/download-artifact@v4
+        with:
+          run-id: ${{ inputs.run_id }}
+          name: promysel-original-flutter-supabase-web
+          repository: ${{ github.repository }}
+          github-token: ${{ github.token }}
+          path: artifact
+      - name: Validate production files
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/promysel-tuqo-web
+          unzip -q artifact/promysel-original-flutter-supabase-web.zip -d /tmp/promysel-tuqo-web
+          cd /tmp/promysel-tuqo-web
+          for f in index.html main.dart.js flutter_bootstrap.js manifest.json finish-registration.html sqflite_sw.js; do test -s "$f"; done
+          ! grep -q 'id="promysel-dev-mark"' index.html
+          test ! -e .git
+          echo "Validated original production Web artifact"
+      - name: Replace TUQO branch with static Web site
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd /tmp/promysel-tuqo-web
+          git init -b tuqo-production
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Promysel TUQO Web release from $SOURCE_SHA"
+          git remote add origin "https://x-access-token:${GH_TOKEN}@github.com/${REPO}.git"
+          git push --force origin HEAD:refs/heads/tuqo-production
+          echo "::notice title=TUQO candidate staged::Production files pushed to tuqo-production; TUQO auto-deploy must remain disabled until user publishes"
