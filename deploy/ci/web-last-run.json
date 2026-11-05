@@ -1,13 +1,13 @@
 {
-  "run_id": 42087607907,
-  "head_sha": "d47649ed98f5fdc4f8a22d14036c301b7dbcafb9",
+  "run_id": 42088489985,
+  "head_sha": "ab3f79dbce634304cc77177a5f8c5bcca5e4262c",
   "conclusion": "success",
-  "run_url": "https://github.com/aleksiymv-max/skvazhina-app/actions/runs/42087607907",
-  "started_at": "2026-11-05T18:47:21Z",
-  "updated_at": "2026-11-05T18:50:16Z",
+  "run_url": "https://github.com/aleksiymv-max/skvazhina-app/actions/runs/42088489985",
+  "started_at": "2026-11-05T18:52:49Z",
+  "updated_at": "2026-11-05T18:56:02Z",
   "artifact_available": true,
   "queue_wait_seconds": 0,
-  "total_elapsed_seconds": 175.0,
+  "total_elapsed_seconds": 193.0,
   "step_durations": [
     {
       "name": "Set up job",
@@ -26,7 +26,7 @@
     },
     {
       "name": "Supabase compatibility endpoint preflight",
-      "seconds": 1.0,
+      "seconds": 2.0,
       "conclusion": "success"
     },
     {
@@ -41,22 +41,22 @@
     },
     {
       "name": "Apply current Promysel updates",
-      "seconds": 6.0,
+      "seconds": 7.0,
       "conclusion": "success"
     },
     {
       "name": "Run subosito/flutter-action@v2",
-      "seconds": 26.0,
+      "seconds": 32.0,
       "conclusion": "success"
     },
     {
       "name": "Create web platform and configure iPhone PWA",
-      "seconds": 34.0,
+      "seconds": 36.0,
       "conclusion": "success"
     },
     {
       "name": "Analyze and build web release",
-      "seconds": 71.0,
+      "seconds": 76.0,
       "conclusion": "success"
     },
     {
@@ -86,12 +86,12 @@
     },
     {
       "name": "Publish development preview only (stable production remains frozen)",
-      "seconds": 21.0,
+      "seconds": 23.0,
       "conclusion": "success"
     },
     {
       "name": "Post Run subosito/flutter-action@v2",
-      "seconds": 0,
+      "seconds": 1.0,
       "conclusion": "success"
     },
     {
