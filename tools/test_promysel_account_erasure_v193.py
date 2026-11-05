@@ -9,7 +9,7 @@ checks={
  'chief delete includes the exact field':"'fieldId':fieldId" in service,
  'chief delete includes exact name':"'confirmName':exactName" in service,
  'chief no longer uses bodiless delete':"http.delete(u('/v1/users/'+id),headers:{'authorization':'Bearer '+token})" not in service,
- 'chief performs online token refresh':'await ensureFreshToken();\n  await RegistrationService.instance.removeUser' in session,
+ 'chief performs online token refresh':'await ensureFreshToken();\n  final activeToken=api.token;' in session,
  'chief sends server-validated field and name':"currentFieldId??'',target.name" in session,
  'admin legacy route present':"/v1/admin/removed-users/cleanup" in service,
  'admin legacy requires both email fields':"'confirmEmail':confirmEmail" in service,

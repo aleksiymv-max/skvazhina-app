@@ -5,3 +5,5 @@ production: no direct deploy from build; only promotion after success
 
 request: v1.92 request routing audit and pending owner-change race fix
 source_commit: 792ae07454ee4bcb0cd2d870c82ffa18b188398a
+
+release_requested: v1.93 employee deletion changes, Web DEV first

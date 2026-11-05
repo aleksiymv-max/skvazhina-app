@@ -25,7 +25,9 @@ sess='lib/core/services/session_service.dart'
 sub(sess,
 "  await RegistrationService.instance.removeUser(tok,userId);await refreshWorkers(force:true);",
 """  await ensureFreshToken();
-  await RegistrationService.instance.removeUser(tok,userId,currentFieldId??'',target.name);
+  final activeToken=api.token;
+  if(activeToken==null||activeToken.isEmpty||activeToken.startsWith('offline-'))throw const ApiException('Удаление учётной записи требует подключения к серверу');
+  await RegistrationService.instance.removeUser(activeToken,userId,currentFieldId??'',target.name);
   userFields.remove(userId);await refreshWorkers(force:true);""",
 'chief removes Auth identity, not only membership')
 sub(sess,
@@ -40,8 +42,8 @@ sub(sess,
 
 person='lib/features/organization/personnel_screen.dart'
 sub(person,
-"content:Text('Сотрудник \${worker.name} будет отстранён от месторождения '\n        'и потеряет доступ. История обходов, задания и измерения сохранятся.'),",
-"content:Text('Учётная запись сотрудника \${worker.name} будет удалена, а его почта освободится для повторной регистрации. История обходов и замеров сохранится без личных данных автора.'),",
+"content:Text('Сотрудник ${worker.name} будет отстранён от месторождения '\n        'и потеряет доступ. История обходов, задания и измерения сохранятся.'),",
+"content:Text('Учётная запись сотрудника ${worker.name} будет удалена, а его почта освободится для повторной регистрации. История обходов и замеров сохранится без личных данных автора.'),",
 'chief deletion explanation')
 sub(person,
 "const SnackBar(content:Text('Доступ сотрудника отключён'))",
@@ -58,8 +60,8 @@ sub(adm,
 "final given=control.text.trim();control.dispose();if(confirmed!=true)return;if(given!=u.name){_report('ФИО не совпадают. Удаление отменено.');return;}\n try{await s.adminDeleteUser(u.id,fid,u.name);_report('Учётная запись удалена, почта свободна для регистрации.');}",
 'admin correct success semantics')
 sub(adm,
-"Будет отозван доступ сотрудника «\${u.name}» к месторождению. Исторические замеры и задания сохранятся.",
-"Учётная запись сотрудника «\${u.name}» будет удалена из авторизации, а почта станет доступной для новой регистрации. Производственная история сохранится.",
+"Будет отозван доступ сотрудника «${u.name}» к месторождению. Исторические замеры и задания сохранятся.",
+"Учётная запись сотрудника «${u.name}» будет удалена из авторизации, а почта станет доступной для новой регистрации. Производственная история сохранится.",
 'admin delete warning')
 sub(adm,
 "Future<void> _edit(AppUser u)async{",
