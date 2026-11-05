@@ -35,7 +35,7 @@ assert s.count(anchor)==1, 'field selection anchor changed'
 s=s.replace(anchor,anchor+"\n final String _invitedFieldId=Uri.base.queryParameters['fieldId']??'';",1)
 anchor='   // Registration-only data: do not fetch on the ordinary login form.'
 assert s.count(anchor)==1, 'registration field init changed'
-s=s.replace(anchor,anchor+"\\n   if(Uri.base.queryParameters['register']=='1'){register=true;unawaited(_fetchFields());}",1)
+s=s.replace(anchor,anchor+"\n   if(Uri.base.queryParameters['register']=='1'){register=true;unawaited(_fetchFields());}",1)
 anchor='   final options=SessionService.instance.approvedFields;'
 assert s.count(anchor)==2, 'field discovery changed'
 s=s.replace(anchor,anchor+"""
