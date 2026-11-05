@@ -9,9 +9,9 @@ s=s.replace(old,"if(canIssue)_pullRefresh(_issuedReviewSections(issued))",1)
 anchor=" Widget _pullRefresh(Widget content)=>"
 assert s.count(anchor)==1, 'task screen method anchor changed'
 new=""" Widget _issuedReviewSections(List<WorkTask> issued){
-   final pending=issued.where((t)=>t.status==WorkTaskStatus.awaitingConfirmation).toList();
+   final pending=issued.where((t)=>t.status==WorkTaskStatus.awaitingConfirmation&&_canReviewTask(t,SessionService.instance.currentUser)).toList();
    final completed=issued.where((t)=>t.status==WorkTaskStatus.confirmed).toList();
-   final others=issued.where((t)=>t.status!=WorkTaskStatus.awaitingConfirmation&&t.status!=WorkTaskStatus.confirmed).toList();
+   final others=issued.where((t)=>t.status!=WorkTaskStatus.confirmed&&(t.status!=WorkTaskStatus.awaitingConfirmation||!_canReviewTask(t,SessionService.instance.currentUser))).toList();
    return Column(children:[
      Card(child:ExpansionTile(
        key:const PageStorageKey('issued-pending-review'),
@@ -42,8 +42,8 @@ new=""" Widget _issuedReviewSections(List<WorkTask> issued){
 assert ' Widget _issuedReviewSections(' not in s
 s=s.replace(anchor,new+anchor,1)
 # Existing issued filter used to hide confirmed tasks; include them for completed section.
-oldfilter="t.status!=WorkTaskStatus.confirmed&&_isTaskInCurrentField(t)"
+oldfilter="final issued=store.tasks.where((t)=>t.status!=WorkTaskStatus.confirmed&&TaskVisibility.canViewActiveIssued(t,u)).toList();"
 assert s.count(oldfilter)==1, 'issued filter changed; inspect before applying'
-s=s.replace(oldfilter,"_isTaskInCurrentField(t)",1)
+s=s.replace(oldfilter,"final issued=store.tasks.where((t)=>TaskVisibility.canViewActiveIssued(t,u)).toList();",1)
 p.write_text(s,encoding='utf-8')
 print('PASS: pending approval count, in-place expandable list, completed section')
