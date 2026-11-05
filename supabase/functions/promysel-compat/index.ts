@@ -283,6 +283,20 @@ Deno.serve(async(req:Request)=>{
     }
     acc=filterDeletedStructure({...acc,
       structureDeleted:mergeStructureDeleted(acc.structureDeleted,durable)});
+    // Provenance is immutable and belongs to the first field-scoped task event.
+    // Legacy snapshots currently contain replicated tasks from other fields.
+    // Never forward them to a new user or a different field.
+    const rawTasks=Array.isArray(acc.tasks)?acc.tasks.filter(good) as J[]:[];
+    const ids=[...new Set(rawTasks.map((t:J)=>String(t.id??'')).filter(Boolean))];
+    const owned=new Set<string>();
+    for(let i=0;i<ids.length;i+=150){
+      const {data:scopes,error:scopeError}=await admin.from("promysel_task_scopes")
+        .select("task_id").eq("field_id",fid).in("task_id",ids.slice(i,i+150));
+      if(scopeError)throw scopeError;
+      for(const row of scopes??[])owned.add(String(row.task_id));
+    }
+    acc.tasks=rawTasks.filter((t:J)=>owned.has(String(t.id??''))&&
+      (!t.fieldId||String(t.fieldId)===fid)).map((t:J)=>({...t,fieldId:fid}));
     const last=data[0].payload as J;
     const names=["areas","pads","structureDeleted","tasks","annulus","training","trainingDeletedIds","workSchedules","notifications","walkConfig","avatars","problemApplications"];
     return {snapshot:acc,seq:Number(data[0].sequence),
