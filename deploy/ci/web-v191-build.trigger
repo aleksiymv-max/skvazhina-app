@@ -133,3 +133,6 @@ production: no automatic TUQO publication
 
 retry_v208: fix Dart num.clamp height typing; publish CI outcome to deploy/ci/web-last-run.json
 reason: user-requested build verification; dev preview only, TUQO production unchanged
+
+retry_v208_registration: update stale Cloudflare redirect assertion and admin invite URL to TUQO
+fix: integration test now checks live production origin, no changes to approval-first registration logic
