@@ -153,9 +153,13 @@ Deno.serve(async(req:Request)=>{
    if(!validEmail(email)||!password)return reply({detail:"Введите корректный email и пароль"},400);
    const {data,error}=await guest.auth.signInWithPassword({email,password});
    if(error||!data.user||!data.session)return reply({detail:"Неверная электронная почта или пароль"},401);
-   const {data:members,error:memberErr}=await admin.from("field_memberships").select("field_id,role,subrole,display_name,approved,blocked").eq("user_id",data.user.id).limit(10);
+   // A single indexed FK join replaces the per-login membership + field round trip.
+   // The inner join excludes archived fields without weakening access rules.
+   const {data:members,error:memberErr}=await admin.from("field_memberships")
+     .select("field_id,role,subrole,display_name,approved,blocked,oil_fields!inner(id,archived_at)")
+     .eq("user_id",data.user.id).is("oil_fields.archived_at",null).limit(10);
    if(memberErr)throw memberErr;
-   let member=(members??[]).find((m:J)=>m.approved===true&&m.blocked!==true);if(member){const {data:active}=await admin.from("oil_fields").select("id").eq("id",member.field_id).is("archived_at",null).maybeSingle();if(!active)member=undefined;}
+   const member=(members??[]).find((m:J)=>m.approved===true&&m.blocked!==true);
    const isAdmin=data.user.app_metadata?.system_admin===true;
    if(!member&&!isAdmin)return reply({detail:"Заявка ещё не согласована или доступ заблокирован"},403);
    const mustChange=data.user.app_metadata?.must_change_password===true;
@@ -241,9 +245,23 @@ Deno.serve(async(req:Request)=>{
      !["/v1/auth/first-password","/v1/auth/change-password"].includes(route)){
      return reply({detail:"Необходимо изменить временный пароль"},403);
   }
-  const {data:members,error:mErr}=await admin.from("field_memberships").select("field_id,role,subrole,display_name,approved,blocked").eq("user_id",user.id).limit(30);
-  if(mErr)throw mErr;
-  const {data:activeRows}=await admin.from("oil_fields").select("id").is("archived_at",null).limit(500);const activeFields=new Set((activeRows??[]).map((f:J)=>String(f.id)));const memberships=(members??[]).filter((m:J)=>m.approved===true&&m.blocked!==true&&activeFields.has(String(m.field_id)));
+  // Most requests are made by field employees. Resolve active memberships in
+  // one indexed FK join instead of querying the entire field catalogue on
+  // every API call. Admins still receive the full active field list.
+  const [memberResult,allFieldsResult]=await Promise.all([
+    admin.from("field_memberships")
+      .select("field_id,role,subrole,display_name,approved,blocked,oil_fields!inner(id,archived_at)")
+      .eq("user_id",user.id).is("oil_fields.archived_at",null).limit(30),
+    elevated?admin.from("oil_fields").select("id").is("archived_at",null).limit(500):
+      Promise.resolve({data:[],error:null})
+  ]);
+  if(memberResult.error)throw memberResult.error;
+  if(allFieldsResult.error)throw allFieldsResult.error;
+  const memberships=(memberResult.data??[]).filter((m:J)=>m.approved===true&&m.blocked!==true);
+  const activeFields=new Set<string>([
+    ...memberships.map((m:J)=>String(m.field_id)),
+    ...(allFieldsResult.data??[]).map((f:J)=>String(f.id))
+  ]);
   const canField=(fieldId:string)=>memberships.find((m:J)=>m.field_id===fieldId);
   async function effectiveState(fid:string):Promise<{snapshot:J|null,seq:number,changed:boolean}>{
     const {data,error}=await admin.from("sync_events").select("sequence,payload")
