@@ -104,3 +104,5 @@ release: v2.05
 scope: chief/admin registration invitation queue, mail provider backoff, accurate email delivery state and retry controls
 non_destructive: true
 production: Supabase Edge RPC and delivery queue only; TUQO Web ZIP for manual update
+
+retry_v205: fix Dart interpolation in source patch to render admin queue correctly
