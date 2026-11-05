@@ -58,8 +58,9 @@ jobs:
       - name: Verify preinstalled icon renderer
         run: |
           set -euo pipefail
-          command -v ffmpeg
-          echo "Using preinstalled ffmpeg; skipping apt repository updates"
+          command -v java
+          java -version
+          echo "Using standard JDK ImageIO; skipping apt repository updates"
       - name: Apply current Promysel updates
         shell: bash
         run: |
