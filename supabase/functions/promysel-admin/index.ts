@@ -98,36 +98,77 @@ Deno.serve(async (request:Request)=>{
      p_request_id:n,p_actor:actor.id
    });
    if(decisionError)return json({detail:decisionError.message},403);
-   let userId=typeof decision?.existingUserId==="string"?decision.existingUserId:"";
-   let emailed=false;
+   const {data:claim,error:claimError}=await admin.rpc("promysel_claim_registration_invitation",{
+     p_request_id:n,p_actor:actor.id
+   });
+   if(claimError){
+     console.error("admin invite claim",claimError.code??"unknown");
+     return json({status:"approved",invitationSent:false,
+       detail:"Заявка согласована. Не удалось проверить очередь приглашений."},202);
+   }
+   if(claim?.status==="sent")return json({status:"approved",invitationSent:true});
+   const acceptedId=String(claim?.acceptedUserId??"");
+   if(!claim?.canSend&&!acceptedId)return json({status:"approved",invitationSent:false,
+     invitationStatus:String(claim?.status??"queued"),nextRetryAt:claim?.nextRetryAt??null,
+     detail:"Заявка согласована. Отправка приглашения ожидает очереди либо настройки SMTP."},202);
+   let userId=acceptedId;
    if(!userId){
-     const {data:invited,error:inviteError}=await admin.auth.admin.inviteUserByEmail(String(decision.email),{
-       data:{full_name:decision.fullName},
-       redirectTo:"https://promysel-web.pages.dev/finish-registration.html"
-     });
-     if(inviteError||!invited.user){
-       console.error("approved invitation error:",inviteError?.message??"missing user");
-       return json({detail:"Заявка согласована, но письмо не отправлено. Повторите отправку в заявках."},503);
+     userId=String(decision?.existingUserId??"");
+     let deliveryError:unknown=null;
+     if(!userId){
+       const {data:invited,error:inviteError}=await admin.auth.admin.inviteUserByEmail(
+         String(decision.email),{
+         data:{full_name:decision.fullName},
+         redirectTo:"https://promysel-web.pages.dev/finish-registration.html"
+       });
+       if(inviteError||!invited?.user)deliveryError=inviteError??new Error("invite_user_missing");
+       else userId=invited.user.id;
+     }else{
+       const {error:resetError}=await client.auth.resetPasswordForEmail(String(decision.email),{
+         redirectTo:"https://promysel-web.pages.dev/finish-registration.html"
+       });
+       if(resetError)deliveryError=resetError;
      }
-     userId=invited.user.id;emailed=true;
+     if(deliveryError){
+       const e=deliveryError&&typeof deliveryError==="object"
+         ?deliveryError as Record<string,unknown>:{};
+       const message=String(e.message??"").toLowerCase();
+       const code=e.status===429||message.includes("rate limit")
+         ?"over_email_send_rate_limit":message.includes("not authorized")||message.includes("smtp")
+         ?"email_configuration_required":"mail_delivery_failed";
+       const type=code==="email_configuration_required"?"action_required":"retry";
+       const {error:recordError}=await admin.rpc("promysel_record_registration_invitation",{
+         p_request_id:n,p_actor:actor.id,p_status:type,p_error_code:code
+       });
+       if(recordError)console.warn("admin invitation retry bookkeeping",recordError.code??"unknown");
+       return json({status:"approved",invitationSent:false,invitationStatus:type,
+         detail:"Заявка согласована. Письмо в очереди отправки; проверьте почтовые ограничения."},202);
+     }
+     if(!userId)return json({status:"approved",invitationSent:false,
+       detail:"Письмо в процессе отправки. Сотрудник ещё не активирован."},202);
+     const {error:recordError}=await admin.rpc("promysel_record_registration_invitation",{
+       p_request_id:n,p_actor:actor.id,p_status:"accepted",p_user_id:userId
+     });
+     if(recordError){
+       console.error("admin invite accepted bookkeeping",recordError.code??"unknown");
+       return json({status:"approved",invitationSent:false,
+         detail:"Письмо принято, завершение учётной записи ожидает повторной проверки."},202);
+     }
    }
    const {data:finalized,error:finalizeError}=await admin.rpc("promysel_finish_registration_approval",{
      p_request_id:n,p_actor:actor.id,p_user_id:userId
    });
    if(finalizeError){
-     console.error("approved invite finalization:",finalizeError.message);
-     return json({detail:"Заявка согласована, но сохранение доступа не завершилось. Повторите действие."},409);
+     console.error("admin invite finalization",finalizeError.code??"unknown");
+     return json({status:"approved",invitationSent:true,invitationStatus:"accepted",
+       detail:"Письмо отправлено, но активация сотрудника не завершена."},202);
    }
-   if(!emailed){
-     const {error:emailErr}=await client.auth.resetPasswordForEmail(String(decision.email),{
-       redirectTo:"https://promysel-web.pages.dev/finish-registration.html"
-     });
-     if(emailErr)console.error("approved existing user email:",emailErr.message);
-     emailed=!emailErr;
-   }
-   return json({...finalized,invitationSent:emailed,detail:emailed?
-     "Заявка согласована. Письмо для установки пароля отправлено.":
-     "Заявка согласована. Письмо отправить не удалось."});
+   const {error:completionError}=await admin.rpc("promysel_record_registration_invitation",{
+     p_request_id:n,p_actor:actor.id,p_status:"sent",p_user_id:userId
+   });
+   if(completionError)console.warn("admin invite completion bookkeeping",completionError.code??"unknown");
+   return json({...finalized,invitationSent:true,invitationStatus:"sent",
+     detail:"Согласование завершено. Письмо передано почтовому сервису."});
   }
   if(route==="change-role"){
    const field=String(body.fieldId??""),target=String(body.userId??""),role=String(body.role??"");
