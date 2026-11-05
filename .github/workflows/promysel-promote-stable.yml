@@ -1,9 +1,5 @@
 name: "Promysel — вручную опубликовать проверенную Web-версию"
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'deploy/ci/promote-v196.trigger'
   workflow_dispatch:
     inputs:
       run_id:
@@ -22,7 +18,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   release:
-    if: ${{ github.event_name == 'push' || github.event.inputs.confirmation == 'PROMOTE' }}
+    if: ${{ github.event.inputs.confirmation == 'PROMOTE' }}
     runs-on: ubuntu-latest
     timeout-minutes: 12
     environment: production
@@ -39,10 +35,6 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          if [[ -z "$RUN_ID" ]]; then
-            grep -qx 'confirmation: PROMOTE' deploy/ci/promote-v196.trigger
-            RUN_ID="$(sed -n 's/^run_id: //p' deploy/ci/promote-v196.trigger | tail -1)"
-          fi
           [[ "$RUN_ID" =~ ^[0-9]+$ ]]
           gh api "repos/$REPO/actions/runs/$RUN_ID" > /tmp/promysel-run.json
           jq -e '.conclusion=="success" and .name=="Build Promysel Web for iPhone" and .head_branch=="main" and .event!="pull_request"' /tmp/promysel-run.json
@@ -51,11 +43,10 @@ jobs:
           git fetch origin "$SHA"
           git merge-base --is-ancestor origin/stable "$SHA"
           echo "sha=$SHA" >> "$GITHUB_OUTPUT"
-          echo "run_id=$RUN_ID" >> "$GITHUB_OUTPUT"
       - name: Download exact previously tested Web artifact
         uses: actions/download-artifact@v4
         with:
-          run-id: ${{ steps.check.outputs.run_id }}
+          run-id: ${{ inputs.run_id }}
           name: promysel-original-flutter-supabase-web
           repository: ${{ github.repository }}
           github-token: ${{ github.token }}
