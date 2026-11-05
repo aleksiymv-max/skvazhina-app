@@ -88,3 +88,8 @@ retry_v200: adjust fast text send insert anchor in compact Flutter source 2026-1
 release: v2.01
 reason: Fix cellular loading of Tuqo Web app by self-hosted Flutter CanvasKit (no Google CDN), safe static cache and diagnostic page
 publish: DEV preview only, TUQO ZIP deliverable
+
+release: v2.02
+scope: global background workload, navigation, media repaint and personnel cache
+asserts: hidden tasks gated, writes preserved, audio offscreen suspended, no extra timers
+artifact: Web ZIP for TUQO and DEV preview
