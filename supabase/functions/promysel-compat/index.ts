@@ -35,7 +35,17 @@ function mergeRows(oldV:unknown,newV:unknown,k:string):J[]{
     if(key!==""&&key!=="|"||!out.some(x=>JSON.stringify(x)===JSON.stringify(row)))out.push(row);
   }else{
     const old=out[idx];
-    if(k==="pads")out[idx]={...old,...row,wells:mergeRows(old.wells,row.wells,"id")};
+    const priorAt=Date.parse(String(old.updatedAt??"")),incomingAt=Date.parse(String(row.updatedAt??""));
+    const priorNewer=Number.isFinite(priorAt)&&(!Number.isFinite(incomingAt)||priorAt>incomingAt);
+    if(k==="pads"){
+      const wells=mergeRows(old.wells,row.wells,"wells");
+      const preferred=priorNewer?old:row;
+      const order=Array.isArray(preferred.wells)?preferred.wells.map((w:J)=>String(w.id??"")):[];
+      const positions=new Map<string,number>();order.forEach((id:string,i:number)=>positions.set(id,i));
+      wells.sort((x,y)=>(positions.get(String(x.id))??999999)-(positions.get(String(y.id))??999999));
+      out[idx]={...old,...row,...(priorNewer?old:{}),wells};
+    }
+    else if(priorNewer&&(k==="areas"||k==="wells"))continue;
     else if(k==="training"&&
       (Date.parse(String(old.updatedAt??""))||0)>
       (Date.parse(String(row.updatedAt??""))||0))continue;
@@ -703,9 +713,8 @@ Deno.serve(async(req:Request)=>{
      const unique=new Map<string,typeof tombstoneRequests[number]>();
      for(const row of tombstoneRequests)unique.set(row.kind+":"+row.entity_id,row);
      const fresh=[...unique].filter(([key])=>!known.has(key)).map(([,value])=>value);
-     const leader=member.role==="shopChief"||member.role==="admin"||
-       (member.role==="engineer"&&["leadingGeologist","leadingTechnologist"].includes(String(member.subrole)));
-     if(fresh.length&&!leader)return reply({detail:"Удалять участки, кусты и скважины может только начальник цеха или ведущий ИТР"},403);
+     const leader=member.role==="shopChief"||member.role==="admin";
+     if(fresh.length&&!leader)return reply({detail:"Удалять участки, кусты и скважины может только начальник цеха"},403);
      if(fresh.length){
        const {error:insertError}=await admin.from("promysel_structure_tombstones")
          .upsert(fresh,{onConflict:"field_id,kind,entity_id",ignoreDuplicates:true});
