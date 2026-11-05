@@ -147,3 +147,5 @@ release: v2.09
 scope: issued tasks show only pending review tile, approved tasks appear in History only
 regression: completion -> awaiting confirmation -> confirmed History; rejection -> active work
 production: stage only after successful Web tests
+
+final_v209: pending confirmation appears only in review tile, confirmed excluded from all task lists and preserved in history
