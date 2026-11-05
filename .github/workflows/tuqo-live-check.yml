@@ -1,0 +1,67 @@
+name: Verify TUQO production release
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'deploy/ci/tuqo-live-check.trigger'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Probe TUQO site and release metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          URL='https://promysel-app.tuqo.ru'
+          curl --connect-timeout 10 --max-time 20 --silent --show-error --location \
+            -o /tmp/tuqo-index.html -w '%{http_code}' "$URL/" > /tmp/tuqo-index-status.txt || echo 000 > /tmp/tuqo-index-status.txt
+          curl --connect-timeout 10 --max-time 20 --silent --show-error --location \
+            -H 'Cache-Control: no-cache' \
+            -o /tmp/tuqo-release-response.txt -w '%{http_code}' "$URL/promysel-release.json?check=${GITHUB_RUN_ID}" \
+            > /tmp/tuqo-release-status.txt || echo 000 > /tmp/tuqo-release-status.txt
+          python3 - <<'PY'
+          import json
+          from datetime import datetime, timezone
+          from pathlib import Path
+          index_code=Path('/tmp/tuqo-index-status.txt').read_text().strip()
+          release_code=Path('/tmp/tuqo-release-status.txt').read_text().strip()
+          expected_run_id=42077826179
+          expected_sha='0cdf56cdebdc6281e4fb01bf4da4db9ae53ff77d'
+          release={}
+          if release_code=='200':
+            try:
+              release=json.loads(Path('/tmp/tuqo-release-response.txt').read_text())
+            except (ValueError,UnicodeDecodeError):
+              pass
+          deployed=release.get('build_run_id')==expected_run_id and release.get('source_sha')==expected_sha
+          out={
+            'checked_at':datetime.now(timezone.utc).isoformat(),
+            'url':'https://promysel-app.tuqo.ru/',
+            'index_http_status':index_code,
+            'release_http_status':release_code,
+            'version_verified':bool(deployed),
+            'expected_run_id':expected_run_id,
+            'observed_release':release if isinstance(release,dict) else {},
+          }
+          path=Path('deploy/ci/tuqo-live-status.json')
+          path.parent.mkdir(parents=True,exist_ok=True)
+          path.write_text(json.dumps(out,ensure_ascii=False,indent=2)+'\n')
+          print(json.dumps(out,ensure_ascii=False))
+          PY
+      - name: Store site verification without triggering Web rebuild
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add deploy/ci/tuqo-live-status.json
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "ci: record TUQO production verification"
+          git pull --rebase origin main
+          git push origin HEAD:main
