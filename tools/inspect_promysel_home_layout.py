@@ -8,3 +8,8 @@ for i,line in enumerate(lines):
  if any(t in line for t in ("Widget _home","Widget _areas","Widget _problem","unresolvedProblems","Проблемы","Участки","Месторождение","ExpansionTile")):
   print('L',i+1,repr(line[:400]))
   print('CONTEXT',repr('\n'.join(lines[max(0,i-2):min(len(lines),i+5)])[:1100]))
+
+print('HOME FIRST 60 LINES')
+for i,line in enumerate(lines[:60],1):print(f'H{i:03d} {line[:500]}')
+print('HOME PROBLEM MODAL LINES')
+for i,line in enumerate(lines[93:135],94):print(f'H{i:03d} {line[:500]}')
