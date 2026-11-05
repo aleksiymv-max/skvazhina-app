@@ -177,6 +177,8 @@ jobs:
           python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_history_scoping_v204.py"
           python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_problem_field_scoping_v204.py"
           python3 "$GITHUB_WORKSPACE/tools/test_promysel_history_scoping_v204.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_registration_invites_v205.py"
+          python3 "$GITHUB_WORKSPACE/tools/test_promysel_registration_invites_v205.py"
           python3 "$GITHUB_WORKSPACE/tools/inspect_promysel_home_layout.py"
           cp "$GITHUB_WORKSPACE/tools/work_schedule_test.dart" test/work_schedule_test.dart
           mkdir -p test
