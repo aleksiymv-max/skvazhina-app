@@ -1,6 +1,4 @@
-web_release: v1.91
-source_commit: c3fafceef859aa8428d6bb00366b2232cb578b9a
-purpose: test-only Flutter Web build and Cloudflare dev deployment
+web_release: v1.92
+purpose: verified-only Web build after client request optimization
 apk: disabled
-production: unchanged
-requested_via: Github one-shot paths trigger
+production: no direct deploy from build; only promotion after success

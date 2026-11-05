@@ -153,6 +153,8 @@ jobs:
           python3 "$GITHUB_WORKSPACE/tools/test_promysel_chat_polish_v189.py"
           python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_weak_network_v191.py"
           python3 "$GITHUB_WORKSPACE/tools/test_promysel_weak_network_v191.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_request_optimizer_v192.py"
+          python3 "$GITHUB_WORKSPACE/tools/test_promysel_request_optimizer_v192.py"
           cp "$GITHUB_WORKSPACE/tools/work_schedule_test.dart" test/work_schedule_test.dart
           mkdir -p test
           cp "$GITHUB_WORKSPACE/tools/task_permission_test.dart" test/task_permission_test.dart
