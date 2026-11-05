@@ -17,3 +17,6 @@ purpose: area, pad and well CRUD with durable tombstones
 source_commit: 9cb4c4e7f88032fe0c572141370149df8eca3ddc
 no_apk: true
 production: promote only after confirmed DEV tests
+
+request: v1.95 newer-name conflict protection and durable chief-only structure deletion
+source_commit: 19502be9f06fc4e0a2596b5a6e1d4d46008f5607
