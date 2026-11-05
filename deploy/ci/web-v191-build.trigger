@@ -20,3 +20,7 @@ production: promote only after confirmed DEV tests
 
 request: v1.95 newer-name conflict protection and durable chief-only structure deletion
 source_commit: 19502be9f06fc4e0a2596b5a6e1d4d46008f5607
+
+web_release: v1.95
+purpose: version-aware area/pad/well rename and offline conflict handling
+source_commit: a121b5b26a82f8491b8bd45630d62f780186ba8d
