@@ -101,7 +101,10 @@ s=patch(s,
         await _chat.sendText(destination,value,clientId:id);
         // Confirm the server copy before hiding the optimistic bubble.
         if(mounted)await _refresh(silent:true);
-        if(mounted)setState(()=>_textPending.remove(id));
+        // Poll may already be in flight: leave the pending bubble until
+        // an authoritative server copy is visible to avoid visual blinking.
+        if(mounted&&messages.any((m)=>m['client_id']==id))
+          setState(()=>_textPending.remove(id));
       }catch(e){
         if(!mounted)return;
         setState(()=>_textPending.remove(id));
@@ -112,12 +115,23 @@ s=patch(s,
   }
   Future<void> _send()async{
     final fast=text.text.trim();
-    if(!busy&&_roomId.isNotEmpty&&fast.isNotEmpty&&_draftPhotos.isEmpty){
+    if(_roomId.isNotEmpty&&fast.isNotEmpty&&_draftPhotos.isEmpty){
       _sendFastText(fast);
       return;
     }
 ''',
   'instant text feedback and ordered outbound sends')
+
+# Allow typing and sending small text messages while a long voice/video
+# upload runs. Keep the existing busy lock for conflicting attachment mutations.
+s=patch(s,
+    'enabled:!busy,minLines:1,maxLines:4,',
+    'enabled:true,minLines:1,maxLines:4,',
+    'composer can type while large upload is running')
+s=patch(s,
+    "onPressed:busy?null:_send,icon:const Icon(Icons.arrow_upward_rounded",
+    "onPressed:_send,icon:const Icon(Icons.arrow_upward_rounded",
+    'text send button never blocked by media upload')
 
 # Sending an attachment should not trigger extra network requests merely
 # to redraw the timeline. Original status/progress and retry IDs are retained.
