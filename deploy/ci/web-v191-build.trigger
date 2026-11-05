@@ -77,3 +77,8 @@ requested: 2026-11-05
 artifact: TUQO Web ZIP + DEV preview
 
 retry_v199: corrected composer Semantics parenthesis 2026-11-05
+
+release: v2.00
+purpose: inline round video enlargement (no modal), chat top control dock, ordered optimistic text delivery, media and backend ack latency optimization
+package: TUQO web ZIP
+request_date: 2026-11-05
