@@ -142,3 +142,8 @@ retry_v208_issued: match current visibility guard and include confirmed task car
 verify_ci_speed_v208: remove apt-get for icon rendering; use built-in ffmpeg; cancel superseded DEV jobs
 
 verify_ci_speed_v208_jdk: Java ImageIO icon renderer, no apt-get, no ffmpeg dependencies
+
+release: v2.09
+scope: issued tasks show only pending review tile, approved tasks appear in History only
+regression: completion -> awaiting confirmation -> confirmed History; rejection -> active work
+production: stage only after successful Web tests
