@@ -23,7 +23,7 @@ def excerpts(kind,patterns,size=3200):
         occurrences=list(re.finditer(re.escape(search),content))
         print('---',kind,label,'matches',len(occurrences),'---')
         for found in occurrences[:2]:
-            left=max(0,content.rfind('\n',max(0,found.start()-300)))
+            left=max(0,content.rfind('\n',0,max(0,found.start()-140)))
             print(content[left:left+size].replace('Bearer ','Bearer [REDACTED] ').replace('service_role','[SERVICE_ROLE_REF]'))
 excerpts('sync',[
  ('syncNow','Future<void> syncNow'),
