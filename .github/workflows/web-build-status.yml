@@ -73,7 +73,7 @@ jobs:
                       timings.append({"name":step.get("name",""),"seconds":duration,
                                       "conclusion":step.get("conclusion")})
           report["step_durations"]=timings
-          path.write_text(json.dumps(report,ensure_ascii=False,indent=2)+"\\n")
+          path.write_text(json.dumps(report,ensure_ascii=False,indent=2)+"\n")
           PY
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
