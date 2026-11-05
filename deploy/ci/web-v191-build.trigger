@@ -153,3 +153,5 @@ final_v209: pending confirmation appears only in review tile, confirmed excluded
 release: v2.10-sync-diagnostics
 scope: lossless client-side pull cursor; full restore paginated measurements; cross-platform source parity
 production: no automatic publish; core task role sync remains under investigation
+
+final_v210_sync_diagnostics: accept recovery only after decoding and state application; source parity test green
