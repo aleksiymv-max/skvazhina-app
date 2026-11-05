@@ -85,7 +85,7 @@ patch(path,
  'remove duplicate reject')
 patch(path,
  "content:Text(approve?'Заявка согласована':'Заявка отклонена')));",
- "content:Text(approve?(result['detail']??'Заявка согласована').toString():'Заявка отклонена'),duration:const Duration(seconds:7))));",
+ "content:Text(approve?(result['detail']??'Заявка согласована').toString():'Заявка отклонена'),duration:const Duration(seconds:7)));",
  'email status snackbar')
 patch(path,
  '''              const SizedBox(height:10),
