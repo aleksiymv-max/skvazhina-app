@@ -95,3 +95,7 @@ asserts: hidden tasks gated, writes preserved, audio offscreen suspended, no ext
 artifact: Web ZIP for TUQO and DEV preview
 
 retry_v202: unread timer anchor after v1.82 cache interval update
+
+release: v2.04
+scope: strict task and problem history ownership, master operator visibility, SQLite v15 isolation, server sync privacy
+artifact: TUQO Web ZIP + dev preview
