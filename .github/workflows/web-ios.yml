@@ -188,6 +188,7 @@ jobs:
           python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_avatar_sync_v206.py"
           python3 "$GITHUB_WORKSPACE/tools/test_promysel_decimal_avatar_v206.py"
           python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_walk_validation_v207.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_remove_comma_button_v208.py"
           python3 "$GITHUB_WORKSPACE/tools/test_promysel_walk_validation_v207.py"
           python3 "$GITHUB_WORKSPACE/tools/inspect_promysel_home_layout.py"
           cp "$GITHUB_WORKSPACE/tools/work_schedule_test.dart" test/work_schedule_test.dart
