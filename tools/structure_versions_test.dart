@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:oilman_app/core/models/production_area.dart';
 import 'package:oilman_app/core/models/pad.dart';
 import 'package:oilman_app/core/models/well.dart';
@@ -7,6 +8,7 @@ import 'package:oilman_app/core/services/app_state_store.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+  SharedPreferences.setMockInitialValues({});
   final state=AppStateStore.instance;
   setUp(() { demoAreas.clear(); demoPads.clear(); });
 

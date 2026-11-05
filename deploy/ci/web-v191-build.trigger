@@ -24,3 +24,6 @@ source_commit: 19502be9f06fc4e0a2596b5a6e1d4d46008f5607
 web_release: v1.95
 purpose: version-aware area/pad/well rename and offline conflict handling
 source_commit: a121b5b26a82f8491b8bd45630d62f780186ba8d
+
+retry: v1.95 mock SharedPreferences for isolated Flutter structure test
+base_source: 8581138f2c52ca697722d29375ff74f371884dbf
