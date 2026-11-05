@@ -142,7 +142,7 @@ Deno.serve(async(req:Request)=>{
    // when two phones or double taps race between SELECT and INSERT.
    const existingRequest=async()=>{
      const {data,error}=await admin.from("registration_requests")
-       .select("id,state").eq("email",email)
+       .select("id,state,requested_by").eq("email",email)
        .in("state",["pending","approved"])
        .order("created_at",{ascending:false}).limit(1);
      if(error)throw error;
@@ -154,7 +154,18 @@ Deno.serve(async(req:Request)=>{
      return reply({id:r?.id!=null?String(r.id):null,alreadyExists:true,
        detail:"Заявка на эту почту уже отправлена и ожидает согласования. Повторная отправка не требуется."},200);
    };
-   const existing=await existingRequest();
+   let existing=await existingRequest();
+   // A completed Auth hard-delete can precede a failed registration cleanup.
+   // Repair only requests whose linked Auth user has actually disappeared.
+   if(existing?.state==="approved"&&existing.requested_by){
+     const {data:linked,error:linkedError}=await admin.auth.admin.getUserById(String(existing.requested_by));
+     if((linkedError?.status===404)||(!linkedError&&!linked?.user)){
+       const {error:staleError}=await admin.from("registration_requests")
+         .delete().eq("id",existing.id).eq("state","approved");
+       if(staleError)throw staleError;
+       existing=await existingRequest();
+     }
+   }
    if(existing)return repeatedReply(existing);
    const {data,error}=await admin.from("registration_requests").insert({
      requested_by:null,field_id:field||null,proposed_field_name:newField||null,
@@ -333,13 +344,80 @@ Deno.serve(async(req:Request)=>{
     if(metaError)console.warn("Profile metadata sync:",metaError.message);
     return reply({status:"updated",name});
   }
+  // Hard-delete an employee account: preserve business evidence, release the email.
+  // Both UI callers require scope/name confirmation; this code never trusts a
+  // supplied user_id without looking up live memberships and server Auth metadata.
+  async function eraseWorkerAccount(target:string,field:string,confirmName:string|null,legacy=false):Promise<Response>{
+    if(target===user.id)return reply({detail:"Нельзя удалить собственную учётную запись"},403);
+    if(!field)return reply({detail:"Не выбрано месторождение"},400);
+    const supervising=memberships.some((m:J)=>m.field_id===field&&m.role==="shopChief");
+    if(!administrator&&!supervising)return reply({detail:"Нет права удалять сотрудников этого месторождения"},403);
+    const {data:found,error:authErr}=await admin.auth.admin.getUserById(target);
+    if(authErr||!found?.user)return reply({detail:"Учётная запись уже удалена"},404);
+    const employee=found.user;
+    if(employee.app_metadata?.system_admin===true)return reply({detail:"Системного администратора удалять запрещено"},403);
+    const email=txt(employee.email).toLowerCase();
+    if(!validEmail(email))return reply({detail:"В учётной записи не найдена корректная электронная почта"},409);
+    const {data:all,error:memberError}=await admin.from("field_memberships")
+      .select("field_id,role,display_name").eq("user_id",target).limit(20);
+    if(memberError)throw memberError;
+    const rows=all??[];
+    if(legacy){
+      if(rows.length)return reply({detail:"Учётная запись ещё привязана к месторождению; сначала удалите сотрудника из списка"},409);
+      const {data:approved,error:requestError}=await admin.from("registration_requests")
+        .select("id,approved_field_id,field_id").eq("requested_by",target)
+        .eq("state","approved").limit(10);
+      if(requestError)throw requestError;
+      if(!(approved??[]).some((r:J)=>(r.approved_field_id??r.field_id)===field))
+        return reply({detail:"Не найдено подтверждения прежней регистрации сотрудника на этом месторождении"},409);
+    }else{
+      const member=rows.find((m:J)=>m.field_id===field);
+      if(!member)return reply({detail:"Сотрудник не найден на выбранном месторождении"},404);
+      if(txt(confirmName)!==member.display_name)
+        return reply({detail:"Введите точные ФИО сотрудника для подтверждения"},400);
+      if(!administrator&&!["operator","engineer","dispatcher"].includes(String(member.role)))
+        return reply({detail:"Начальник цеха может удалять только своих сотрудников"},403);
+    }
+    // Do not accidentally revoke another field's membership or active sessions.
+    if(rows.length>1)return reply({detail:"У сотрудника есть доступ к другим месторождениям. Полное удаление аккаунта запрещено до отключения остальных доступов."},409);
+
+    // Redact only personnel-related audit details. Do not delete measurements,
+    // operational events or chat messages owned by the field or other people.
+    const {error:redactError}=await admin.from("personnel_audit")
+      .update({details:{personalDataErased:true,historyPreserved:true}})
+      .eq("target_user_id",target);
+    if(redactError)throw redactError;
+
+    // Requires the v1.93 SET NULL/CASCADE migration to preserve historic records.
+    // A failed delete MUST NOT be represented to the UI as a successful removal.
+    const {error:deleteError}=await admin.auth.admin.deleteUser(target,false);
+    if(deleteError){
+      console.error("Personnel Auth hard-delete failed:",deleteError.message);
+      return reply({detail:"Не удалось полностью удалить аккаунт. Доступ не был подтверждён как удалённый; обратитесь к администратору.",code:"AUTH_DELETE_FAILED"},409);
+    }
+    const failed:string[]=[];
+    for(const table of ["promysel_push_subscriptions","promysel_push_events"]){
+      const {error}=await admin.from(table).delete().eq("user_id",target);
+      if(error){console.error("Personnel cleanup",table,error.message);failed.push(table);}
+    }
+    const {error:requestCleanup}=await admin.from("registration_requests")
+      .delete().eq("email",email);
+    if(requestCleanup){console.error("Registration cleanup:",requestCleanup.message);failed.push("registration_requests");}
+    // The audit record has no personal identifiers; immutable field records remain.
+    const {error:auditError}=await admin.from("personnel_audit")
+      .insert({field_id:field,actor_id:user.id,action:"employee_account_erased",
+        details:{historyPreserved:true,emailReleased:!requestCleanup}});
+    if(auditError)console.warn("Deletion audit not stored:",auditError.message);
+    if(failed.length)return reply({status:"partially_deleted",historyPreserved:true,
+      detail:"Учётная запись удалена, но очистка связанных записей завершилась с ошибкой. Обратитесь к системному администратору.",
+      cleanupIncomplete:failed},500);
+    return reply({status:"deleted",historyPreserved:true,emailReusable:true,
+      detail:"Учётная запись полностью удалена. Электронная почта свободна для новой регистрации."});
+  }
   const deleteUser=route.match(/^\/v1\/users\/([0-9a-f-]{36})$/i);
   if(req.method==="DELETE"&&deleteUser){
-   const target=deleteUser[1],chief=memberships.find((m:J)=>m.role==="shopChief");
-   if(!chief)return reply({detail:"Только начальник цеха может отстранить сотрудника"},403);
-   const {data,error}=await admin.rpc("promysel_set_worker_blocked",{p_field:chief.field_id,p_actor:user.id,p_target:target,p_blocked:true});
-   if(error)return reply({detail:error.message},403);
-   return reply({status:"blocked",userId:target,record:data});
+    const field=fieldTag(body.fieldId);
+    return await eraseWorkerAccount(deleteUser[1],field,txt(body.confirmName),false);
   }
 
 
@@ -347,6 +425,23 @@ Deno.serve(async(req:Request)=>{
   const fRoute=route.match(/^\/v1\/admin\/fields\/([^/]+)$/);
   const uRoute=route.match(/^\/v1\/admin\/users\/([0-9a-f-]{36})$/i);
   if(route.startsWith("/v1/admin/")&&!administrator)return reply({detail:"Только системному администратору"},403);
+  // Legacy: earlier admin removal only deleted membership, leaving Auth/email.
+  // A separate, explicitly confirmed action can clean up ONLY an orphaned account.
+  if(route==="/v1/admin/removed-users/cleanup"&&req.method==="POST"){
+    const email=txt(body.email).toLowerCase(),confirm=txt(body.confirmEmail).toLowerCase();
+    if(!validEmail(email)||email!==confirm)return reply({detail:"Подтвердите точную электронную почту дважды"},400);
+    const {data:requests,error:requestError}=await admin.from("registration_requests")
+      .select("requested_by,approved_field_id,field_id").eq("email",email)
+      .eq("state","approved").order("created_at",{ascending:false}).limit(5);
+    if(requestError)throw requestError;
+    const r=(requests??[]).find((x:J)=>x.requested_by&&(x.approved_field_id||x.field_id));
+    if(!r)return reply({detail:"Не найдено прежней согласованной регистрации"},404);
+    const {data:existing,error:lookupError}=await admin.auth.admin.getUserById(String(r.requested_by));
+    if(lookupError||!existing?.user)return reply({detail:"Auth-аккаунт уже отсутствует; обратитесь к администратору для очистки устаревшей заявки"},409);
+    if(txt(existing.user.email).toLowerCase()!==email)return reply({detail:"Почта не совпадает с учётной записью"},409);
+    return await eraseWorkerAccount(String(r.requested_by),String(r.approved_field_id??r.field_id),null,true);
+  }
+
   if(req.method==="POST"&&route==="/v1/admin/fields"){
    const name=txt(body.name).replace(/\s+/g," ");if(name.length<3||name.length>160)return reply({detail:"Некорректное название"},400);
    const id="field-"+crypto.randomUUID();const {error}=await admin.from("oil_fields").insert({id,name});
@@ -397,18 +492,9 @@ Deno.serve(async(req:Request)=>{
    return reply({status:"updated",userId:target});
   }
   if(uRoute&&req.method==="DELETE"){
-   const target=uRoute[1],field=txt(body.fieldId);if(target===user.id)return reply({detail:"Нельзя удалить администратора"},403);
-   const {data:worker}=await admin.from("field_memberships").select("user_id,display_name")
-     .eq("user_id",target).eq("field_id",field).maybeSingle();
-   if(!worker)return reply({detail:"Сотрудник не найден"},404);
-   if(txt(body.confirmName)!==worker.display_name)return reply({detail:"Введите точные ФИО для подтверждения"},400);
-   // Removing membership revokes field access; auth.users and historical measurements remain intact.
-   const {error}=await admin.from("field_memberships").delete().eq("user_id",target).eq("field_id",field);
-   if(error)throw error;
-   await admin.from("personnel_audit").insert({field_id:field,actor_id:user.id,target_user_id:target,action:"admin_remove",
-     details:{name:worker.display_name,historyPreserved:true}});
-   return reply({status:"removed",historyPreserved:true});
+    return await eraseWorkerAccount(uRoute[1],fieldTag(body.fieldId),txt(body.confirmName),false);
   }
+
 
 
   // Daily presence is shared across profile, roster and dashboard. Supervisor edits are
