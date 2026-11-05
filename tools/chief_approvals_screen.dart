@@ -39,7 +39,16 @@ class _ChiefApprovalsScreenState extends State<ChiefApprovalsScreen> {
   Future<void> _shareInvite()async{
     final fieldId=s.currentFieldId;
     if(fieldId==null||fieldId.isEmpty)return;
-    final url=Uri.https('promysel-web.pages.dev','/login',{
+    // Share the registration page on the host actually serving the app.
+    // TUQO installations must not redirect invited workers to Cloudflare.
+    final current=Uri.base;
+    final host=current.host.toLowerCase();
+    final fromPublishedWeb=current.scheme=='https'&&
+       (host.endsWith('.tuqo.app')||
+        host.endsWith('.tuqo.ru')||
+        host.endsWith('.pages.dev'));
+    final domain=fromPublishedWeb?current.authority:'promysel-app.tuqo.app';
+    final url=Uri.https(domain,'/login',{
       'register':'1','fieldId':fieldId,
     });
     try{
