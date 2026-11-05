@@ -1,0 +1,30 @@
+name: Verify Promysel SMTP setup (no credentials or email sent)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'infra/smtp/**'
+      - '.github/workflows/promysel-smtp-setup.yml'
+      - '.github/workflows/promysel-smtp-tests.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile configuration script
+        run: python3 -m py_compile infra/smtp/configure_supabase_smtp.py
+      - name: Run offline SMTP validation tests
+        run: python3 -m unittest discover -s infra/smtp -p "test_*.py" -v
+      - name: Check no credentials were included in SMTP setup
+        shell: bash
+        run: |
+          set -euo pipefail
+          ! grep -RInE 'smtp_pass[[:space:]]*[:=][[:space:]]*["\x27][^$\x27"]' infra/smtp/README.md infra/smtp/selfhost/compose.yaml || exit 1
+          echo "PASS: no passwords in public SMTP configuration and tests"
