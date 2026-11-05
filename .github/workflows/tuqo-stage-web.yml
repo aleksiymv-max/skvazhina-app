@@ -14,6 +14,10 @@ on:
         description: Enter STAGE to replace TUQO production branch contents
         required: true
         type: string
+      version:
+        description: Release version, e.g. v2.09
+        required: true
+        type: string
 permissions:
   actions: read
   contents: write
@@ -34,6 +38,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           INPUT_RUN_ID: ${{ inputs.run_id }}
+          INPUT_VERSION: ${{ inputs.version }}
           REPO: ${{ github.repository }}
           EVENT: ${{ github.event_name }}
         shell: bash
@@ -43,11 +48,14 @@ jobs:
             test -f deploy/ci/tuqo-release.trigger
             RUN_ID="$(sed -n 's/^run_id=//p' deploy/ci/tuqo-release.trigger)"
             EXPECTED_SHA="$(sed -n 's/^source_sha=//p' deploy/ci/tuqo-release.trigger)"
+            RELEASE_VERSION="$(sed -n 's/^version=//p' deploy/ci/tuqo-release.trigger)"
           else
             RUN_ID="$INPUT_RUN_ID"
             EXPECTED_SHA=""
+            RELEASE_VERSION="$INPUT_VERSION"
           fi
           [[ "$RUN_ID" =~ ^[0-9]+$ ]]
+          [[ "$RELEASE_VERSION" =~ ^v[0-9]+\.[0-9]+$ ]]
           if [[ -n "$EXPECTED_SHA" ]]; then [[ "$EXPECTED_SHA" =~ ^[0-9a-f]{40}$ ]]; fi
           gh api "repos/$REPO/actions/runs/$RUN_ID" > /tmp/build.json
           jq -e '.conclusion=="success" and .name=="Build Promysel Web for iPhone" and .head_branch=="main" and .event!="pull_request"' /tmp/build.json
@@ -58,6 +66,7 @@ jobs:
           fi
           echo "SOURCE_SHA=$SOURCE_SHA" >> "$GITHUB_ENV"
           echo "RELEASE_RUN_ID=$RUN_ID" >> "$GITHUB_ENV"
+          echo "RELEASE_VERSION=$RELEASE_VERSION" >> "$GITHUB_ENV"
       - name: Download exact verified artifact
         uses: actions/download-artifact@v4
         with:
@@ -76,7 +85,7 @@ jobs:
           for f in index.html main.dart.js flutter_bootstrap.js manifest.json finish-registration.html sqflite_sw.js; do test -s "$f"; done
           ! grep -q 'id="promysel-dev-mark"' index.html
           test ! -e .git
-          jq -n --arg version 'v2.08' --arg source_sha "$SOURCE_SHA" \
+          jq -n --arg version "$RELEASE_VERSION" --arg source_sha "$SOURCE_SHA" \
             --argjson build_run_id "$RELEASE_RUN_ID" \
             '{version:$version,source_sha:$source_sha,build_run_id:$build_run_id}' \
             > promysel-release.json
