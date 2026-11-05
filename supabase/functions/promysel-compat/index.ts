@@ -319,7 +319,7 @@ Deno.serve(async(req:Request)=>{
    return reply({status:"ok"});
   }
   if(req.method==="GET"&&route==="/v1/registration/pending"){
-   let query=admin.from("registration_requests").select("id,requested_by,field_id,proposed_field_name,requested_role,requested_subrole,full_name,email,state").or("state.eq.pending,and(state.eq.approved,approved_field_id.not.is.null,invitation_sent_at.is.null)").order("created_at",{ascending:true}).limit(200);
+   let query=admin.from("registration_requests").select("id,requested_by,field_id,approved_field_id,proposed_field_name,requested_role,requested_subrole,full_name,email,state,invitation_sent_at").or("state.eq.pending,and(state.eq.approved,approved_field_id.not.is.null,invitation_sent_at.is.null)").order("created_at",{ascending:true}).limit(200);
    if(!administrator){
      const chiefFields=memberships.filter((m:J)=>m.role==="shopChief").map((m:J)=>String(m.field_id));
      if(!chiefFields.length)return reply({detail:"Нет права просматривать заявки"},403);
@@ -330,7 +330,29 @@ Deno.serve(async(req:Request)=>{
    }
    const {data,error}=await query;
    if(error)throw error;
-   return reply({items:(data??[]).map((x:J)=>({id:String(x.id),name:x.full_name,email:x.email,role:x.requested_role,subrole:x.requested_subrole,fieldId:x.field_id??"",requiresAdmin:x.field_id===null}))});
+   // Show already APPROVED employees whose invitation is still queued.
+   // Never label such a request as a new pending approval.
+   const requestIds=(data??[]).map((x:J)=>Number(x.id)).filter((id:number)=>Number.isSafeInteger(id));
+   const jobs=new Map<number,J>();
+   if(requestIds.length){
+     const {data:deliveries,error:deliveryError}=await admin.from("promysel_registration_invitation_jobs")
+       .select("request_id,status,attempts,next_attempt_at,last_error_code")
+       .in("request_id",requestIds);
+     if(deliveryError)throw deliveryError;
+     for(const delivery of deliveries??[])jobs.set(Number(delivery.request_id),delivery as J);
+   }
+   return reply({items:(data??[]).map((x:J)=>{
+     const j=jobs.get(Number(x.id));
+     return {
+       id:String(x.id),name:x.full_name,email:x.email,role:x.requested_role,
+       subrole:x.requested_subrole,fieldId:x.field_id??x.approved_field_id??"",
+       requiresAdmin:x.field_id===null,
+       status:x.state==="approved"?"approved_awaiting_invitation":"pending",
+       invitationStatus:x.state==="approved"?String(j?.status??"queued"):"not_approved",
+       nextRetryAt:j?.next_attempt_at??null,attempts:j?.attempts??0,
+       deliveryError:j?.last_error_code??null,
+     };
+   })});
   }
   // A registration invitation contains field context only, never an approval token.
   // A chief can share it through the native system share sheet on Web/Android/iOS.
@@ -354,42 +376,100 @@ Deno.serve(async(req:Request)=>{
      if(error)return reply({detail:error.message},403);
      return reply(data);
    }
-   // A verified administrator or scoped shop chief APPROVES first.
+   // Approve once; keep the decision even when the email provider is capped.
    const {data:decision,error:startError}=await admin.rpc("promysel_start_registration_approval",{
       p_request_id:target,p_actor:user.id
    });
    if(startError)return reply({detail:startError.message},403);
-   let invitedId=txt(decision?.existingUserId);
-   let sent=false;
+   const {data:claim,error:claimError}=await admin.rpc("promysel_claim_registration_invitation",{
+      p_request_id:target,p_actor:user.id
+   });
+   if(claimError){
+     console.error("registration invitation claim",claimError.code??"unknown");
+     return reply({status:"approved",invitationSent:false,
+       detail:"Заявка согласована, но очередь приглашений временно недоступна."},202);
+   }
+   if(claim?.status==="sent")return reply({status:"approved",invitationSent:true,
+     detail:"Заявка уже согласована и приглашение отправлено."});
+   const acceptedId=txt(claim?.acceptedUserId);
+   if(!claim?.canSend&&!acceptedId){
+     const due=claim?.nextRetryAt??null;
+     return reply({status:"approved",invitationSent:false,
+       invitationStatus:String(claim?.status??"queued"),nextRetryAt:due,
+       detail:claim?.status==="action_required"
+         ?"Заявка согласована. Для отправки приглашения требуется настройка почты."
+         :"Заявка согласована. Письмо ожидает отправки; повторные запросы ограничены."},202);
+   }
+   const safeMailCode=(err:unknown)=>{
+     const o=err&&typeof err==="object"?err as Record<string,unknown>:{};
+     const message=String(o.message??"").toLowerCase();
+     if(o.status===429||message.includes("rate limit")||message.includes("too many"))
+       return "over_email_send_rate_limit";
+     if(message.includes("not authorized")||message.includes("smtp")||
+       message.includes("not configured"))
+       return "email_configuration_required";
+     return "mail_delivery_failed";
+   };
+   let invitedId=acceptedId;
    if(!invitedId){
-     const {data:invited,error:inviteError}=await admin.auth.admin.inviteUserByEmail(String(decision.email),{
-       data:{full_name:decision.fullName},
-       redirectTo:passwordSetupUrl
-     });
-     if(inviteError||!invited.user){
-       console.error("post-approval invite:",inviteError?.message??"missing user");
-       return reply({detail:"Заявка согласована, но письмо не отправлено. Повторите отправку из заявок."},503);
+     invitedId=txt(decision?.existingUserId);
+     let deliveryError:unknown=null;
+     if(!invitedId){
+       const {data:invited,error:inviteError}=await admin.auth.admin.inviteUserByEmail(
+         String(decision.email),{
+           data:{full_name:decision.fullName},redirectTo:passwordSetupUrl
+         });
+       if(inviteError||!invited?.user)deliveryError=inviteError??new Error("invite_user_missing");
+       else invitedId=invited.user.id;
+     }else{
+       // Existing account: email FIRST, membership finalization SECOND.
+       // Previously the database claimed delivery before reset email was sent.
+       const {error:resetError}=await guest.auth.resetPasswordForEmail(
+         String(decision.email),{redirectTo:passwordSetupUrl});
+       if(resetError)deliveryError=resetError;
      }
-     invitedId=invited.user.id;
-     sent=true;
+     if(deliveryError){
+       const code=safeMailCode(deliveryError);
+       const action=code==="email_configuration_required"?"action_required":"retry";
+       const {error:recordError}=await admin.rpc("promysel_record_registration_invitation",{
+         p_request_id:target,p_actor:user.id,p_status:action,p_error_code:code
+       });
+       if(recordError)console.error("registration mail queue update",recordError.code??"unknown");
+       console.warn("registration invitation deferred",JSON.stringify({requestId:target,code}));
+       return reply({status:"approved",invitationSent:false,
+         invitationStatus:action,
+         detail:action==="action_required"
+           ?"Заявка согласована. Настройте SMTP, чтобы отправить письмо сотруднику."
+           :"Заявка согласована. Почтовый сервис ограничил отправку. Приглашение в очереди."},202);
+     }
+     if(!invitedId){
+       return reply({status:"approved",invitationSent:false,
+         detail:"Заявка согласована, но сервер не вернул учётную запись."},202);
+     }
+     const {error:acceptedError}=await admin.rpc("promysel_record_registration_invitation",{
+       p_request_id:target,p_actor:user.id,p_status:"accepted",p_user_id:invitedId
+     });
+     if(acceptedError){
+       console.error("registration mail acceptance bookkeeping",acceptedError.code??"unknown");
+       return reply({status:"approved",invitationSent:false,
+         detail:"Письмо принято почтой, завершение регистрации требует повторной проверки."},202);
+     }
    }
    const {data:finished,error:finishError}=await admin.rpc("promysel_finish_registration_approval",{
-       p_request_id:target,p_actor:user.id,p_user_id:invitedId
+     p_request_id:target,p_actor:user.id,p_user_id:invitedId
    });
    if(finishError){
-     console.error("approved invite finalization:",finishError.message);
-     return reply({detail:"Решение принято, но привязка учётной записи не завершена. Повторите действие."},409);
+     console.error("approved invite finalization",finishError.code??"unknown");
+     return reply({status:"approved",invitationSent:true,
+       invitationStatus:"accepted",
+       detail:"Письмо отправлено, но привязка сотрудника не завершена. Повторите проверку."},202);
    }
-   if(!sent){
-      const {error:mailErr}=await guest.auth.resetPasswordForEmail(String(decision.email),{
-        redirectTo:passwordSetupUrl
-      });
-      if(mailErr)console.error("approved existing user mail:",mailErr.message);
-      sent=!mailErr;
-   }
-   return reply({...finished,invitationSent:sent,detail:sent?
-     "Заявка согласована. Письмо для установки пароля отправлено.":
-     "Заявка согласована. Письмо отправить не удалось, обратитесь к администратору."});
+   const {error:completedError}=await admin.rpc("promysel_record_registration_invitation",{
+     p_request_id:target,p_actor:user.id,p_status:"sent",p_user_id:invitedId
+   });
+   if(completedError)console.warn("registration delivery completed with update warning",completedError.code??"unknown");
+   return reply({...finished,invitationSent:true,invitationStatus:"sent",
+     detail:"Заявка согласована, письмо для установки пароля передано почтовому сервису."});
   }
   if(req.method==="GET"&&(route==="/v1/users"||route==="/v1/registration/users")){
     if(!administrator&&memberships.length===0)return reply({detail:"Нет доступа"},403);
