@@ -136,3 +136,5 @@ reason: user-requested build verification; dev preview only, TUQO production unc
 
 retry_v208_registration: update stale Cloudflare redirect assertion and admin invite URL to TUQO
 fix: integration test now checks live production origin, no changes to approval-first registration logic
+
+retry_v208_issued: match current visibility guard and include confirmed task cards
