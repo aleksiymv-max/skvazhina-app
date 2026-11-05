@@ -1,0 +1,22 @@
+# Optional fully self-hosted SMTP/MTA. Requires a dedicated VPS, domain/DNS,
+# static public IP and port 25 both directions. DO NOT deploy on an existing
+# Nginx server without resolving 443 collisions and TLS ownership first.
+# Docs: https://www.stalw.art/docs/install/platform/docker/
+services:
+  stalwart:
+    image: stalwartlabs/stalwart:v1
+    container_name: promysel-stalwart
+    init: true
+    restart: unless-stopped
+    ports:
+      - "25:25"               # receiving + outbound Internet SMTP
+      - "465:465"             # Supabase SMTP AUTH over implicit TLS
+      - "443:443"             # HTTPS and ACME for the mail hostname
+      - "127.0.0.1:8080:8080" # initial setup only, SSH tunnel needed
+    volumes:
+      - stalwart-etc:/etc/stalwart
+      - stalwart-data:/var/lib/stalwart
+
+volumes:
+  stalwart-etc:
+  stalwart-data:
