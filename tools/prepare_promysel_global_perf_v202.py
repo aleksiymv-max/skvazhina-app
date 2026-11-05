@@ -48,7 +48,7 @@ for p in ['lib/features/home/home_screen.dart',
 # One unread badge poll, maximum one in flight, 30s only while foreground.
 p='lib/core/services/promysel_chat_service.dart';s=imp(rd(p),"import 'foreground_work_gate.dart';")
 s=one(s,
- 'void start(){if(_timer!=null)return;_update();_timer=Timer.periodic(const Duration(seconds:18),(_)=>_update());}',
+ 'void start(){if(_timer!=null)return;_update();_timer=Timer.periodic(const Duration(seconds:60),(_)=>_update());}',
  """bool _foregroundBound=false;
  void _foregroundChanged(){
    if(ForegroundWorkGate.instance.isForeground)unawaited(_update());
