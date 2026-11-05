@@ -34,6 +34,7 @@ def recipe(source: str):
         "prepare_promysel_launcher_badge_web.py",
         "prepare_promysel_launcher_badge_android.py",
         "prepare_promysel_web_push.py",
+        "prepare_promysel_cellular_startup_v201.py", # post-build Web output only; no Flutter source edits
     }
     preparations=[s for s in preparations if s not in platform_only]
     patches=re.findall(
@@ -44,6 +45,8 @@ def recipe(source: str):
         r'python3 "\$GITHUB_WORKSPACE/tools/(test_promysel[^"]+\.py)"',
         source,
     )
+    # This test checks emitted Web files and therefore has no Android equivalent.
+    checks=[x for x in checks if x!="test_promysel_cellular_startup_v201.py"]
     return common_loop,preparations,patches,checks
 
 web_recipe=recipe(web)
