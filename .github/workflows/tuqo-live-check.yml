@@ -32,15 +32,20 @@ jobs:
           from pathlib import Path
           index_code=Path('/tmp/tuqo-index-status.txt').read_text().strip()
           release_code=Path('/tmp/tuqo-release-status.txt').read_text().strip()
-          expected_run_id=42077826179
-          expected_sha='0cdf56cdebdc6281e4fb01bf4da4db9ae53ff77d'
+          raw=Path('deploy/ci/tuqo-live-check.trigger').read_text()
+          expected=dict(line.strip().split('=',1) for line in raw.splitlines() if '=' in line)
+          expected_run_id=int(expected['expected_run_id'])
+          expected_sha=expected['expected_source_sha']
+          expected_version=expected['expected_version']
           release={}
           if release_code=='200':
             try:
               release=json.loads(Path('/tmp/tuqo-release-response.txt').read_text())
             except (ValueError,UnicodeDecodeError):
               pass
-          deployed=release.get('build_run_id')==expected_run_id and release.get('source_sha')==expected_sha
+          deployed=(release.get('build_run_id')==expected_run_id and
+                    release.get('source_sha')==expected_sha and
+                    release.get('version')==expected_version)
           out={
             'checked_at':datetime.now(timezone.utc).isoformat(),
             'url':'https://promysel-app.tuqo.ru/',
@@ -48,6 +53,7 @@ jobs:
             'release_http_status':release_code,
             'version_verified':bool(deployed),
             'expected_run_id':expected_run_id,
+            'expected_version':expected_version,
             'observed_release':release if isinstance(release,dict) else {},
           }
           path=Path('deploy/ci/tuqo-live-status.json')
