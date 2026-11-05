@@ -24,7 +24,7 @@ patch(path,
  bool get canRetryInvitation{
    if(!approvedAwaitingInvitation)return true;
    if(invitationStatus=='accepted')return true;
-   if(invitationStatus=='action_required')return false;
+   // Once the retry window opens, SMTP configuration can be checked again.
    final next=DateTime.tryParse(nextRetryAt??'');
    return next==null||!DateTime.now().isBefore(next.toLocal());
  }
