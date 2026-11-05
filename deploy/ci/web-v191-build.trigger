@@ -50,3 +50,8 @@ retry: v1.96 preserve status dashboard and metrics method boundaries
 web_release: v1.96-problem-backfill
 purpose: recover old well walk problems and automatically refresh home after successful sync
 apk: disabled
+
+web_release: v1.97
+purpose: TUQO-native invitation URLs; chief approvals, home compact and problem recovery retained
+apk: disabled
+production: manual upload from verified Web ZIP
