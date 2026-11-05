@@ -36,3 +36,5 @@ request: 2026-11-05
 retry: v1.96 corrected menu and lazy invite registration anchors
 
 retry: v1.96 indentation-independent chief approvals menu injection
+
+retry: v1.96 current menu uses documentation; deep link is registration-only
