@@ -25,7 +25,7 @@ s="import '../../core/services/walk_parameter_save_rules.dart';\n"+s
 
 # Defer all validation until local configuration has finished reading from
 # storage; never show the temporary default-all selection as a requirement.
-save_method=re.search(r'(Future<void>\s+_save\s*\(\s*\)\s*async\s*\{)',s)
+save_method=re.search(r'(Future<void>\s+_saveMeasurement\s*\(\s*\)\s*async\s*\{)',s)
 if save_method is None:
     matches=[s[max(0,m.start()-150):m.start()+320] for m in re.finditer(r'_save\(',s)]
     raise RuntimeError('Well save method signature changed: '+str(matches[:3]))
