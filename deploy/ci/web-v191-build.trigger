@@ -115,3 +115,5 @@ release: v2.06
 features: comma_and_dot_decimal_inputs_including_choke_percentages; avatar_tombstone_registry; offline_avatar_mutation_queue; stale_device_recovery
 backend: promysel-compat v31; avatar version CAS and incremental sync markers
 safety: no historical measurements or tasks deleted
+
+retry_v206: add Flutter test widget import for TextEditingController
