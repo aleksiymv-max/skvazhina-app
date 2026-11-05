@@ -27,6 +27,18 @@ class TaskVisibility {
       isOperatorsTask(task,coworkers);
   }
 
+  static bool canReceive(WorkTask task){
+    final session=SessionService.instance;
+    final viewer=session.currentUser;
+    if(!viewer.approved||!belongsToField(task,session.currentFieldId))return false;
+    if(viewer.role==UserRole.shopChief)return true;
+    if(relatedTo(task,viewer))return true;
+    if(viewer.role==UserRole.engineer&&viewer.itrSubrole==ItrSubrole.master&&
+      isOperatorsTask(task,session.approvedWorkers))return true;
+    return task.status!=WorkTaskStatus.confirmed&&
+      task.targetType!=WorkTaskTarget.personal;
+  }
+
   static bool canViewHistory(WorkTask task){
     final session=SessionService.instance;
     return canViewHistoryFor(task,session.currentUser,
