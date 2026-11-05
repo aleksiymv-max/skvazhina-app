@@ -308,7 +308,7 @@ Deno.serve(async(req:Request)=>{
     if(!administrator&&!memberships.some((m:J)=>m.role==="shopChief"&&m.field_id===fieldId))
       return reply({detail:"Приглашать сотрудников может только начальник цеха"},403);
     if(!activeFields.has(fieldId))return reply({detail:"Месторождение недоступно"},404);
-    const url=new URL(publicOrigin+"/");
+    const url=new URL(publicOrigin+"/login");
     url.searchParams.set("register","1");
     url.searchParams.set("fieldId",fieldId);
     return reply({url:url.toString(),fieldId});
