@@ -138,3 +138,5 @@ retry_v208_registration: update stale Cloudflare redirect assertion and admin in
 fix: integration test now checks live production origin, no changes to approval-first registration logic
 
 retry_v208_issued: match current visibility guard and include confirmed task cards
+
+verify_ci_speed_v208: remove apt-get for icon rendering; use built-in ffmpeg; cancel superseded DEV jobs
