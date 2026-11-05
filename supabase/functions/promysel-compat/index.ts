@@ -814,7 +814,19 @@ Deno.serve(async(req:Request)=>{
   }
   return reply({detail:"Маршрут не найден"},404);
  }catch(e){
-  console.error("promysel-compat:",e instanceof Error?e.message:String(e));
-  return reply({detail:"Ошибка облачного сервера. Проверьте настройки и журнал."},500);
+  // PostgREST errors are plain objects, not Error instances.
+  // Log only safe structural diagnostics; never log bearer tokens,
+  // personal data, measurements or the full request body.
+  const err=e&&typeof e==="object"?e as Record<string,unknown>:{};
+  const code=typeof err.code==="string"?err.code:"unclassified";
+  const message=typeof err.message==="string"?err.message:(e instanceof Error?e.message:"unknown");
+  console.error("promysel-compat failure",JSON.stringify({
+    route,method:req.method,code,
+    message:message.slice(0,280),
+    hint:typeof err.hint==="string"?err.hint.slice(0,220):undefined,
+    details:typeof err.details==="string"?err.details.slice(0,220):undefined,
+  }));
+  return reply({detail:"Ошибка обмена данными на сервере. Локальные изменения сохранены.",
+    code:code==="unclassified"?"SERVER_ERROR":code},500);
  }
 });
