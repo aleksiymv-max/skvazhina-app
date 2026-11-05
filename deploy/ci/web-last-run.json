@@ -1,9 +1,9 @@
 {
-  "run_id": 42073858672,
-  "head_sha": "f1c9cbf087eb76a516e39db3e7c0f6de093adaba",
-  "conclusion": "success",
-  "run_url": "https://github.com/aleksiymv-max/skvazhina-app/actions/runs/42073858672",
-  "started_at": "2026-11-05T17:21:43Z",
-  "updated_at": "2026-11-05T17:38:13Z",
-  "artifact_available": true
+  "run_id": 42077417882,
+  "head_sha": "316527a2763c41f500f997c243844760a0e9c050",
+  "conclusion": "failure",
+  "run_url": "https://github.com/aleksiymv-max/skvazhina-app/actions/runs/42077417882",
+  "started_at": "2026-11-05T17:43:36Z",
+  "updated_at": "2026-11-05T17:43:44Z",
+  "artifact_available": false
 }
