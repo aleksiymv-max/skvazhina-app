@@ -11,15 +11,19 @@ def sub(filename, old, new, label):
     p.write_text(s.replace(old,new,1), encoding='utf-8')
 
 reg='lib/core/services/registration_service.dart'
-sub(reg,
-" Future<Map<String,dynamic>> removeUser(String token,String id)async=>body(await http.delete(u('/v1/users/'+id),headers:{'authorization':'Bearer '+token}).timeout(const Duration(seconds:12)));",
-""" Future<Map<String,dynamic>> removeUser(String token,String id,String fieldId,String exactName)async=>
+p=Path(reg)
+old=p.read_text(encoding='utf-8')
+start=old.find(" Future<Map<String,dynamic>> removeUser(")
+end=old.find("\n Future<Map<String,dynamic>> adminAddField(",start)
+assert start>=0 and end>start, 'registration removeUser boundaries changed'
+new=""" Future<Map<String,dynamic>> removeUser(String token,String id,String fieldId,String exactName)async=>
    body(await http.delete(u('/v1/users/'+id),headers:{'authorization':'Bearer '+token,'content-type':'application/json'},
      body:jsonEncode({'fieldId':fieldId,'confirmName':exactName})).timeout(const Duration(seconds:30)));
  Future<Map<String,dynamic>> adminCleanupDeletedAccount(String token,String email,String confirmEmail)async=>
    body(await http.post(u('/v1/admin/removed-users/cleanup'),headers:{'authorization':'Bearer '+token,'content-type':'application/json'},
-     body:jsonEncode({'email':email,'confirmEmail':confirmEmail})).timeout(const Duration(seconds:30)));""",
-'chief requests hard delete with field/name confirmation')
+     body:jsonEncode({'email':email,'confirmEmail':confirmEmail})).timeout(const Duration(seconds:30)));"""
+p.write_text(old[:start]+new+old[end:],encoding='utf-8')
+
 
 sess='lib/core/services/session_service.dart'
 sub(sess,
