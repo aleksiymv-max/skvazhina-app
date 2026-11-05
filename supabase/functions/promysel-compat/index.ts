@@ -18,7 +18,7 @@ function validatedPublicOrigin(value:string):string{
   }catch(_){}
   return "";
 }
-const publicOrigin=validatedPublicOrigin(configuredPublicOrigin)||"https://promysel-web.pages.dev";
+const publicOrigin=validatedPublicOrigin(configuredPublicOrigin)||"https://promysel-app.tuqo.ru";
 const passwordSetupUrl=publicOrigin+"/finish-registration.html";
 
 const validEmail=(x:string)=>x.length<=254&&/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(x);
