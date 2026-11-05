@@ -840,7 +840,7 @@ Deno.serve(async(req:Request)=>{
     // Never move the cursor over a measurement page we have not delivered.
     const moreMeasurements=(data?.length??0)>=200;
     let stateDeliveredSeq=0;
-    if((fullRestore||latestRelevantSeq>Number(cursor))&&!moreMeasurements){
+    if((fullRestore||latestRelevantSeq>Number(cursor))&&(!moreMeasurements||fullRestore)){
       const repaired=await effectiveState(fieldId);
       if(repaired.snapshot){
         if(fullRestore&&cursor!=="0"){
@@ -890,7 +890,9 @@ Deno.serve(async(req:Request)=>{
         const recoveredSeq=Math.max(repaired.seq,latestRelevantSeq);
         output.push({key:"recovered:"+fieldId+":"+String(recoveredSeq),
           type:"app_state",updatedAt:new Date().toISOString(),payload:snapshot});
-        stateDeliveredSeq=recoveredSeq;
+        // A recovered snapshot may be returned with page one, but its sequence
+        // must never skip measurement pages that have not been delivered yet.
+        stateDeliveredSeq=moreMeasurements?0:recoveredSeq;
       }
     }
     return reply({cursor:String(Math.max(Number(cursor),lastMeasurementSeq,stateDeliveredSeq)),
