@@ -75,3 +75,5 @@ release: v1.99
 purpose: left/right round video alignment, enlarged modal video dock, on-tap sound, left aligned chat typography, precise outline record icons
 requested: 2026-11-05
 artifact: TUQO Web ZIP + DEV preview
+
+retry_v199: corrected composer Semantics parenthesis 2026-11-05
