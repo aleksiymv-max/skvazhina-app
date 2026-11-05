@@ -1,0 +1,66 @@
+name: Configure Promysel custom SMTP (manual, secrets only)
+
+on:
+  workflow_dispatch:
+    inputs:
+      smtp_mode:
+        description: "SMTP provider: gmail (no domain needed), selfhost, or provider"
+        type: choice
+        options:
+          - gmail
+          - selfhost
+          - provider
+        required: true
+        default: gmail
+      confirmation:
+        description: "Type ENABLE_PROMYSEL_SMTP to modify Supabase Auth configuration"
+        type: string
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: promysel-smtp-configuration
+  cancel-in-progress: false
+
+jobs:
+  configure:
+    if: github.ref == 'refs/heads/main' && inputs.confirmation == 'ENABLE_PROMYSEL_SMTP'
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate secret presence without printing values
+        shell: bash
+        env:
+          AUTH_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SMTP_USER: ${{ secrets.PROMYSEL_SMTP_USER }}
+          SMTP_PASS: ${{ secrets.PROMYSEL_SMTP_PASSWORD }}
+        run: |
+          set -euo pipefail
+          test -n "$AUTH_TOKEN" || { echo "Missing SUPABASE_ACCESS_TOKEN secret"; exit 1; }
+          test -n "$SMTP_USER" || { echo "Missing PROMYSEL_SMTP_USER secret"; exit 1; }
+          test -n "$SMTP_PASS" || { echo "Missing PROMYSEL_SMTP_PASSWORD secret"; exit 1; }
+          echo "Required secrets are present (values are hidden)."
+
+      - name: Verify SMTP over TLS and enable Supabase Auth custom mail
+        shell: bash
+        env:
+          PROMYSEL_SMTP_MODE: ${{ inputs.smtp_mode }}
+          PROMYSEL_SMTP_CONFIRM: ${{ inputs.confirmation }}
+          PROMYSEL_SMTP_USER: ${{ secrets.PROMYSEL_SMTP_USER }}
+          PROMYSEL_SMTP_PASSWORD: ${{ secrets.PROMYSEL_SMTP_PASSWORD }}
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          PROMYSEL_SMTP_HOST: ${{ vars.PROMYSEL_SMTP_HOST }}
+          PROMYSEL_SMTP_PORT: ${{ vars.PROMYSEL_SMTP_PORT }}
+          PROMYSEL_SMTP_FROM: ${{ vars.PROMYSEL_SMTP_FROM }}
+        run: |
+          set -euo pipefail
+          python3 infra/smtp/configure_supabase_smtp.py --mode "$PROMYSEL_SMTP_MODE" --apply
+
+      - name: Explain next verification
+        if: success()
+        run: |
+          echo "::notice title=SMTP configured::Sender configured in Supabase. Run one test invitation, verify receiving mailbox and spam folder, then adjust the v2.05 mail queue cadence."
