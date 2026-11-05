@@ -8,6 +8,7 @@ cursor="final next=body['cursor']?.toString()"
 recovery='if(recover)await recoveryPrefs.setBool(problemRepairKey,true)'
 assert pull.count(guard)==1, 'deferred snapshot guard must exist'
 assert pull.index(guard)<pull.index(recovery)<pull.index(cursor), 'cannot ack before state processed'
+assert pull.index(guard)<pull.index("await recoveryPrefs.setString('sync_last_repair_$fieldId'"), 'recovery must not be stamped before validated cursor'
 assert "status='Локальные изменения ожидают отправки" in pull
 assert '_db.applyRemoteMeasurement(key,' in pull, 'measurements are replay-idempotent'
 assert 'await AppStateStore.instance.apply(' in pull
