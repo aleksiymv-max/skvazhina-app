@@ -1,9 +1,5 @@
 name: "Promysel — вручную опубликовать проверенную Web-версию"
 on:
-  # One-shot v1.95 production promotion from a verified Web artifact.
-  push:
-    branches: [main]
-    paths: ['deploy/ci/promote-v195.trigger']
   workflow_dispatch:
     inputs:
       run_id:
@@ -22,7 +18,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   release:
-    if: ${{ github.event_name == 'push' || github.event.inputs.confirmation == 'PROMOTE' }}
+    if: ${{ github.event.inputs.confirmation == 'PROMOTE' }}
     runs-on: ubuntu-latest
     timeout-minutes: 12
     environment: production
@@ -34,7 +30,7 @@ jobs:
         id: check
         env:
           GH_TOKEN: ${{ github.token }}
-          RUN_ID: ${{ github.event_name == 'push' && '41970788109' || inputs.run_id }}
+          RUN_ID: ${{ inputs.run_id }}
           REPO: ${{ github.repository }}
         shell: bash
         run: |
@@ -42,9 +38,6 @@ jobs:
           [[ "$RUN_ID" =~ ^[0-9]+$ ]]
           gh api "repos/$REPO/actions/runs/$RUN_ID" > /tmp/promysel-run.json
           jq -e '.conclusion=="success" and .name=="Build Promysel Web for iPhone" and .head_branch=="main" and .event!="pull_request"' /tmp/promysel-run.json
-          if [[ "${{ github.event_name }}" == "push" ]]; then
-            jq -e '.head_sha=="b2416c0d439223409ba2756628d87bee33ff6abf"' /tmp/promysel-run.json
-          fi
           SHA="$(jq -r '.head_sha' /tmp/promysel-run.json)"
           git fetch origin stable
           git fetch origin "$SHA"
@@ -53,7 +46,7 @@ jobs:
       - name: Download exact previously tested Web artifact
         uses: actions/download-artifact@v4
         with:
-          run-id: ${{ github.event_name == 'push' && '41970788109' || inputs.run_id }}
+          run-id: ${{ inputs.run_id }}
           name: promysel-original-flutter-supabase-web
           repository: ${{ github.repository }}
           github-token: ${{ github.token }}
