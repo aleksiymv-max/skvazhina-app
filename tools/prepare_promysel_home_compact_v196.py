@@ -9,7 +9,7 @@ def swap(src,a,b,text):
     j=src.index(b,i)
     return src[:i]+text+'\n'+src[j:]
 
-s=swap(s,' Widget _fieldDashboard()=>',' Widget _approvalDashboard()',"""
+s=swap(s,' Widget _fieldDashboard()=>',' Widget _problemsDashboard()',"""
  Widget _fieldDashboard()=>Card(child:InkWell(
    onTap:()=>context.push('/wells?from=home'),
    child:Padding(padding:const EdgeInsets.all(16),
@@ -21,7 +21,7 @@ s=swap(s,' Widget _fieldDashboard()=>',' Widget _approvalDashboard()',"""
    ),
  ));
 """)
-s=swap(s,' Widget _approvalDashboard()',' Widget _problemsDashboard()',"""
+s=swap(s,' Widget _approvalDashboard()',' Widget _fieldDashboard()',"""
  Widget _approvalDashboard(){
    final s=SessionService.instance;
    final pending=s.allPending.where((p)=>p.fieldId==s.currentFieldId).toList();
