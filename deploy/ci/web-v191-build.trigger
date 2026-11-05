@@ -99,3 +99,8 @@ retry_v202: unread timer anchor after v1.82 cache interval update
 release: v2.04
 scope: strict task and problem history ownership, master operator visibility, SQLite v15 isolation, server sync privacy
 artifact: TUQO Web ZIP + dev preview
+
+release: v2.05
+scope: chief/admin registration invitation queue, mail provider backoff, accurate email delivery state and retry controls
+non_destructive: true
+production: Supabase Edge RPC and delivery queue only; TUQO Web ZIP for manual update
