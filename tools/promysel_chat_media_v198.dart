@@ -301,7 +301,7 @@ class _ChatVoiceMediaState extends State<ChatVoiceMedia>{
     final duration=selected&&widget.hub.duration>Duration.zero?widget.hub.duration:
       Duration(milliseconds:stored);
     final levels=(widget.message['waveform'] as List?)?.whereType<num>()
-      .map((e)=>e.toDouble().clamp(0,1)).toList()??const <double>[];
+      .map((e)=>e.toDouble().clamp(0.0,1.0).toDouble()).toList()??const <double>[];
     return ConstrainedBox(constraints:const BoxConstraints(maxWidth:288),child:
       Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
         Row(children:[
@@ -437,7 +437,7 @@ class ChatRoundVideoSurface extends StatelessWidget{
           child:Padding(padding:const EdgeInsets.symmetric(horizontal:7,vertical:3),
             child:Text(_chatMediaTime(hub.position),
               style:const TextStyle(color:Colors.white,fontSize:11.5,fontWeight:FontWeight.bold))))),
-    ]))));
+    ])));
   });
 }
 class ChatVideoViewer extends StatelessWidget{
@@ -453,7 +453,7 @@ class ChatVideoViewer extends StatelessWidget{
         const SizedBox(height:15),
         AnimatedBuilder(animation:hub,builder:(c,_)=>ChatRoundVideoSurface(
           hub:hub,id:hub.messageId??'',size:
-            math.min(MediaQuery.sizeOf(context).width-64,345))),
+            math.min(MediaQuery.sizeOf(context).width-64,345.0))),
         const SizedBox(height:10),
         AnimatedBuilder(animation:hub,builder:(c,_)=>Row(
           mainAxisAlignment:MainAxisAlignment.center,children:[
