@@ -47,6 +47,38 @@ function mergeRows(oldV:unknown,newV:unknown,k:string):J[]{
  }
  return out;
 }
+// Tombstones are field-scoped, permanent deletion markers for current structure.
+// Historical production measurements, tasks, and messages are NOT deleted.
+type DeletedMap={areas:string[],pads:string[],wells:string[]};
+function deletedStructure(raw:unknown):DeletedMap{
+ const source=good(raw)?raw as J:{};
+ const ids=(kind:string)=>[...new Set((Array.isArray(source[kind])?source[kind]:[])
+   .filter((id:unknown)=>typeof id==="string"&&id.length>0&&id.length<=180)
+   .map(String))].sort();
+ return {areas:ids("areas"),pads:ids("pads"),wells:ids("wells")};
+}
+function mergeStructureDeleted(a:unknown,b:unknown):DeletedMap{
+ const left=deletedStructure(a),right=deletedStructure(b);
+ return {
+   areas:[...new Set([...left.areas,...right.areas])].sort(),
+   pads:[...new Set([...left.pads,...right.pads])].sort(),
+   wells:[...new Set([...left.wells,...right.wells])].sort()
+ };
+}
+function filterDeletedStructure(state:J):J{
+ const del=deletedStructure(state.structureDeleted);
+ const areas=new Set(del.areas),pads=new Set(del.pads),wells=new Set(del.wells);
+ const activeAreas=(Array.isArray(state.areas)?state.areas:[])
+   .filter(good).filter((x:J)=>!areas.has(String(x.id??"")))
+   .map((x:J)=>({...x,padIds:(Array.isArray(x.padIds)?x.padIds:[])
+     .filter((id:unknown)=>!pads.has(String(id)))}));
+ const activePads=(Array.isArray(state.pads)?state.pads:[])
+   .filter(good).filter((x:J)=>!pads.has(String(x.id??""))&&
+     !areas.has(String(x.areaId??"")))
+   .map((x:J)=>({...x,wells:(Array.isArray(x.wells)?x.wells:[])
+     .filter((w:unknown)=>good(w)&&!wells.has(String((w as J).id??"")))}));
+ return {...state,structureDeleted:del,areas:activeAreas,pads:activePads};
+}
 function mergeState(a:J,b:J):J{
  const o:J={...a,...b};
  for(const k of ["areas","pads","tasks","annulus","training","notifications"])o[k]=mergeRows(a[k],b[k],k);
@@ -73,7 +105,9 @@ function mergeState(a:J,b:J):J{
  const cfg:J={...x,...y};
  for(const k of ["enabled","units","wellEnabled","wellUnits"])
    cfg[k]={...(good(x[k])?x[k] as J:{}),...(good(y[k])?y[k] as J:{})};
- o.walkConfig=cfg;return o;
+ o.walkConfig=cfg;
+ o.structureDeleted=mergeStructureDeleted(a.structureDeleted,b.structureDeleted);
+ return filterDeletedStructure(o);
 }
 
 Deno.serve(async(req:Request)=>{
@@ -206,8 +240,21 @@ Deno.serve(async(req:Request)=>{
     if(!data?.length)return {snapshot:null,seq:0,changed:false};
     let acc:J={};
     for(const row of [...data].reverse())if(good(row.payload))acc=mergeState(acc,row.payload as J);
+    // Only the last four app_state events are replayed for performance. These
+    // durable markers must never fall out of that window or a stale device
+    // could revive an area, pad or well removed by a supervisor.
+    const {data:markers,error:markerError}=await admin.from("promysel_structure_tombstones")
+      .select("kind,entity_id").eq("field_id",fid).limit(10000);
+    if(markerError)throw markerError;
+    const durable:J={areas:[],pads:[],wells:[]};
+    for(const marker of markers??[]){
+      const kind=String(marker.kind);
+      if(Array.isArray(durable[kind]))(durable[kind] as string[]).push(String(marker.entity_id));
+    }
+    acc=filterDeletedStructure({...acc,
+      structureDeleted:mergeStructureDeleted(acc.structureDeleted,durable)});
     const last=data[0].payload as J;
-    const names=["areas","pads","tasks","annulus","training","trainingDeletedIds","workSchedules","notifications","walkConfig","avatars","problemApplications"];
+    const names=["areas","pads","structureDeleted","tasks","annulus","training","trainingDeletedIds","workSchedules","notifications","walkConfig","avatars","problemApplications"];
     return {snapshot:acc,seq:Number(data[0].sequence),
       changed:names.some(k=>JSON.stringify(acc[k])!==JSON.stringify(last?.[k]))};
   }
@@ -623,14 +670,45 @@ Deno.serve(async(req:Request)=>{
    const canStructure=member.role==="shopChief"||member.role==="admin"||specialist;
    const canWalk=["operator","engineer","shopChief"].includes(String(member.role));
    const records:J[]=[];
+   const tombstoneRequests:{field_id:string,kind:string,entity_id:string,actor_id:string}[]=[];
    for(const item of items){
     if(!good(item)||!good(item.payload))return reply({detail:"Некорректный элемент синхронизации"},400);
     const i=item as J,key=txt(i.key),type=txt(i.type),payload=i.payload as J;
     if(key.length<1||key.length>300||!["measurement","app_state"].includes(type))return reply({detail:"Неверный тип изменения"},400);
     if(type==="measurement"&&!canWalk||type==="app_state"&&!canStructure)return reply({detail:"Нет прав на изменение"},403);
     if(type==="app_state"&&payload.fieldId!==fieldId)return reply({detail:"Месторождение снимка не совпадает"},403);
+    if(type==="app_state"&&payload.structureDeleted!==undefined){
+      if(!good(payload.structureDeleted))return reply({detail:"Некорректные метки удаления"},400);
+      const markerMap=deletedStructure(payload.structureDeleted);
+      const count=markerMap.areas.length+markerMap.pads.length+markerMap.wells.length;
+      if(count>5000)return reply({detail:"Слишком много меток удаления"},413);
+      for(const kind of ["areas","pads","wells"] as const){
+        for(const entity_id of markerMap[kind]){
+          tombstoneRequests.push({field_id:fieldId,kind,entity_id,actor_id:user.id});
+        }
+      }
+    }
     records.push({event_key:key,field_id:fieldId,device_id:device,event_type:type,
      payload,actor_id:user.id,client_updated_at:i.updatedAt??null});
+   }
+   // Server-enforced role gate: regular ITR can edit names but cannot introduce
+   // deletion markers. Already recorded markers may be relayed by any writer.
+   if(tombstoneRequests.length){
+     const {data:present,error:presentError}=await admin.from("promysel_structure_tombstones")
+       .select("kind,entity_id").eq("field_id",fieldId).limit(10000);
+     if(presentError)throw presentError;
+     const known=new Set((present??[]).map(x=>String(x.kind)+":"+String(x.entity_id)));
+     const unique=new Map<string,typeof tombstoneRequests[number]>();
+     for(const row of tombstoneRequests)unique.set(row.kind+":"+row.entity_id,row);
+     const fresh=[...unique].filter(([key])=>!known.has(key)).map(([,value])=>value);
+     const leader=member.role==="shopChief"||member.role==="admin"||
+       (member.role==="engineer"&&["leadingGeologist","leadingTechnologist"].includes(String(member.subrole)));
+     if(fresh.length&&!leader)return reply({detail:"Удалять участки, кусты и скважины может только начальник цеха или ведущий ИТР"},403);
+     if(fresh.length){
+       const {error:insertError}=await admin.from("promysel_structure_tombstones")
+         .upsert(fresh,{onConflict:"field_id,kind,entity_id",ignoreDuplicates:true});
+       if(insertError)throw insertError;
+     }
    }
    const {error}=await actorClient.from("sync_events").upsert(records,{onConflict:"event_key",ignoreDuplicates:true});
    if(error)throw error;
