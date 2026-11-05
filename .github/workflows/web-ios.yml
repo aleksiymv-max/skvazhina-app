@@ -175,6 +175,8 @@ jobs:
           python3 "$GITHUB_WORKSPACE/tools/test_promysel_chat_reference_v199.py"
           python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_chat_inline_fast_v200.py"
           python3 "$GITHUB_WORKSPACE/tools/test_promysel_chat_inline_fast_v200.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_global_perf_v202.py"
+          python3 "$GITHUB_WORKSPACE/tools/test_promysel_global_perf_v202.py"
           python3 "$GITHUB_WORKSPACE/tools/inspect_promysel_home_layout.py"
           cp "$GITHUB_WORKSPACE/tools/work_schedule_test.dart" test/work_schedule_test.dart
           mkdir -p test
@@ -186,6 +188,7 @@ jobs:
           cp "$GITHUB_WORKSPACE/tools/structure_versions_test.dart" test/structure_versions_test.dart
           cp "$GITHUB_WORKSPACE/tools/chat_media_reference_v199_test.dart" test/chat_media_reference_v199_test.dart
           cp "$GITHUB_WORKSPACE/tools/chat_inline_fast_v200_test.dart" test/chat_inline_fast_v200_test.dart
+          cp "$GITHUB_WORKSPACE/tools/performance_v202_test.dart" test/performance_v202_test.dart
           mkdir -p assets/icon
           rsvg-convert -w 1024 -h 1024 "$GITHUB_WORKSPACE/assets/promysel_icon_modern.svg" -o assets/icon/app_icon.png
           cp assets/icon/app_icon.png assets/icon/app_icon_foreground.png
@@ -229,7 +232,7 @@ jobs:
         run: |
           set -euo pipefail;cd "${{ steps.project.outputs.project_dir }}"
           flutter analyze --no-fatal-infos --no-fatal-warnings
-          flutter test test/task_permission_test.dart test/history_empty_widget_test.dart test/task_photo_widget_test.dart test/work_schedule_test.dart test/training_calendar_test.dart test/weak_network_test.dart test/structure_integrity_test.dart test/structure_versions_test.dart test/chat_media_reference_v199_test.dart test/chat_inline_fast_v200_test.dart
+          flutter test test/task_permission_test.dart test/history_empty_widget_test.dart test/task_photo_widget_test.dart test/work_schedule_test.dart test/training_calendar_test.dart test/weak_network_test.dart test/structure_integrity_test.dart test/structure_versions_test.dart test/chat_media_reference_v199_test.dart test/chat_inline_fast_v200_test.dart test/performance_v202_test.dart
           flutter build web --no-pub --release --pwa-strategy=offline-first --dart-define=PROMYSEL_SYNC_URL=https://xptmcufhuvtcunqzlsme.supabase.co/functions/v1/promysel-compat
           python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_web_push.py"
           python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_cellular_startup_v201.py"
