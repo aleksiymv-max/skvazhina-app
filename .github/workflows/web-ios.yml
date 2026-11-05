@@ -169,6 +169,8 @@ jobs:
           python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_problem_backfill_v196.py"
           python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_network_resilience_v197.py"
           python3 "$GITHUB_WORKSPACE/tools/test_promysel_network_resilience_v197.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_chat_media_v198.py"
+          python3 "$GITHUB_WORKSPACE/tools/test_promysel_chat_media_v198.py"
           python3 "$GITHUB_WORKSPACE/tools/inspect_promysel_home_layout.py"
           cp "$GITHUB_WORKSPACE/tools/work_schedule_test.dart" test/work_schedule_test.dart
           mkdir -p test
