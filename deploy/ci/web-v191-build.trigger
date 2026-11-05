@@ -108,3 +108,5 @@ production: Supabase Edge RPC and delivery queue only; TUQO Web ZIP for manual u
 retry_v205: fix Dart interpolation in source patch to render admin queue correctly
 
 retry_v205_2: correct chief approval Snackbar Flutter syntax
+
+final_v205: include SMTP recovery retry state, chief approval UI syntax fixed, backend v29
