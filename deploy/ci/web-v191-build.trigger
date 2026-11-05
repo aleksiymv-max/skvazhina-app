@@ -125,3 +125,8 @@ regression: hidden_both;pkv_only;pid_only;both_enabled;captured_selection;web_an
 retry_v207: target actual async handler _saveMeasurement
 
 retry_v207_guard: actual existing well.type==oil composite requires conditional selected pads
+
+release: v2.08
+scope: remove decorative decimal comma buttons; issued task pending approval and completed sections
+request: user asked to check Web build
+production: no automatic TUQO publication
