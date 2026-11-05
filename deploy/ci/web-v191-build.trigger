@@ -60,3 +60,7 @@ web_release: v1.97
 purpose: no-VPN weak network recovery, lower auth DB round trips, smaller static bundle
 production: ZIP for TUQO, DEV preview only
 apk: disabled
+
+release: v1.98
+purpose: chat round video autoplay muted; expanded audio; unified mini media player; modern recorder icons; faster video send
+request: 2026-11-05 chat media polish
