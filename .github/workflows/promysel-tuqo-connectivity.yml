@@ -1,0 +1,48 @@
+name: One-shot TUQO mobile access diagnostic
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'deploy/ci/tuqo-diagnostic.trigger'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: DNS TLS HTTP and content-type from external network
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import socket,ssl,time,urllib.request,urllib.error
+          bases=[
+            'https://promysel-app.tuqo.app',
+            'https://promysel-app.tuqo.ru',
+          ]
+          paths=['/','/flutter_bootstrap.js','/main.dart.js',
+                 '/canvaskit/canvaskit.wasm','/sqlite3.wasm']
+          urls=[(b+p,'HEAD' if p!='/' else 'GET') for b in bases for p in paths]
+          urls.append(('https://xptmcufhuvtcunqzlsme.supabase.co/functions/v1/promysel-compat/health','GET'))
+          for url,method in urls:
+            host=urllib.request.urlparse(url).hostname
+            t=time.monotonic()
+            try:
+              addr=socket.getaddrinfo(host,443,type=socket.SOCK_STREAM)
+              ips=sorted(set(x[4][0] for x in addr))
+              print('DNS',host,','.join(ips[:4]),'sec',round(time.monotonic()-t,2),flush=True)
+            except Exception as e:
+              print('DNS_ERROR',url,type(e).__name__,str(e),flush=True)
+              continue
+            try:
+              req=urllib.request.Request(url,method=method,
+                headers={'User-Agent':'Promysel-public-availability-check/1.0'})
+              with urllib.request.urlopen(req,timeout=10) as r:
+                print('HTTP',method,url,'status',r.status,'type',r.headers.get('content-type'),
+                    'length',r.headers.get('content-length'),'sec',round(time.monotonic()-t,2),
+                    'final',r.url,flush=True)
+            except Exception as e:
+              print('HTTP_ERROR',method,url,type(e).__name__,str(e),
+                    'sec',round(time.monotonic()-t,2),flush=True)
+          PY
