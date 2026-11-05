@@ -70,3 +70,8 @@ retry: v1.98 chat state disposal matching 2026-11-05-08:14 UTC
 retry: v1.98 compile types and video surface nesting fix 2026-11-05-08:17 UTC
 
 final: v1.98 signed URL refresh reuse stable decoder 2026-11-05-08:23 UTC
+
+release: v1.99
+purpose: left/right round video alignment, enlarged modal video dock, on-tap sound, left aligned chat typography, precise outline record icons
+requested: 2026-11-05
+artifact: TUQO Web ZIP + DEV preview
