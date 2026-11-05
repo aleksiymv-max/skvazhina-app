@@ -24,7 +24,7 @@ new=""" Widget _issuedReviewSections(List<WorkTask> issued){
        ]),
        children:[
          if(pending.isEmpty)const Padding(padding:EdgeInsets.all(16),child:Text('Нет заданий на подтверждение')),
-         if(pending.isNotEmpty)SizedBox(height:(pending.length*250.0).clamp(160.0,480.0),child:_issuedList(pending)),
+         if(pending.isNotEmpty)SizedBox(height:(pending.length*250.0).clamp(160.0,480.0).toDouble(),child:_issuedList(pending)),
        ],
      )),
      Card(child:ExpansionTile(
