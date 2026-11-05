@@ -117,3 +117,7 @@ backend: promysel-compat v31; avatar version CAS and incremental sync markers
 safety: no historical measurements or tasks deleted
 
 retry_v206: add Flutter test widget import for TextEditingController
+
+release: v2.07
+fix: pad-selected parameters only in walk UI, mandatory PKV/PID confirmation, immutable historical measurement snapshot
+regression: hidden_both;pkv_only;pid_only;both_enabled;captured_selection;web_and_android_source
