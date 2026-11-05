@@ -278,8 +278,7 @@ jobs:
         run: |
           for URL in "https://promysel-app.tuqo.app/" "https://promysel-app.tuqo.ru/" "https://xptmcufhuvtcunqzlsme.supabase.co/functions/v1/promysel-compat/health"; do
             echo "PROBE $URL"
-            curl --location --silent --show-error --connect-timeout 6 --max-time 14 -o /dev/null \\
-              -w 'HTTP=%{http_code} DNS=%{time_namelookup}s TCP=%{time_connect}s TLS=%{time_appconnect}s FIRST=%{time_starttransfer}s TOTAL=%{time_total}s IP=%{remote_ip}\\n' "$URL" || echo "PROBE_UNREACHABLE"
+            curl --location --silent --show-error --connect-timeout 6 --max-time 14 -o /dev/null -w 'HTTP=%{http_code} DNS=%{time_namelookup}s TCP=%{time_connect}s TLS=%{time_appconnect}s FIRST=%{time_starttransfer}s TOTAL=%{time_total}s IP=%{remote_ip}\n' "$URL" || echo "PROBE_UNREACHABLE"
           done
       - name: Package iPhone web app
         shell: bash
