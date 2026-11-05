@@ -232,9 +232,11 @@ jobs:
           flutter test test/task_permission_test.dart test/history_empty_widget_test.dart test/task_photo_widget_test.dart test/work_schedule_test.dart test/training_calendar_test.dart test/weak_network_test.dart test/structure_integrity_test.dart test/structure_versions_test.dart test/chat_media_reference_v199_test.dart test/chat_inline_fast_v200_test.dart
           flutter build web --no-pub --release --pwa-strategy=offline-first --dart-define=PROMYSEL_SYNC_URL=https://xptmcufhuvtcunqzlsme.supabase.co/functions/v1/promysel-compat
           python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_web_push.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_cellular_startup_v201.py"
+          python3 "$GITHUB_WORKSPACE/tools/test_promysel_cellular_startup_v201.py"
           # Debug symbols are not loaded at runtime; avoid shipping multi-MB maps on slow links.
           find build/web/canvaskit -type f -name '*.symbols' -delete
-          test -f build/web/index.html;test -f build/web/flutter_bootstrap.js;test -f build/web/manifest.json;test -f build/web/sqlite3.wasm;test -f build/web/sqflite_sw.js;test -f build/web/apple-touch-icon.png
+          test -f build/web/diagnostics.html;          test -f build/web/index.html;test -f build/web/flutter_bootstrap.js;test -f build/web/manifest.json;test -f build/web/sqlite3.wasm;test -f build/web/sqflite_sw.js;test -f build/web/apple-touch-icon.png
       - name: Add first-run account setup and Cloudflare hosting metadata
         shell: bash
         run: |
@@ -255,6 +257,12 @@ jobs:
             Cache-Control: no-cache
           /main.dart.js
             Cache-Control: no-cache
+          /flutter_bootstrap.js
+            Cache-Control: no-cache
+          /promysel-push-sw.js
+            Cache-Control: no-cache
+          /diagnostics.html
+            Cache-Control: no-store
           /setup.html
             Cache-Control: no-cache
           /finish-registration.html
@@ -264,6 +272,15 @@ jobs:
           test -f "$OUT/setup.html"
           test -f "$OUT/activate-admin.html"
           test -f "$OUT/finish-registration.html"
+      - name: Probe existing Tuqo site and backend DNS HTTPS (external GitHub network only)
+        shell: bash
+        continue-on-error: true
+        run: |
+          for URL in "https://promysel-app.tuqo.app/" "https://promysel-app.tuqo.ru/" "https://xptmcufhuvtcunqzlsme.supabase.co/functions/v1/promysel-compat/health"; do
+            echo "PROBE $URL"
+            curl --location --silent --show-error --connect-timeout 6 --max-time 14 -o /dev/null \\
+              -w 'HTTP=%{http_code} DNS=%{time_namelookup}s TCP=%{time_connect}s TLS=%{time_appconnect}s FIRST=%{time_starttransfer}s TOTAL=%{time_total}s IP=%{remote_ip}\\n' "$URL" || echo "PROBE_UNREACHABLE"
+          done
       - name: Package iPhone web app
         shell: bash
         run: |
