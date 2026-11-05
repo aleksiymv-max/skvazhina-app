@@ -110,3 +110,8 @@ retry_v205: fix Dart interpolation in source patch to render admin queue correct
 retry_v205_2: correct chief approval Snackbar Flutter syntax
 
 final_v205: include SMTP recovery retry state, chief approval UI syntax fixed, backend v29
+
+release: v2.06
+features: comma_and_dot_decimal_inputs_including_choke_percentages; avatar_tombstone_registry; offline_avatar_mutation_queue; stale_device_recovery
+backend: promysel-compat v31; avatar version CAS and incremental sync markers
+safety: no historical measurements or tasks deleted
