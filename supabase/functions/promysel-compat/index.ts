@@ -663,6 +663,17 @@ Deno.serve(async(req:Request)=>{
    if(req.method==="GET"){
     const cursor=txt(url.searchParams.get("cursor"))||"0",device=txt(url.searchParams.get("deviceId"));
     if(!/^\d{1,19}$/.test(cursor)||device.length>200)return reply({detail:"Неверный курсор"},400);
+    // Fast no-change path: one indexed sequence lookup replaces two or more
+    // payload / snapshot queries during normal idle polling. Full recovery,
+    // including old immutable measurements, always bypasses this shortcut.
+    const fullRestore=cursor==="0"||url.searchParams.get("recover")==="1";
+    if(!fullRestore){
+      const {data:changed,error:checkError}=await admin.from("sync_events")
+        .select("sequence").eq("field_id",fieldId)
+        .gt("sequence",Number(cursor)).order("sequence",{ascending:false}).limit(1);
+      if(checkError)throw checkError;
+      if(!changed?.length)return reply({cursor,items:[]});
+    }
     // HOTFIX 2026-11-04: avoid full app_state history replay.
     // Full snapshots carry inline avatars; fetching 100+ duplicates caused
     // PostgREST 57014 statement timeouts and sync/pull HTTP 500.
@@ -681,7 +692,6 @@ Deno.serve(async(req:Request)=>{
     const lastMeasurementSeq=data?.length?Number(data[data.length-1].sequence):Number(cursor);
     // Never move the cursor over a measurement page we have not delivered.
     const moreMeasurements=(data?.length??0)>=200;
-    const fullRestore=cursor==="0"||url.searchParams.get("recover")==="1";
     let stateDeliveredSeq=0;
     if((fullRestore||latestStateSeq>Number(cursor))&&!moreMeasurements){
       const repaired=await effectiveState(fieldId);
