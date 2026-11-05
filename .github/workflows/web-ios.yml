@@ -188,7 +188,7 @@ jobs:
           python3 "$GITHUB_WORKSPACE/tools/test_promysel_decimal_avatar_v206.py"
           python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_walk_validation_v207.py"
           python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_remove_comma_button_v208.py"
-          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_issued_review_v208.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_issued_review_v209.py"
           python3 "$GITHUB_WORKSPACE/tools/test_promysel_walk_validation_v207.py"
           python3 "$GITHUB_WORKSPACE/tools/inspect_promysel_home_layout.py"
           cp "$GITHUB_WORKSPACE/tools/work_schedule_test.dart" test/work_schedule_test.dart
@@ -205,6 +205,7 @@ jobs:
           cp "$GITHUB_WORKSPACE/tools/history_field_visibility_v204_test.dart" test/history_field_visibility_v204_test.dart
           cp "$GITHUB_WORKSPACE/tools/promysel_decimal_avatar_v206_test.dart" test/promysel_decimal_avatar_v206_test.dart
           cp "$GITHUB_WORKSPACE/tools/promysel_walk_validation_v207_test.dart" test/promysel_walk_validation_v207_test.dart
+          cp "$GITHUB_WORKSPACE/tools/task_issued_review_v209_test.dart" test/task_issued_review_v209_test.dart
           python3 "$GITHUB_WORKSPACE/tools/render_promysel_web_icons_ci.py" app
       - uses: subosito/flutter-action@v2
         with: {channel: stable, flutter-version: '3.47.9', cache: true}
@@ -240,7 +241,7 @@ jobs:
         run: |
           set -euo pipefail;cd "${{ steps.project.outputs.project_dir }}"
           flutter analyze --no-fatal-infos --no-fatal-warnings
-          flutter test test/task_permission_test.dart test/history_empty_widget_test.dart test/task_photo_widget_test.dart test/work_schedule_test.dart test/training_calendar_test.dart test/weak_network_test.dart test/structure_integrity_test.dart test/structure_versions_test.dart test/chat_media_reference_v199_test.dart test/chat_inline_fast_v200_test.dart test/performance_v202_test.dart test/history_field_visibility_v204_test.dart test/promysel_decimal_avatar_v206_test.dart test/promysel_walk_validation_v207_test.dart
+          flutter test test/task_permission_test.dart test/history_empty_widget_test.dart test/task_photo_widget_test.dart test/work_schedule_test.dart test/training_calendar_test.dart test/weak_network_test.dart test/structure_integrity_test.dart test/structure_versions_test.dart test/chat_media_reference_v199_test.dart test/chat_inline_fast_v200_test.dart test/performance_v202_test.dart test/history_field_visibility_v204_test.dart test/promysel_decimal_avatar_v206_test.dart test/promysel_walk_validation_v207_test.dart test/task_issued_review_v209_test.dart
           flutter build web --no-pub --release --pwa-strategy=offline-first --dart-define=PROMYSEL_SYNC_URL=https://xptmcufhuvtcunqzlsme.supabase.co/functions/v1/promysel-compat
           python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_web_push.py"
           python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_cellular_startup_v201.py"
