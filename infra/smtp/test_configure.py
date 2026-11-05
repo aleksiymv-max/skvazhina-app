@@ -72,7 +72,8 @@ class SMTPSetupTests(unittest.TestCase):
             self.assertEqual(data["smtp_port"], "465")
             self.assertEqual(data["smtp_pass"], "SECRET_DO_NOT_LOG")
             self.assertEqual(data["smtp_sender_name"], "Промысел")
-            self.assertIs(data["mailer_autoconfirm"], False)
+            self.assertNotIn("mailer_autoconfirm", data)
+            self.assertNotIn("external_email_enabled", data)
             self.assertIn("Authorization", dict(req.header_items()))
 
 if __name__ == "__main__":
