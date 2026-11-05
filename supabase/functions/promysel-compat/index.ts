@@ -341,15 +341,24 @@ Deno.serve(async(req:Request)=>{
      if(deliveryError)throw deliveryError;
      for(const delivery of deliveries??[])jobs.set(Number(delivery.request_id),delivery as J);
    }
+   // A project-wide sender budget applies even when the individual request
+   // is due. Expose the actual next possible attempt to the approved chief.
+   const {data:mailGate,error:gateError}=await admin.from("promysel_invitation_mail_gate")
+     .select("next_available_at").eq("key","supabase-auth").maybeSingle();
+   if(gateError)throw gateError;
+   const gateAt=Date.parse(String(mailGate?.next_available_at??""))||0;
    return reply({items:(data??[]).map((x:J)=>{
      const j=jobs.get(Number(x.id));
+     const due=Date.parse(String(j?.next_attempt_at??""))||0;
+     const nextAt=x.state==="approved"&&j?.status!=="accepted"
+       ?new Date(Math.max(due,gateAt,Date.now())).toISOString():null;
      return {
        id:String(x.id),name:x.full_name,email:x.email,role:x.requested_role,
        subrole:x.requested_subrole,fieldId:x.field_id??x.approved_field_id??"",
        requiresAdmin:x.field_id===null,
        status:x.state==="approved"?"approved_awaiting_invitation":"pending",
        invitationStatus:x.state==="approved"?String(j?.status??"queued"):"not_approved",
-       nextRetryAt:j?.next_attempt_at??null,attempts:j?.attempts??0,
+       nextRetryAt:nextAt,attempts:j?.attempts??0,
        deliveryError:j?.last_error_code??null,
      };
    })});
