@@ -13,7 +13,7 @@ for imp in [
     "import '../admin/chief_approvals_screen.dart';",
 ]:
     if imp not in s:s=imp+'\n'+s
-anchor="_entry(context,Icons.person_outline,'Профиль',"
+anchor="_entry(context,Icons.menu_book_outlined,'Документация',"
 assert s.count(anchor)==1, 'menu profile navigation changed'
 link="""   if(SessionService.instance.currentUser.role==UserRole.shopChief)
      Card(child:ListTile(
