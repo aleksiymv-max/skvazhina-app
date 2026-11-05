@@ -140,3 +140,5 @@ fix: integration test now checks live production origin, no changes to approval-
 retry_v208_issued: match current visibility guard and include confirmed task cards
 
 verify_ci_speed_v208: remove apt-get for icon rendering; use built-in ffmpeg; cancel superseded DEV jobs
+
+verify_ci_speed_v208_jdk: Java ImageIO icon renderer, no apt-get, no ffmpeg dependencies
