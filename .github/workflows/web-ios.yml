@@ -55,13 +55,11 @@ jobs:
           unzip -q "$GITHUB_WORKSPACE/neftyanik_v1.24.1_stable_hotfix.zip" -d "$DIR"
           PROJECT="$(dirname "$(find "$DIR" -name pubspec.yaml -print -quit)")"
           echo "project_dir=$PROJECT" >> "$GITHUB_OUTPUT"
-      - name: Install image tools
+      - name: Verify preinstalled icon renderer
         run: |
           set -euo pipefail
-          if ! command -v identify >/dev/null || ! command -v rsvg-convert >/dev/null; then
-            sudo apt-get update -qq
-            sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq imagemagick librsvg2-bin
-          fi
+          command -v ffmpeg
+          echo "Using preinstalled ffmpeg; skipping apt repository updates"
       - name: Apply current Promysel updates
         shell: bash
         run: |
@@ -206,11 +204,9 @@ jobs:
           cp "$GITHUB_WORKSPACE/tools/history_field_visibility_v204_test.dart" test/history_field_visibility_v204_test.dart
           cp "$GITHUB_WORKSPACE/tools/promysel_decimal_avatar_v206_test.dart" test/promysel_decimal_avatar_v206_test.dart
           cp "$GITHUB_WORKSPACE/tools/promysel_walk_validation_v207_test.dart" test/promysel_walk_validation_v207_test.dart
-          mkdir -p assets/icon
-          rsvg-convert -w 1024 -h 1024 "$GITHUB_WORKSPACE/assets/promysel_icon_modern.svg" -o assets/icon/app_icon.png
-          cp assets/icon/app_icon.png assets/icon/app_icon_foreground.png
+          python3 "$GITHUB_WORKSPACE/tools/render_promysel_web_icons_ci.py" app
       - uses: subosito/flutter-action@v2
-        with: {channel: stable, cache: true}
+        with: {channel: stable, flutter-version: '3.47.9', cache: true}
       - name: Create web platform and configure iPhone PWA
         shell: bash
         run: |
@@ -219,13 +215,7 @@ jobs:
           python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_ci_pubspec.py" web
           flutter pub get
           dart run sqflite_common_ffi_web:setup --force
-          mkdir -p web/icons
-          rsvg-convert -w 192 -h 192 "$GITHUB_WORKSPACE/assets/promysel_icon_modern.svg" -o web/icons/Icon-192.png
-          rsvg-convert -w 512 -h 512 "$GITHUB_WORKSPACE/assets/promysel_icon_modern.svg" -o web/icons/Icon-512.png
-          cp web/icons/Icon-192.png web/icons/Icon-maskable-192.png
-          cp web/icons/Icon-512.png web/icons/Icon-maskable-512.png
-          rsvg-convert -w 64 -h 64 "$GITHUB_WORKSPACE/assets/promysel_icon_modern.svg" -o web/favicon.png
-          rsvg-convert -w 180 -h 180 "$GITHUB_WORKSPACE/assets/promysel_icon_modern.svg" -o web/apple-touch-icon.png
+          python3 "$GITHUB_WORKSPACE/tools/render_promysel_web_icons_ci.py" web
           python3 - <<'PY'
           from pathlib import Path
           import re,json
