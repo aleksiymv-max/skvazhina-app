@@ -297,8 +297,22 @@ Deno.serve(async(req:Request)=>{
     }
     acc.tasks=rawTasks.filter((t:J)=>owned.has(String(t.id??''))&&
       (!t.fieldId||String(t.fieldId)===fid)).map((t:J)=>({...t,fieldId:fid}));
+    // Durable avatar authority: every delete or deliberate replacement has a
+    // server revision. Older app_state snapshots are NEVER allowed to undo it.
+    const {data:avatarRows,error:avatarError}=await admin.from("promysel_avatar_versions")
+      .select("user_id,avatar_value,revision").eq("field_id",fid).limit(500);
+    if(avatarError)throw avatarError;
+    const mergedAvatars:J=good(acc.avatars)?{...(acc.avatars as J)}:{};
+    const avatarVersions:J={};
+    for(const record of avatarRows??[]){
+      const id=String(record.user_id);
+      mergedAvatars[id]=String(record.avatar_value);
+      avatarVersions[id]=Number(record.revision);
+    }
+    acc.avatars=mergedAvatars;
+    acc.avatarVersions=avatarVersions;
     const last=data[0].payload as J;
-    const names=["areas","pads","structureDeleted","tasks","annulus","training","trainingDeletedIds","workSchedules","notifications","walkConfig","avatars","problemApplications"];
+    const names=["areas","pads","structureDeleted","tasks","annulus","training","trainingDeletedIds","workSchedules","notifications","walkConfig","avatars","avatarVersions","problemApplications"];
     return {snapshot:acc,seq:Number(data[0].sequence),
       changed:names.some(k=>JSON.stringify(acc[k])!==JSON.stringify(last?.[k]))};
   }
@@ -757,6 +771,35 @@ Deno.serve(async(req:Request)=>{
       type:w.type==="gasCondensate"?"gas_condensate":"oil",
       status:w.status==="stopped"?"Остановлена":w.status==="workover"?"ВНР":"В работе"})));
   }
+  // A personal avatar is not a privileged field-wide app_state update.
+  // Operators and engineers can update only their OWN photo with membership
+  // verification and a revision guard; stale devices receive HTTP 409.
+  if(route==="/v1/avatar/mutate"&&req.method==="POST"){
+    const fid=fieldTag(body.fieldId);
+    if(!canField(fid))return reply({detail:"Нет допуска к месторождению"},403);
+    const kind=txt(body.kind),operationId=txt(body.operationId);
+    const expected=Number(body.expectedRevision);
+    if(!["set","delete"].includes(kind)||
+      !/^[a-zA-Z0-9:_-]{8,120}$/.test(operationId)||
+      !Number.isSafeInteger(expected)||expected<0)
+      return reply({detail:"Некорректная версия фотографии"},400);
+    const value=kind==="delete"?"__deleted__":txt(body.avatar);
+    if(kind==="set"&&(value.length<24||value.length>320000||
+      !/^[A-Za-z0-9+/=]+$/.test(value)))
+      return reply({detail:"Некорректное изображение"},400);
+    const {data:result,error}=await admin.rpc("promysel_avatar_commit_v206",{
+      p_field_id:fid,p_user_id:user.id,p_avatar:value,
+      p_expected_revision:expected,p_operation_id:operationId
+    });
+    if(error){
+      console.error("promysel avatar update",error.code??"unknown");
+      return reply({detail:"Не удалось сохранить фотографию"},503);
+    }
+    if(result?.status==="conflict")return reply(
+      {status:"conflict",revision:result.revision,
+       detail:"Фотография изменена на другом устройстве. Обновите профиль."},409);
+    return reply({status:result?.status??"ok",revision:result?.revision??0});
+  }
   if(route==="/v1/sync/push"&&req.method==="POST"||
      route==="/v1/sync/pull"&&req.method==="GET"){
    const url=new URL(req.url);
@@ -781,10 +824,11 @@ Deno.serve(async(req:Request)=>{
     // Full snapshots carry inline avatars; fetching 100+ duplicates caused
     // PostgREST 57014 statement timeouts and sync/pull HTTP 500.
     const {data:recent,error:seqError}=await admin.from("sync_events")
-      .select("sequence").eq("field_id",fieldId).eq("event_type","app_state")
+      .select("sequence").eq("field_id",fieldId)
+      .in("event_type",["app_state","avatar_change"])
       .order("sequence",{ascending:false}).limit(1);
     if(seqError)throw seqError;
-    const latestStateSeq=Number(recent?.[0]?.sequence??0);
+    const latestRelevantSeq=Number(recent?.[0]?.sequence??0);
     const {data,error}=await actorClient.from("sync_events")
       .select("sequence,event_key,payload,client_updated_at")
       .eq("field_id",fieldId).eq("event_type","measurement")
@@ -796,7 +840,7 @@ Deno.serve(async(req:Request)=>{
     // Never move the cursor over a measurement page we have not delivered.
     const moreMeasurements=(data?.length??0)>=200;
     let stateDeliveredSeq=0;
-    if((fullRestore||latestStateSeq>Number(cursor))&&!moreMeasurements){
+    if((fullRestore||latestRelevantSeq>Number(cursor))&&!moreMeasurements){
       const repaired=await effectiveState(fieldId);
       if(repaired.snapshot){
         if(fullRestore&&cursor!=="0"){
@@ -843,9 +887,10 @@ Deno.serve(async(req:Request)=>{
         });
         snapshot.notifications=(Array.isArray(snapshot.notifications)?snapshot.notifications as J[]:[])
           .filter(n=>String(n.userId??"")===viewerId);
-        output.push({key:"recovered:"+fieldId+":"+String(repaired.seq),
+        const recoveredSeq=Math.max(repaired.seq,latestRelevantSeq);
+        output.push({key:"recovered:"+fieldId+":"+String(recoveredSeq),
           type:"app_state",updatedAt:new Date().toISOString(),payload:snapshot});
-        stateDeliveredSeq=repaired.seq;
+        stateDeliveredSeq=recoveredSeq;
       }
     }
     return reply({cursor:String(Math.max(Number(cursor),lastMeasurementSeq,stateDeliveredSeq)),
