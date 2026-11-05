@@ -85,7 +85,7 @@ change("""child:Container(width:43,height:43,
              Theme.of(context).colorScheme.error:Theme.of(context).colorScheme.onSurfaceVariant):
            Icon(Icons.mic_none,size:31,
              color:_recordType==type?Theme.of(context).colorScheme.error:
-               Theme.of(context).colorScheme.onSurfaceVariant))),""",
+               Theme.of(context).colorScheme.onSurfaceVariant)))),""",
     'lightweight modern composer icons')
 
 # Stop the dialog shadow from hiding controls. The modal includes its own
