@@ -27,3 +27,8 @@ source_commit: a121b5b26a82f8491b8bd45630d62f780186ba8d
 
 retry: v1.95 mock SharedPreferences for isolated Flutter structure test
 base_source: 8581138f2c52ca697722d29375ff74f371884dbf
+
+web_release: v1.96
+purpose: chief registrations and field-scoped invitation, dashboard inspection
+build: DEV only; APK disabled
+request: 2026-11-05
