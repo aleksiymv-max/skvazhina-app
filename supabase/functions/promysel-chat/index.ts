@@ -219,8 +219,20 @@ Deno.serve(async(req:Request)=>{
      onConflict:'room_id,sender_id,client_id',ignoreDuplicates:true,
    }).select('id').maybeSingle();
    if(error)throw error;
-   await db.from('promysel_chat_members').update({hidden:false}).eq('room_id',roomId);
-   await db.from('promysel_chat_rooms').update({updated_at:new Date().toISOString()}).eq('id',roomId);
+   // Only hidden members need rewriting. Most messages have no hidden
+   // memberships, so avoid touching every participant on every send.
+   // Run the independent room timestamp update concurrently to cut one
+   // whole database round trip from the send acknowledgement path.
+   const [membersUpdated,roomUpdated]=await Promise.all([
+     db.from('promysel_chat_members').update({hidden:false})
+       .eq('room_id',roomId).eq('hidden',true),
+     db.from('promysel_chat_rooms').update({updated_at:new Date().toISOString()})
+       .eq('id',roomId),
+   ]);
+   // The message was already committed. Metadata failure must be reported to
+   // server logs but must not invite a second copy of the same media upload.
+   if(membersUpdated.error)console.error('chat membership refresh',membersUpdated.error.message);
+   if(roomUpdated.error)console.error('chat room timestamp refresh',roomUpdated.error.message);
    return response({id:data?.id??null,status:'sent'});
   }
   if(msgId&&action==='messages'&&['PATCH','DELETE'].includes(req.method)){
