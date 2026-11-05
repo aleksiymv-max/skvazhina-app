@@ -149,3 +149,7 @@ regression: completion -> awaiting confirmation -> confirmed History; rejection 
 production: stage only after successful Web tests
 
 final_v209: pending confirmation appears only in review tile, confirmed excluded from all task lists and preserved in history
+
+release: v2.10-sync-diagnostics
+scope: lossless client-side pull cursor; full restore paginated measurements; cross-platform source parity
+production: no automatic publish; core task role sync remains under investigation
