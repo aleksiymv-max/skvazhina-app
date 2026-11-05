@@ -100,10 +100,8 @@ def verify_smtp(config: Config) -> None:
 
 
 def patch_auth_config(config: Config) -> None:
+    # SMTP-only update: do NOT change sign-up, confirmation, or other Auth settings.
     payload = {
-        "external_email_enabled": True,
-        "mailer_secure_email_change_enabled": True,
-        "mailer_autoconfirm": False,
         "smtp_admin_email": config.sender,
         "smtp_host": config.host,
         "smtp_port": str(config.port),
