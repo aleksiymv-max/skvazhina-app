@@ -70,7 +70,7 @@ sub(adm,
  final confirmed=await showDialog<bool>(context:context,builder:(d)=>AlertDialog(
    title:const Text('Очистка ранее удалённой учётной записи'),
    content:SingleChildScrollView(child:Column(mainAxisSize:MainAxisSize.min,children:[
-     const Text('Только для сотрудника, который уже удалён из всех месторождений. Будет удалена его учётная запись и освобождена электронная почта. История измерений сохранится.'),
+     const Text('Только для сотрудника, у которого больше нет действующих допусков к месторождениям. Будет удалена его учётная запись и освобождена электронная почта. История измерений сохранится.'),
      const SizedBox(height:12),
      TextField(controller:email,keyboardType:TextInputType.emailAddress,decoration:const InputDecoration(labelText:'Электронная почта',border:OutlineInputBorder())),
      const SizedBox(height:12),

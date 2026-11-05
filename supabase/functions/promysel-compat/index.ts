@@ -157,9 +157,13 @@ Deno.serve(async(req:Request)=>{
    let existing=await existingRequest();
    // A completed Auth hard-delete can precede a failed registration cleanup.
    // Repair only requests whose linked Auth user has actually disappeared.
-   if(existing?.state==="approved"&&existing.requested_by){
-     const {data:linked,error:linkedError}=await admin.auth.admin.getUserById(String(existing.requested_by));
-     if((linkedError?.status===404)||(!linkedError&&!linked?.user)){
+   if(existing?.state==="approved"){
+     let linkedAuthDeleted=!existing.requested_by;
+     if(existing.requested_by){
+       const {data:linked,error:linkedError}=await admin.auth.admin.getUserById(String(existing.requested_by));
+       linkedAuthDeleted=linkedError?.status===404||(!linkedError&&!linked?.user);
+     }
+     if(linkedAuthDeleted){
        const {error:staleError}=await admin.from("registration_requests")
          .delete().eq("id",existing.id).eq("state","approved");
        if(staleError)throw staleError;
@@ -359,11 +363,12 @@ Deno.serve(async(req:Request)=>{
     const email=txt(employee.email).toLowerCase();
     if(!validEmail(email))return reply({detail:"В учётной записи не найдена корректная электронная почта"},409);
     const {data:all,error:memberError}=await admin.from("field_memberships")
-      .select("field_id,role,display_name").eq("user_id",target).limit(20);
+      .select("field_id,role,display_name,approved,blocked").eq("user_id",target).limit(20);
     if(memberError)throw memberError;
     const rows=all??[];
     if(legacy){
-      if(rows.length)return reply({detail:"Учётная запись ещё привязана к месторождению; сначала удалите сотрудника из списка"},409);
+      if(rows.some((m:J)=>m.approved===true&&m.blocked!==true))return reply({detail:"У сотрудника остались действующие допуски. Сначала удалите его из списка персонала."},409);
+      if(rows.some((m:J)=>m.field_id!==field))return reply({detail:"Найдена привязка к другому месторождению; очистка отклонена"},409);
       const {data:approved,error:requestError}=await admin.from("registration_requests")
         .select("id,approved_field_id,field_id").eq("requested_by",target)
         .eq("state","approved").limit(10);
