@@ -13,7 +13,7 @@ assert s.count(anchor)==1, 'Issued tasks insertion point changed'
 method=""" Widget _issuedReviewSections(List<WorkTask> issued){
    final viewer=SessionService.instance.currentUser;
    final pending=issued.where((t)=>t.status==WorkTaskStatus.awaitingConfirmation&&_canReviewTask(t,viewer)).toList();
-   final others=issued.where((t)=>t.status!=WorkTaskStatus.awaitingConfirmation||!_canReviewTask(t,viewer)).toList();
+   final others=issued.where((t)=>t.status!=WorkTaskStatus.awaitingConfirmation).toList();
    return Column(children:[
      Card(child:ExpansionTile(
        key:const PageStorageKey('issued-pending-review'),
@@ -41,7 +41,6 @@ s=s.replace(anchor,method+anchor,1)
 oldfilter="final issued=store.tasks.where((t)=>t.status!=WorkTaskStatus.confirmed&&TaskVisibility.canViewActiveIssued(t,u)).toList();"
 assert s.count(oldfilter)==1,'Issued task visibility expression changed'
 assert 'TaskVisibility.canViewHistory(t)' in Path('lib/features/history/history_screen.dart').read_text(encoding='utf-8'), 'History must retain confirmed tasks'
-s=s.replace(oldfilter,oldfilter,1)
 assert "issued-completed" not in s and "Выполненные (" not in s
 assert "pending.length" in s
 assert "WorkTaskStatus.confirmed&&TaskVisibility.canViewActiveIssued" in s
