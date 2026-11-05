@@ -13,6 +13,7 @@ checks={
  'pending request deduplication':'_pendingFlight=op' in s,
  'pending 20-sec TTL':'Duration(seconds:20)' in s,
  'pending user/field isolation':"owner!='${currentUser.id}:${currentFieldId??'all'}'" in s,
+ 'pending owner change fetches new scope':'if(!force&&!ownerChanged)return;' in s,
  'pending logout cleanup':"pendingUsers.clear();_pendingOwner='';_pendingTime=null" in s,
  'pending explicit approval refresh':'refreshPending(force:true)' in s,
  'pending supervisor manual refresh':'s.refreshPending(force:true)' in a,

@@ -29,9 +29,10 @@ sub(S,' Future<void> refreshPending()async{final tok=api.token;if(tok==null)retu
      _pendingOwner='';_pendingTime=null;return;
    }
    final owner='${currentUser.id}:${currentFieldId??'all'}';
-   if(owner!=_pendingOwner){_pendingOwner=owner;_pendingTime=null;pendingUsers.clear();}
+   final ownerChanged=owner!=_pendingOwner;
+   if(ownerChanged){_pendingOwner=owner;_pendingTime=null;pendingUsers.clear();}
    final prior=_pendingFlight;
-   if(prior!=null){try{await prior;}catch(_){if(!force)rethrow;}if(!force)return;}
+   if(prior!=null){try{await prior;}catch(_){if(!force&&!ownerChanged)rethrow;}if(!force&&!ownerChanged)return;}
    if(!force&&_pendingTime!=null&&DateTime.now().difference(_pendingTime!)<const Duration(seconds:20))return;
    final op=_fetchPendingFromServer(owner);_pendingFlight=op;
    try{await op;}finally{if(identical(_pendingFlight,op))_pendingFlight=null;}
