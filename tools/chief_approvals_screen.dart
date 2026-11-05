@@ -31,7 +31,7 @@ class _ChiefApprovalsScreenState extends State<ChiefApprovalsScreen> {
   Future<void> _refresh()async{
     if(loading)return;
     setState((){loading=true;error=null;});
-    try{await s.refreshPending().timeout(const Duration(seconds:20));}
+    try{await s.refreshPending(force:true).timeout(const Duration(seconds:20));}
     catch(e){if(mounted)setState(()=>error=e.toString().replaceFirst('Exception: ',''));}
     finally{if(mounted)setState(()=>loading=false);}
   }
@@ -39,7 +39,7 @@ class _ChiefApprovalsScreenState extends State<ChiefApprovalsScreen> {
   Future<void> _shareInvite()async{
     final fieldId=s.currentFieldId;
     if(fieldId==null||fieldId.isEmpty)return;
-    final url=Uri.https('promysel-web.pages.dev','/',{
+    final url=Uri.https('promysel-web.pages.dev','/login',{
       'register':'1','fieldId':fieldId,
     });
     try{
