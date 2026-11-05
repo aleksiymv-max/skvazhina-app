@@ -289,13 +289,29 @@ Deno.serve(async(req:Request)=>{
   if(req.method==="GET"&&route==="/v1/registration/pending"){
    let query=admin.from("registration_requests").select("id,requested_by,field_id,proposed_field_name,requested_role,requested_subrole,full_name,email,state").or("state.eq.pending,and(state.eq.approved,approved_field_id.not.is.null,invitation_sent_at.is.null)").order("created_at",{ascending:true}).limit(200);
    if(!administrator){
-     const chief=memberships.find((m:J)=>m.role==="shopChief");
-     if(!chief)return reply({detail:"Нет права просматривать заявки"},403);
-     query=query.eq("field_id",chief.field_id);
+     const chiefFields=memberships.filter((m:J)=>m.role==="shopChief").map((m:J)=>String(m.field_id));
+     if(!chiefFields.length)return reply({detail:"Нет права просматривать заявки"},403);
+     const requestedField=fieldTag(new URL(req.url).searchParams.get("fieldId"));
+     if(requestedField&&!chiefFields.includes(requestedField))
+       return reply({detail:"Нет доступа к заявкам другого месторождения"},403);
+     query=requestedField?query.eq("field_id",requestedField):query.in("field_id",chiefFields);
    }
    const {data,error}=await query;
    if(error)throw error;
    return reply({items:(data??[]).map((x:J)=>({id:String(x.id),name:x.full_name,email:x.email,role:x.requested_role,subrole:x.requested_subrole,fieldId:x.field_id??"",requiresAdmin:x.field_id===null}))});
+  }
+  // A registration invitation contains field context only, never an approval token.
+  // A chief can share it through the native system share sheet on Web/Android/iOS.
+  if(req.method==="GET"&&route==="/v1/registration/invite-link"){
+    const fieldId=fieldTag(new URL(req.url).searchParams.get("fieldId"));
+    if(!fieldId)return reply({detail:"Укажите месторождение"},400);
+    if(!administrator&&!memberships.some((m:J)=>m.role==="shopChief"&&m.field_id===fieldId))
+      return reply({detail:"Приглашать сотрудников может только начальник цеха"},403);
+    if(!activeFields.has(fieldId))return reply({detail:"Месторождение недоступно"},404);
+    const url=new URL(publicOrigin+"/");
+    url.searchParams.set("register","1");
+    url.searchParams.set("fieldId",fieldId);
+    return reply({url:url.toString(),fieldId});
   }
   const approval=route.match(/^\/v1\/registration\/(\d+)\/(approve|reject)$/);
   if(req.method==="POST"&&approval){
