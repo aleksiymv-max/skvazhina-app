@@ -216,16 +216,6 @@ jobs:
           PY
           python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_launcher_badge_web.py"
           test -f web/sqlite3.wasm;test -f web/sqflite_sw.js;test -f web/apple-touch-icon.png
-      - name: Public connectivity probe without VPN
-        continue-on-error: true
-        shell: bash
-        run: |
-          set -euo pipefail
-          for URL in "https://promysel-web.pages.dev/" "https://xptmcufhuvtcunqzlsme.supabase.co/functions/v1/promysel-compat/v1/registration/fields"; do
-            printf 'NO_VPN_CONNECT %s ' "$URL"
-            curl --silent --show-error --location --max-time 15 -o /dev/null \\
-              -w 'http=%{http_code} dns=%{time_namelookup}s connect=%{time_connect}s tls=%{time_appconnect}s first_byte=%{time_starttransfer}s total=%{time_total}s\\n' "$URL" || true
-          done
       - name: Analyze and build web release
         shell: bash
         run: |
