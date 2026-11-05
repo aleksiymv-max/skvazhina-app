@@ -13,8 +13,8 @@ void main(){
     ]))));
     expect(find.byType(ChatVideoViewer),findsNothing);
     expect(find.byType(ChatMediaBar),findsOneWidget);
-    expect(find.byTooltip('Увеличить видеосообщение'),findsOneWidget);
-    await tester.tap(find.byTooltip('Увеличить видеосообщение'));
+    expect(find.byType(ChatVideoMedia),findsOneWidget);
+    await tester.tap(find.byType(ChatVideoMedia));
     await tester.pump();
     await tester.pump(const Duration(milliseconds:50));
     expect(hub.expanded,isTrue);
