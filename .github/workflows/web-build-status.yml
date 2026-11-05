@@ -25,6 +25,7 @@ jobs:
           SOURCE_SHA: ${{ github.event.workflow_run.head_sha }}
           RESULT: ${{ github.event.workflow_run.conclusion }}
           RUN_URL: ${{ github.event.workflow_run.html_url }}
+          CREATED_AT: ${{ github.event.workflow_run.created_at }}
           STARTED_AT: ${{ github.event.workflow_run.run_started_at }}
           UPDATED_AT: ${{ github.event.workflow_run.updated_at }}
         shell: bash
@@ -43,6 +44,37 @@ jobs:
             --argjson artifact_count "$artifact_count" \
             '{run_id:$run_id,head_sha:$head_sha,conclusion:$conclusion,run_url:$run_url,started_at:$started_at,updated_at:$updated_at,artifact_available:($artifact_count>0)}' \
             > deploy/ci/web-last-run.json
+          # Capture stage timings for future performance incidents, including
+          # queue time and the package/setup step which previously took 13 min.
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID/jobs?per_page=100" \
+            > /tmp/promysel-build-jobs.json || echo '{"jobs":[]}' > /tmp/promysel-build-jobs.json
+          python3 - <<'PY'
+          from datetime import datetime
+          from pathlib import Path
+          import json, os
+          path=Path("deploy/ci/web-last-run.json")
+          report=json.loads(path.read_text())
+          def timestamp(value):
+              try:
+                  return datetime.fromisoformat(str(value).replace("Z","+00:00")) if value else None
+              except ValueError:
+                  return None
+          def diff(begin,end):
+              a,b=timestamp(begin),timestamp(end)
+              return round(max(0,(b-a).total_seconds()),1) if a and b else None
+          report["queue_wait_seconds"]=diff(os.getenv("CREATED_AT"),os.getenv("STARTED_AT"))
+          report["total_elapsed_seconds"]=diff(os.getenv("CREATED_AT"),os.getenv("UPDATED_AT"))
+          jobs=json.loads(Path("/tmp/promysel-build-jobs.json").read_text()).get("jobs",[])
+          timings=[]
+          for job in jobs:
+              for step in job.get("steps",[]):
+                  duration=diff(step.get("started_at"),step.get("completed_at"))
+                  if duration is not None:
+                      timings.append({"name":step.get("name",""),"seconds":duration,
+                                      "conclusion":step.get("conclusion")})
+          report["step_durations"]=timings
+          path.write_text(json.dumps(report,ensure_ascii=False,indent=2)+"\\n")
+          PY
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add deploy/ci/web-last-run.json
