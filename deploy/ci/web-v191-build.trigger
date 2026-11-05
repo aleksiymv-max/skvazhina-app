@@ -55,3 +55,8 @@ web_release: v1.97
 purpose: TUQO-native invitation URLs; chief approvals, home compact and problem recovery retained
 apk: disabled
 production: manual upload from verified Web ZIP
+
+web_release: v1.97
+purpose: no-VPN weak network recovery, lower auth DB round trips, smaller static bundle
+production: ZIP for TUQO, DEV preview only
+apk: disabled
