@@ -240,7 +240,7 @@ class ChatMediaBar extends StatelessWidget{
             tooltip:'Скорость воспроизведения',
             initialValue:hub.speed,
             onSelected:(v)=>hub.setSpeed(v),
-            itemBuilder:(_)=>[.5,1.0,1.5,2.0].map((v)=>PopupMenuItem<double>(
+            itemBuilder:(_)=>[0.5,1.0,1.5,2.0].map((v)=>PopupMenuItem<double>(
               value:v,child:Text(v.toStringAsFixed(v==1?0:1)+'×'))).toList(),
             child:Padding(padding:const EdgeInsets.symmetric(horizontal:6,vertical:10),
               child:Text(hub.speed.toStringAsFixed(hub.speed==1?0:1)+'×',
@@ -346,7 +346,7 @@ class _VoiceBars extends CustomPainter{
       final barHeight=5+amplitude*(size.height-8);
       final paint=Paint()..color=i/count<=progress?color:color.withValues(alpha:.35);
       canvas.drawRRect(RRect.fromRectAndRadius(
-        Rect.fromLTWH(width*i,(size.height-barHeight)/2,math.max(2,width-2),barHeight),
+        Rect.fromLTWH(width*i,(size.height-barHeight)/2,math.max(2.0,width-2),barHeight),
         const Radius.circular(3)),paint);
     }
   }
@@ -468,7 +468,7 @@ class ChatVideoViewer extends StatelessWidget{
             PopupMenuButton<double>(
               tooltip:'Скорость',
               initialValue:hub.speed,onSelected:(v)=>hub.setSpeed(v),
-              itemBuilder:(_)=>[.5,1.0,1.5,2.0].map((v)=>
+              itemBuilder:(_)=>[0.5,1.0,1.5,2.0].map((v)=>
                 PopupMenuItem<double>(value:v,child:Text(v.toString()+'×'))).toList(),
               child:Padding(padding:const EdgeInsets.all(12),
                 child:Text(hub.speed.toString()+'×'))),
