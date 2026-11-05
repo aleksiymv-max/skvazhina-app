@@ -93,3 +93,5 @@ release: v2.02
 scope: global background workload, navigation, media repaint and personnel cache
 asserts: hidden tasks gated, writes preserved, audio offscreen suspended, no extra timers
 artifact: Web ZIP for TUQO and DEV preview
+
+retry_v202: unread timer anchor after v1.82 cache interval update
