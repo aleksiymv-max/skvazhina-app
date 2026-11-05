@@ -84,3 +84,7 @@ package: TUQO web ZIP
 request_date: 2026-11-05
 
 retry_v200: adjust fast text send insert anchor in compact Flutter source 2026-11-05
+
+release: v2.01
+reason: Fix cellular loading of Tuqo Web app by self-hosted Flutter CanvasKit (no Google CDN), safe static cache and diagnostic page
+publish: DEV preview only, TUQO ZIP deliverable
