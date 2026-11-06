@@ -112,8 +112,8 @@ one("  String _checkStatus='Проверка ещё не выполнялась'
     final report=<String>[
       'Промысел — диагностический GET API синхронизации',
       'VPN задаётся пользователем вручную, браузер его не определяет.',
-      'Без VPN: ${_vpnResults['off']??'Не проверено'}',
-      'С VPN: ${_vpnResults['on']??'Не проверено'}',
+      "Без VPN: ${_vpnResults['off']??'Не проверено'}",
+      "С VPN: ${_vpnResults['on']??'Не проверено'}",
       'GET /v1/sync/domain/revisions: только чтение',
       'Успешный GET не доказывает отправку замеров.',
       'Без токенов, ФИО, скважин и значений параметров.'
@@ -148,7 +148,7 @@ one("""              _line(Icons.sync,'Синхронизация',_syncOk,
               _line(Icons.lan_outlined,'API синхронизации (чтение)',_apiOk,
                 pending:(_checking||_apiBusy)?'Проверяется':
                   _apiCode=='NO_SESSION'?'Нужен вход':'Не проверено'),
-              Text('Время API: ${_apiMs==null?'—':'$_apiMs мс'}'
+              Text("Время API: ${_apiMs==null?'—':'$_apiMs мс'}"
                 ' · Код: $_apiCode',style:TextStyle(fontSize:13,
                   color:scheme.onSurfaceVariant)),
               Text(_apiDetail,style:TextStyle(fontSize:13,
@@ -176,10 +176,10 @@ one("""              _line(Icons.sync,'Синхронизация',_syncOk,
                   'Проверить только API (без отправки)')),
               if(_vpnResults.isNotEmpty)...[
                 const SizedBox(height:5),
-                Text('Без VPN: ${_vpnResults['off']??'Не проверено'}',
+                Text("Без VPN: ${_vpnResults['off']??'Не проверено'}",
                   style:const TextStyle(fontSize:13)),
                 const SizedBox(height:4),
-                Text('С VPN: ${_vpnResults['on']??'Не проверено'}',
+                Text("С VPN: ${_vpnResults['on']??'Не проверено'}",
                   style:const TextStyle(fontSize:13)),
                 TextButton.icon(
                   onPressed:_copyVpnResults,
