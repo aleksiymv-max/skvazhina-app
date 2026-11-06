@@ -1,0 +1,136 @@
+  // v2.11: Local domain edits are isolated. Each queue survives browser/app restart.
+  final Set<String> _dirtyDomains=<String>{};
+  final Map<String,int> _localDomainEdits=<String,int>{};
+  String? _dirtyDomainField;
+  String _domainDirtyKey(String field)=>'promysel_domain_dirty_v211_'+field;
+  String _domainVersionKey(String field,String domain)=>
+    'promysel_domain_version_v211_'+field+'_'+domain;
+  Future<void> _restoreDomainDirty(String? field)async{
+    if(field==null||field.isEmpty||field==_dirtyDomainField)return;
+    _dirtyDomainField=field;
+    _dirtyDomains.clear();_localDomainEdits.clear();
+    final prefs=await SharedPreferences.getInstance();
+    _dirtyDomains.addAll(prefs.getStringList(_domainDirtyKey(field))??const <String>[]);
+    _stateDirty=await AppStateStore.instance.takeDirty(field);
+    if(_stateDirty&&_dirtyDomains.isEmpty){
+      // First v2.11 login from legacy unsent state: preserve all possible
+      // edits, but never send a structure change from a non-engineer device.
+      _dirtyDomains.addAll(['tasks','training','schedules']);
+      final role=SessionService.instance.currentUser.role.name;
+      if(role=='shopChief'||role=='engineer'||role=='admin')
+        _dirtyDomains.addAll(['structure','misc']);
+    }
+  }
+  void _tasksChanged(){if(!_applyingRemote)markStateDirty('tasks');}
+  void _trainingChanged(){if(!_applyingRemote)markStateDirty('training');}
+  void _schedulesChanged(){if(!_applyingRemote)markStateDirty('schedules');}
+  void _structureChanged(){if(!_applyingRemote)markStateDirty('structure');}
+
+  Map<String,dynamic> _domainPayload(String kind,String fid,Map<String,dynamic> snapshot){
+    switch(kind){
+      case 'tasks':
+        return {'fieldId':fid,'tasks':snapshot['tasks']??<dynamic>[]};
+      case 'schedules':
+        final source=snapshot['workSchedules'];
+        final mine=SessionService.instance.currentUser.id;
+        return {'fieldId':fid,
+          'workSchedules':source is Map&&source.containsKey(mine)?
+            <String,dynamic>{mine:source[mine]}:<String,dynamic>{}};
+      case 'training':
+        return {'fieldId':fid,'training':snapshot['training']??<dynamic>[],
+          'trainingDeletedIds':snapshot['trainingDeletedIds']??<dynamic>[]};
+      case 'structure':
+        return {'fieldId':fid,'areas':snapshot['areas']??<dynamic>[],
+          'pads':snapshot['pads']??<dynamic>[],
+          'structureDeleted':snapshot['structureDeleted']??<String,dynamic>{},
+          'walkConfig':snapshot['walkConfig']??<String,dynamic>{}};
+      default:
+        return {'fieldId':fid,'schema':snapshot['schema']??1,
+          'updatedAt':snapshot['updatedAt'],
+          'annulus':snapshot['annulus']??<dynamic>[],
+          'notifications':snapshot['notifications']??<dynamic>[],
+          'problemApplications':snapshot['problemApplications']??<String,dynamic>{}};
+    }
+  }
+
+  Future<void> _pushState()async{
+    final fid=SessionService.instance.currentFieldId;
+    if(fid==null||fid.isEmpty||!_stateDirty)return;
+    await _localSave;
+    await _restoreDomainDirty(fid);
+    if(_dirtyDomains.isEmpty){
+      _dirtyDomains.add('misc');
+    }
+    final prefs=await SharedPreferences.getInstance();
+    for(final domain in ['tasks','schedules','training','structure','misc']){
+      if(!_dirtyDomains.contains(domain))continue;
+      final role=SessionService.instance.currentUser.role.name;
+      if(domain=='structure'&&role!='shopChief'&&role!='engineer'&&role!='admin'){
+        throw StateError('Недостаточно прав для отправки изменений структуры');
+      }
+      final snapshot=AppStateStore.instance.snapshot(fid);
+      final payload=_domainPayload(domain,fid,snapshot);
+      final revisionBefore=_localDomainEdits[domain]??0;
+      final fingerprint=_snapshotDigest(jsonEncode(payload));
+      final queueKey='promysel_domain_pending_v211_'+fid+'_'+domain;
+      final oldPending=prefs.getString(queueKey);
+      String? operation;
+      if(oldPending!=null){
+        try{final item=jsonDecode(oldPending);
+          if(item is Map&&item['hash']==fingerprint)
+            operation=item['key']?.toString();
+        }catch(_){}
+      }
+      operation??='domain:'+domain+':'+fid+':'+_deviceId+':'+
+          DateTime.now().toUtc().microsecondsSinceEpoch.toString();
+      await prefs.setString(queueKey,jsonEncode({'hash':fingerprint,'key':operation}));
+      final isLegacy=domain=='misc';
+      final body=<String,dynamic>{
+        'fieldId':fid,'deviceId':_deviceId,
+        if(!isLegacy)...{
+          'domain':domain,'key':operation,
+          'expectedRevision':prefs.getInt(_domainVersionKey(fid,domain))??0,
+          'payload':payload
+        }else 'items':[{
+          'key':operation,'type':'app_state',
+          'updatedAt':payload['updatedAt'],'payload':payload
+        }]
+      };
+      final res=await _client.post(
+        _uri(isLegacy?'/v1/sync/push':'/v1/sync/domain/push'),
+        headers:_authHeaders,body:jsonEncode(body))
+        .timeout(const Duration(seconds:32));
+      if(res.statusCode==409){
+        status='Конфликт изменений в разделе '+domain+
+          ' · локальная версия сохранена, требуется согласование изменений';
+        notifyListeners();
+        throw StateError(status);
+      }
+      if(res.statusCode<200||res.statusCode>=300)
+        throw StateError('Изменения раздела '+domain+
+          ' не приняты сервером: HTTP '+res.statusCode.toString());
+      final value=jsonDecode(res.body);
+      if(value is! Map)throw const FormatException('Сервер не подтвердил операцию');
+      if(!['accepted','duplicate','noop'].contains(value['status'])&&!isLegacy)
+        throw StateError('Неверный ответ синхронизации раздела '+domain);
+      if(!isLegacy&&value['revision'] is num)
+        await prefs.setInt(_domainVersionKey(fid,domain),
+          (value['revision'] as num).toInt());
+      await prefs.remove(queueKey);
+      // If an edit happened during POST, the next sync must resend that domain.
+      if(revisionBefore==(_localDomainEdits[domain]??0)){
+        _dirtyDomains.remove(domain);
+        await prefs.setStringList(_domainDirtyKey(fid),_dirtyDomains.toList());
+      }else{
+        _syncAgain=true;
+      }
+    }
+    if(_dirtyDomains.isNotEmpty){
+      _stateDirty=true;return;
+    }
+    _lastState=AppStateStore.instance.canonical(fid);
+    await AppStateStore.instance.persist(fid);
+    _stateDirty=false;
+    await AppStateStore.instance.clearDirty(fid);
+    await prefs.setStringList(_domainDirtyKey(fid),const <String>[]);
+  }
