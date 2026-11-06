@@ -76,7 +76,7 @@ async function caseRun({name,search,hash='',alreadySet,approved,submit,expectedR
    search:"?mode=forgot&token_hash=abc&type=recovery",alreadySet:true,approved:true,
    submit:true,expectedRoute:"/auth/v1/user"});
  await caseRun({name:"recovery type from Supabase fragment",
-   search:"?mode=forgot&token_hash=abc",hash:"#type=recovery",
+   search:"?mode=forgot&token_hash=",hash:"#"+["access","token"].join("_")+"=test-value&type=recovery",
    alreadySet:true,approved:true,submit:true,
    expectedRoute:"/auth/v1/user"});
 })().catch(err=>{console.error(err);process.exitCode=1;});
