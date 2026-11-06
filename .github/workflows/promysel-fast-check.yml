@@ -48,6 +48,7 @@ jobs:
           set -euo pipefail
           npx --yes esbuild@0.25.12 supabase/functions/promysel-compat/index.ts --bundle --platform=neutral '--external:npm:*' --outfile=/tmp/promysel-compat-syntax.js
           test -s /tmp/promysel-compat-syntax.js
+          node tools/test_promysel_avatar_transport_v213.js
       - name: Check workflow safety policy
         run: |
           python3 - <<'PY'
