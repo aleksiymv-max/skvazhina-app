@@ -170,3 +170,8 @@ production=unchanged until integration evidence
 
 release=v2.13-egress-staging-build-after-approval-regression-update
 safety=no-production-publish; batch ACK; avatar digest; photo cache
+
+release=v2.14-cross-role-sync-resilience-20261106
+reason=reported persistent no-server connection and slow sync across employee roles
+changes=18s bounded domain writes; 12s bounded GET attempts; no false offline on partial domain errors; pending writes preserved
+verification=source contracts plus Flutter analyze/test; DEV preview only; production release requires validated promotion
