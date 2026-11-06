@@ -116,7 +116,7 @@ one("  String _checkStatus='Проверка ещё не выполнялась'
       'GET /v1/sync/domain/revisions: только чтение',
       'Успешный GET не доказывает отправку замеров.',
       'Без токенов, ФИО, скважин и значений параметров.'
-    ].join('\n');
+    ].join(String.fromCharCode(10));
     await Clipboard.setData(ClipboardData(text:report));
     if(mounted)ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content:Text('Результаты проверки скопированы')));
