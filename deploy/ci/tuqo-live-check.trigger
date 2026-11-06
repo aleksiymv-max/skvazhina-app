@@ -1,4 +1,4 @@
-expected_run_id=42235278590
-expected_source_sha=1b323e64357fddb19a21c050ccbc36a001848122
-expected_version=v2.24
-reason=confirm live TUQO deployment after staging corrected network diagnostics
+expected_run_id=42239323878
+expected_source_sha=81a3a75c0dbf11a623556879e99b22902267a69c
+expected_version=v2.25
+reason=one-shot check whether public TUQO serves authenticated VPN diagnostic build
