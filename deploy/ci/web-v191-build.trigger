@@ -220,3 +220,6 @@ safety=preserve offline edits, photos, measurement queue and previous work statu
 
 release=v2.19-help-presence-ci-test-timeout-fix
 reason=recognize correct 7-second health timeout in unified diagnostic test
+
+release=v2.19-help-presence-test-project-root-corrected
+reason=read Edge Function source from GitHub workspace, not nested extracted Flutter source directory
