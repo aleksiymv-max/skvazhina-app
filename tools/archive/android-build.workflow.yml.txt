@@ -206,6 +206,7 @@ jobs:
           python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_presence_continuity_v219.py"
           python3 "$GITHUB_WORKSPACE/tools/test_promysel_about_sync_v215.py"
           python3 "$GITHUB_WORKSPACE/tools/test_promysel_help_presence_v219.py"
+          python3 "$GITHUB_WORKSPACE/tools/test_promysel_domain_failure_v220.py"
           python3 "$GITHUB_WORKSPACE/tools/test_promysel_snapshot_storage_v218.py"
           python3 "$GITHUB_WORKSPACE/tools/test_promysel_auth_sync_v217.py"
           python3 "$GITHUB_WORKSPACE/tools/test_promysel_sync_diagnostics_v216.py"
