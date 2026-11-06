@@ -167,3 +167,6 @@ release: v2.11-domain-queues-independent-retry-and-push-outbox
 release=v2.13-efficiency-staging
 scope=verified auth canary, cached avatar delta, batched measurement ACK, task photo metadata cache
 production=unchanged until integration evidence
+
+release=v2.13-egress-staging-build-after-approval-regression-update
+safety=no-production-publish; batch ACK; avatar digest; photo cache
