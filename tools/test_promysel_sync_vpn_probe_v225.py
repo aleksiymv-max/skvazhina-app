@@ -18,6 +18,7 @@ checks={
  'diagnose timeout network http and session':
    all(x in probe for x in ["NO_SESSION","SYNC_API_TIMEOUT","SYNC_API_NETWORK",
                             "SYNC_API_INVALID_JSON","HTTP_"]),
+ 'newline-safe copied report':"join(String.fromCharCode(10))" in s,
  'store compact no-identity comparisons':
    "_vpnResults[_vpnMode]" in s and "'off'" in s and "'on'" in s and
    "Clipboard.setData(" in s,
