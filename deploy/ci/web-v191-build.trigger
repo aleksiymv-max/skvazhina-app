@@ -186,3 +186,6 @@ reason=apply new About tile after v1.84 menu avatar patch to preserve legacy bui
 
 release=v2.15-about-sync-menu-history-anchor-fixed
 reason=insert after stable History tile, without breaking avatar/profile menu transformation
+
+release=v2.15-sync-accurate-error-classification
+reason=avoid reporting HTTP or local decoding failures as no network; keep pending queue and clear diagnostics after successful sync
