@@ -249,3 +249,5 @@ release=v2.21-quick-problem-report-stable-home-refresh-anchor
 reason=align generated Home source indentation while keeping existing listeners and cache
 
 release=v2.21-quick-report-existing-home-empty-state-anchor-fixed
+
+release=v2.21-root-menu-navigation-stable-shell-anchor
