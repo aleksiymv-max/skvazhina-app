@@ -2,6 +2,11 @@
   final Set<String> _dirtyDomains=<String>{};
   final Map<String,int> _localDomainEdits=<String,int>{};
   String? _dirtyDomainField;
+  // Diagnostic metadata only; never persist response bodies or tokens.
+  String? lastDomainSyncErrorCode, lastDomainSyncErrorDescription;
+  String? lastDomainSyncErrorName;
+  int? lastDomainSyncHttpStatus;
+  int get pendingDomainCount=>_dirtyDomains.isEmpty&&_stateDirty?1:_dirtyDomains.length;
   String _domainDirtyKey(String field)=>'promysel_domain_dirty_v211_'+field;
   String _domainVersionKey(String field,String domain)=>
     'promysel_domain_version_v211_'+field+'_'+domain;
@@ -63,8 +68,14 @@
     }
     final prefs=await SharedPreferences.getInstance();
     Object? firstDomainFailure;
+    lastDomainSyncErrorCode=null;
+    lastDomainSyncErrorDescription=null;
+    lastDomainSyncErrorName=null;
+    lastDomainSyncHttpStatus=null;
     for(final domain in ['tasks','schedules','training','structure','misc']){
       if(!_dirtyDomains.contains(domain))continue;
+      int? domainHttpStatus;
+      String? domainServerCode;
       try{
       final role=SessionService.instance.currentUser.role.name;
       if(domain=='structure'&&role!='shopChief'&&role!='engineer'&&role!='admin'){
@@ -104,6 +115,108 @@
         _uri(isLegacy?'/v1/sync/push':'/v1/sync/domain/push'),
         headers:_authHeaders,body:jsonEncode(body))
         .timeout(const Duration(seconds:18));
+      domainHttpStatus=res.statusCode>=400?res.statusCode:null;
+      if(domainHttpStatus!=null){
+        try{
+          final parsed=jsonDecode(res.body);
+          if(parsed is Map){
+            final code=(parsed['code']??'').toString().toUpperCase();
+            if(RegExp(r'^[A-Z0-9_]{3,32}
+        status='Конфликт изменений в разделе '+domain+
+          ' · локальная версия сохранена, требуется согласование изменений';
+        notifyListeners();
+        throw StateError(status);
+      }
+      if(res.statusCode<200||res.statusCode>=300)
+        throw StateError('Изменения раздела '+domain+
+          ' не приняты сервером: HTTP '+res.statusCode.toString());
+      final value=jsonDecode(res.body);
+      if(value is! Map)throw const FormatException('Сервер не подтвердил операцию');
+      if(!['accepted','duplicate','noop'].contains(value['status'])&&!isLegacy)
+        throw StateError('Неверный ответ синхронизации раздела '+domain);
+      if(!isLegacy&&value['revision'] is num)
+        await prefs.setInt(_domainVersionKey(fid,domain),
+          (value['revision'] as num).toInt());
+      await prefs.remove(queueKey);
+      // If an edit happened during POST, the next sync must resend that domain.
+      if(revisionBefore==(_localDomainEdits[domain]??0)){
+        _dirtyDomains.remove(domain);
+        await prefs.setStringList(_domainDirtyKey(fid),_dirtyDomains.toList());
+      }else{
+        _syncAgain=true;
+      }
+      }catch(error){
+        if(firstDomainFailure==null){
+          lastDomainSyncHttpStatus=domainHttpStatus;
+          lastDomainSyncErrorCode=domainServerCode??
+            (domainHttpStatus==null?'DOMAIN_'+domain.toUpperCase()
+              :'HTTP_'+domainHttpStatus.toString());
+          lastDomainSyncErrorName=domain;
+          const labels=<String,String>{
+            'tasks':'заданий',
+            'schedules':'графиков сотрудников',
+            'training':'обучения',
+            'structure':'структуры месторождения',
+            'misc':'прочих записей'
+          };
+          final section=labels[domain]??domain;
+          lastDomainSyncErrorDescription=domainHttpStatus==500
+            ?'Сервер не смог сохранить изменения раздела '+section+
+              '. Проверьте серверную функцию и базу данных. Локальная очередь сохранена.'
+            :domainHttpStatus==409
+              ?'В разделе '+section+
+                ' возник конфликт версий между устройствами. Изменения не удалены.'
+            :domainHttpStatus==403
+              ?'Нет серверного разрешения на отправку раздела '+section+'.'
+            :domainHttpStatus==401
+              ?'Сеанс авторизации не принят при отправке раздела '+section+'.'
+            :error is TimeoutException
+              ?'Время ожидания отправки раздела '+section+' превышено.'
+            :'Не удалось подтвердить отправку изменений раздела '+section+
+              '. Локальная очередь сохранена.';
+          lastSyncFailurePhase='domain.'+domain;
+          lastSyncFailureType=domainHttpStatus!=null
+            ?'Ошибка HTTP':error is TimeoutException
+              ?'Превышение времени ожидания'
+              :error is http.ClientException
+                ?'Сетевая ошибка':'Ошибка передачи данных';
+          lastSyncFailureAt=DateTime.now();
+          lastSyncHttpStatus=domainHttpStatus;
+        }
+        // Keep this domain and its stable operation key in the local queue.
+        // A permission/conflict response is NOT proof that the server is down.
+        firstDomainFailure??=error;
+        if(error is TimeoutException||error is http.ClientException){
+          // A transport failure would stall all later domains one by one.
+          // Defer their upload until the next reconnect/manual sync.
+          break;
+        }
+        // HTTP authorization/conflict failures are domain-scoped: continue
+        // with other domains, without losing the rejected local changes.
+        continue;
+      }
+    }
+    if(firstDomainFailure!=null){
+      _stateDirty=true;
+      status='Часть изменений ждёт отправки · сервер может быть доступен';
+      notifyListeners();
+      // Do not throw a generic exception into syncNow(), which otherwise
+      // labels an authorization or conflict failure as "Нет связи".
+      return;
+    }
+    if(_dirtyDomains.isNotEmpty){
+      _stateDirty=true;return;
+    }
+    _lastState=AppStateStore.instance.canonical(fid);
+    await AppStateStore.instance.persist(fid);
+    _stateDirty=false;
+    await AppStateStore.instance.clearDirty(fid);
+    await prefs.setStringList(_domainDirtyKey(fid),const <String>[]);
+  }
+).hasMatch(code))domainServerCode=code;
+          }
+        }catch(_){}
+      }
       if(res.statusCode==409){
         status='Конфликт изменений в разделе '+domain+
           ' · локальная версия сохранена, требуется согласование изменений';
