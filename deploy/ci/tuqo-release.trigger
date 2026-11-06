@@ -1,3 +1,3 @@
-run_id=42218475115
-source_sha=9c3c6108e8dab4eccd1c13ed8838de0095ab93b0
-version=v2.23
+run_id=42226283036
+source_sha=8ec5b70bfe52cdd4dea0be7902cc841be64d79eb
+version=v2.24
