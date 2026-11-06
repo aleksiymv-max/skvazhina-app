@@ -263,7 +263,7 @@ Deno.serve(async(req:Request)=>{
     ...(allFieldsResult.data??[]).map((f:J)=>String(f.id))
   ]);
   const canField=(fieldId:string)=>memberships.find((m:J)=>m.field_id===fieldId);
-  async function effectiveState(fid:string):Promise<{snapshot:J|null,seq:number,changed:boolean}>{
+  async function effectiveState(fid:string):Promise<{snapshot:J|null,seq:number,changed:boolean,revisions:J}>{
     const {data,error}=await admin.from("sync_events").select("sequence,payload")
       .eq("field_id",fid).eq("event_type","app_state").order("sequence",{ascending:false}).limit(4);
     if(error)throw error;
@@ -271,16 +271,20 @@ Deno.serve(async(req:Request)=>{
       const {data:domainOnly,error:onlyError}=await admin.from("promysel_sync_domain_state")
         .select("domain").eq("field_id",fid).limit(1);
       if(onlyError)throw onlyError;
-      if(!domainOnly?.length)return {snapshot:null,seq:0,changed:false};
+      if(!domainOnly?.length)return {snapshot:null,seq:0,changed:false,revisions:{}};
     }
     let acc:J={};
     for(const row of [...data].reverse())if(good(row.payload))acc=mergeState(acc,row.payload as J);
     // All four domain rows are independently authoritative, even when an
     // older phone uploads a stale broad app_state snapshot.
     const {data:docs,error:domainError}=await admin.from("promysel_sync_domain_state")
-      .select("domain,payload").eq("field_id",fid).limit(4);
+      .select("domain,payload,revision").eq("field_id",fid).limit(4);
     if(domainError)throw domainError;
-    for(const doc of docs??[])if(good(doc.payload))acc=mergeState(acc,doc.payload as J);
+    const domainRevisions:J={tasks:0,schedules:0,training:0,structure:0};
+    for(const doc of docs??[]){
+      domainRevisions[String(doc.domain)]=Number(doc.revision);
+      if(good(doc.payload))acc=mergeState(acc,doc.payload as J);
+    }
     // Only the last four app_state events are replayed for performance. These
     // durable markers must never fall out of that window or a stale device
     // could revive an area, pad or well removed by a supervisor.
@@ -324,7 +328,7 @@ Deno.serve(async(req:Request)=>{
     acc.avatarVersions=avatarVersions;
     const last=(data?.[0]?.payload??{}) as J;
     const names=["areas","pads","structureDeleted","tasks","annulus","training","trainingDeletedIds","workSchedules","notifications","walkConfig","avatars","avatarVersions","problemApplications"];
-    return {snapshot:acc,seq:Number(data?.[0]?.sequence??0),
+    return {snapshot:acc,seq:Number(data?.[0]?.sequence??0),revisions:domainRevisions,
       changed:names.some(k=>JSON.stringify(acc[k])!==JSON.stringify(last?.[k]))};
   }
   const administrator=elevated;
@@ -996,10 +1000,10 @@ Deno.serve(async(req:Request)=>{
     const lastMeasurementSeq=data?.length?Number(data[data.length-1].sequence):Number(cursor);
     // Never move the cursor over a measurement page we have not delivered.
     const moreMeasurements=(data?.length??0)>=200;
-    let stateDeliveredSeq=0;
+    let stateDeliveredSeq=0;let deliveredDomainRevisions:J={};
     if((fullRestore||latestRelevantSeq>Number(cursor))&&(!moreMeasurements||fullRestore)){
       const repaired=await effectiveState(fieldId);
-      if(repaired.snapshot){
+      if(repaired.snapshot){deliveredDomainRevisions=repaired.revisions;
         if(fullRestore&&cursor!=="0"){
           // Explicit recovery also replays old immutable measurements.
           const {data:archive,error:archiveError}=await actorClient.from("sync_events")
@@ -1053,7 +1057,7 @@ Deno.serve(async(req:Request)=>{
       }
     }
     return reply({cursor:String(Math.max(Number(cursor),lastMeasurementSeq,stateDeliveredSeq)),
-      items:output});
+      items:output,domainRevisions:deliveredDomainRevisions});
    }
    const device=txt(body.deviceId),items=body.items;
    if(!device||device.length>200||!Array.isArray(items)||items.length<1||items.length>100)
