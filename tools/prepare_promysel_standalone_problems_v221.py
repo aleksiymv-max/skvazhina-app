@@ -51,10 +51,9 @@ replace(home,
  super.dispose();""",
  'home listener disposal')
 replace(home,
- "unawaited(SessionService.instance.refreshPresence().catchError((_){ }));\nfinal results=",
- """unawaited(SessionService.instance.refreshPresence().catchError((_){ }));
- unawaited(FieldProblemReportStore.instance.refresh());
- final results=""",
+ "final results=await Future.wait<dynamic>([",
+ """unawaited(FieldProblemReportStore.instance.refresh());
+ final results=await Future.wait<dynamic>([""",
  'home refresh on open and pull-to-refresh')
 replace(home,
  "'Открытых вопросов: ${problems.length}'",
