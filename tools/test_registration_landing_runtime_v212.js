@@ -11,7 +11,7 @@ function makeElement(id){
    disabled:false,value:"",textContent:"",className:"",
    listeners:{},addEventListener(type,fn){this.listeners[type]=fn;}};
 }
-async function caseRun({name,search,alreadySet,approved,submit,expectedRoute}){
+async function caseRun({name,search,hash='',alreadySet,approved,submit,expectedRoute}){
  const ids=["setPassword","recover","status","password","repeat","save","send","email"];
  const dom=Object.fromEntries(ids.map(id=>[id,makeElement(id)]));
  const calls=[];
@@ -35,7 +35,7 @@ async function caseRun({name,search,alreadySet,approved,submit,expectedRoute}){
    URLSearchParams,URL,fetch:fetchMock,Promise,
    history:{replaceState(){}},
    location:{origin:"https://promysel-app.tuqo.ru",
-     pathname:"/finish-registration.html",hash:"",search},
+     pathname:"/finish-registration.html",hash,search},
  };
  vm.runInNewContext(script,context,{timeout:1500});
  await new Promise(resolve=>setImmediate(resolve));
@@ -75,4 +75,8 @@ async function caseRun({name,search,alreadySet,approved,submit,expectedRoute}){
  await caseRun({name:"explicit forgot-password recovery remains functional",
    search:"?mode=forgot&token_hash=abc&type=recovery",alreadySet:true,approved:true,
    submit:true,expectedRoute:"/auth/v1/user"});
+ await caseRun({name:"recovery type from Supabase fragment",
+   search:"?mode=forgot&token_hash=abc",hash:"#type=recovery",
+   alreadySet:true,approved:true,submit:true,
+   expectedRoute:"/auth/v1/user"});
 })().catch(err=>{console.error(err);process.exitCode=1;});
