@@ -12,7 +12,8 @@ paths={
   'tasks':'core/models/work_task.dart',
   'task_ui':'features/tasks/tasks_screen.dart',
   'session':'core/services/session_service.dart',
-  'network':'core/network/weak_network.dart'
+  'network':'core/network/weak_network.dart',
+  'database':'core/database/app_database.dart'
 }
 files={kind:(root/path).read_text(encoding='utf-8') for kind,path in paths.items()}
 for kind,text in files.items():
@@ -42,5 +43,8 @@ excerpts('app_state',[
  ('snapshot','Map<String,dynamic> snapshot('),
  ('reconcile','reconcileWithCurrent'),
 ],1800)
-excerpts('sync',[('pull-full','Future<void> _pull()')],11000)
+excerpts('sync',[('pull-full','Future<void> _pull()')],23000)
+excerpts('sync',[('syncNow-full','Future<void> syncNow()')],8500)
+excerpts('app_state',[('apply-full','Future<void> apply('),('snapshot-full','Map<String,dynamic> snapshot(')],9500)
+excerpts('database',[('remote-measurement','Future<void> applyRemoteMeasurement(')],7500)
 print('PASS generated source inspection completed')
