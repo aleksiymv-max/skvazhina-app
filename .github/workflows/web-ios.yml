@@ -282,6 +282,8 @@ jobs:
           python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_web_push.py"
           python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_cellular_startup_v201.py"
           python3 "$GITHUB_WORKSPACE/tools/test_promysel_cellular_startup_v201.py"
+          cp "$GITHUB_WORKSPACE/tools/promysel_network_diagnostics_v225.html" build/web/diagnostics.html
+          python3 "$GITHUB_WORKSPACE/tools/test_promysel_network_diagnostics_v225.py"
           # Debug symbols are not loaded at runtime; avoid shipping multi-MB maps on slow links.
           find build/web/canvaskit -type f -name '*.symbols' -delete
           test -f build/web/diagnostics.html;          test -f build/web/index.html;test -f build/web/flutter_bootstrap.js;test -f build/web/manifest.json;test -f build/web/sqlite3.wasm;test -f build/web/sqflite_sw.js;test -f build/web/apple-touch-icon.png
