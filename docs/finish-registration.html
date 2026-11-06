@@ -39,6 +39,17 @@ const passwordForm=document.getElementById("setPassword"), recoveryForm=document
 const params=new URLSearchParams(location.hash.replace(/^#/,""));
 const query=new URLSearchParams(location.search);
 let token=null;
+const explicitRecovery=query.get("mode")==="forgot"&&query.get("type")==="recovery";
+async function appCall(path,method,body,accessToken){
+ const response=await fetch(BASE+"/functions/v1/promysel-compat"+path,{
+   method,headers:{"apikey":KEY,"Content-Type":"application/json",
+     Authorization:"Bearer "+accessToken},
+   body:body?JSON.stringify(body):undefined,cache:"no-store"
+ });
+ let value={};try{value=await response.json()}catch(_){}
+ if(!response.ok)throw Error(value.detail||("HTTP "+response.status));
+ return value;
+}
 function message(s,kind=""){statusNode.textContent=s;statusNode.className=kind;}
 function recovery(s){message(s||"Ссылка недействительна или истекла. Запросите новое письмо.","error");recoveryForm.hidden=false;passwordForm.hidden=true;}
 async function call(path,method,body,accessToken){
@@ -64,7 +75,18 @@ async function call(path,method,body,accessToken){
   history.replaceState(null,"",location.pathname);
   const profile=await call("user","GET",null,token);
   if(!profile?.id)throw Error("Не удалось проверить учётную запись.");
-  message("Приглашение подтверждено. Задайте пароль для входа.","success");
+  const account=await appCall("/v1/registration/password-status","GET",null,token);
+  if(account.passwordSet===true&&!explicitRecovery){
+    token=null;
+    passwordForm.hidden=true;
+    recoveryForm.hidden=true;
+    message("Вы уже зарегистрированы и установили пароль. Повторно устанавливать пароль не нужно. Откройте «Промысел» и войдите с прежним паролем. Если забыли пароль, запросите новое восстановление через экран входа.","success");
+    return;
+  }
+  if(account.approved!==true&&!explicitRecovery){
+    token=null;recovery("Ваша заявка ещё не согласована. Обратитесь к начальнику цеха.");return;
+  }
+  message(explicitRecovery?"Установите новый пароль для восстановления доступа.":"Приглашение подтверждено. Задайте первый пароль для входа.","success");
   passwordForm.hidden=false;
  }catch(err){token=null;recovery("Не удалось подтвердить приглашение: "+err.message);}
 })();
@@ -75,7 +97,15 @@ passwordForm.addEventListener("submit",async event=>{
  const button=document.getElementById("save");button.disabled=true;
  try{
    if(!token)throw Error("Сессия истекла.");
-   await call("user","PUT",{password},token);
+   if(explicitRecovery){
+     // A user-initiated recovery may replace an existing password; an
+     // unsolicited invitation cannot.
+     await call("user","PUT",{password},token);
+   }else{
+     // Never submit the first password directly to GoTrue: the server must
+     // check whether this account already has a password (including old links).
+     await appCall("/v1/registration/initial-password","POST",{password},token);
+   }
    token=null;document.getElementById("password").value="";document.getElementById("repeat").value="";
    passwordForm.hidden=true;message("Пароль установлен. Откройте «Промысел» и войдите с указанной почтой и новым паролем.","success");
  }catch(err){message("Не удалось установить пароль: "+err.message,"error");}finally{button.disabled=false;}
@@ -84,7 +114,9 @@ recoveryForm.addEventListener("submit",async event=>{
  event.preventDefault();const email=document.getElementById("email").value.trim().toLowerCase();
  const button=document.getElementById("send");button.disabled=true;
  try{
-   const redirect=encodeURIComponent(location.origin+"/finish-registration.html");
+   // Distinguish a deliberate "forgot password" request from a re-invite.
+   // The recovery mail template appends the OTP hash after this prefix.
+   const redirect=encodeURIComponent(location.origin+"/finish-registration.html?mode=forgot&token_hash=");
    await call("recover?redirect_to="+redirect,"POST",{email});
    message("Если учётная запись уже одобрена и существует, на почту придёт письмо для установки пароля.","success");
  }catch(err){message("Не удалось отправить письмо: "+err.message,"error");}finally{button.disabled=false;}
