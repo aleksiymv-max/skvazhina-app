@@ -10,7 +10,7 @@ checks={
   "no duplicate sync": "if(_syncing)return;" in sync,
   "transport error phase recorded": "lastSyncFailurePhase=_syncPhase;" in sync and
       "lastSyncFailureType=safeClass.length>64" in sync,
-  "logs contain no raw errors or state": "ClipboardData(text:safeReport)" in about and
+  "logs contain no raw errors or state": "SelectableText(issue.description)" in about and
       "error.toString()" not in about and "response.body" not in about,
   "server HTTP decoded before snapshot": "_syncPhase='pull.http';" in sync and
       "_syncPhase='pull.json';" in sync,
