@@ -1,17 +1,17 @@
 {
-  "run_id": 42216580528,
-  "head_sha": "90812954f7f2789de6a95454191d9d156c4711d2",
-  "conclusion": "success",
-  "run_url": "https://github.com/aleksiymv-max/skvazhina-app/actions/runs/42216580528",
-  "started_at": "2026-11-06T12:17:51Z",
-  "updated_at": "2026-11-06T12:21:04Z",
+  "run_id": 42217526845,
+  "head_sha": "62503cdbe6dbe2bc912eb9cd0cd548731a9b6b71",
+  "conclusion": "cancelled",
+  "run_url": "https://github.com/aleksiymv-max/skvazhina-app/actions/runs/42217526845",
+  "started_at": "2026-11-06T12:25:17Z",
+  "updated_at": "2026-11-06T12:28:44Z",
   "artifact_available": true,
   "queue_wait_seconds": 0,
-  "total_elapsed_seconds": 193.0,
+  "total_elapsed_seconds": 207.0,
   "step_durations": [
     {
       "name": "Set up job",
-      "seconds": 2.0,
+      "seconds": 1.0,
       "conclusion": "success"
     },
     {
@@ -21,12 +21,12 @@
     },
     {
       "name": "Approval-first registration regression",
-      "seconds": 0,
+      "seconds": 1.0,
       "conclusion": "success"
     },
     {
       "name": "Supabase compatibility endpoint preflight",
-      "seconds": 2.0,
+      "seconds": 1.0,
       "conclusion": "success"
     },
     {
@@ -36,27 +36,27 @@
     },
     {
       "name": "Verify preinstalled icon renderer",
-      "seconds": 0,
+      "seconds": 1.0,
       "conclusion": "success"
     },
     {
       "name": "Apply current Promysel updates",
-      "seconds": 7.0,
+      "seconds": 8.0,
       "conclusion": "success"
     },
     {
       "name": "Run subosito/flutter-action@v2",
-      "seconds": 30.0,
+      "seconds": 24.0,
       "conclusion": "success"
     },
     {
       "name": "Create web platform and configure iPhone PWA",
-      "seconds": 36.0,
+      "seconds": 46.0,
       "conclusion": "success"
     },
     {
       "name": "Analyze and build web release",
-      "seconds": 77.0,
+      "seconds": 92.0,
       "conclusion": "success"
     },
     {
@@ -66,12 +66,12 @@
     },
     {
       "name": "Probe existing Tuqo site and backend DNS HTTPS (external GitHub network only)",
-      "seconds": 3.0,
+      "seconds": 2.0,
       "conclusion": "success"
     },
     {
       "name": "Package iPhone web app",
-      "seconds": 2.0,
+      "seconds": 3.0,
       "conclusion": "success"
     },
     {
@@ -86,12 +86,12 @@
     },
     {
       "name": "Publish development preview only (stable production remains frozen)",
-      "seconds": 24.0,
+      "seconds": 17.0,
       "conclusion": "success"
     },
     {
       "name": "Post Run subosito/flutter-action@v2",
-      "seconds": 0,
+      "seconds": 1.0,
       "conclusion": "success"
     },
     {
