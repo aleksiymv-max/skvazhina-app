@@ -1,5 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import '../../core/services/field_problem_report_store.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
 import '../../core/services/sync_service.dart';
@@ -16,7 +18,10 @@ class PromyselAboutScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('О приложении')),
+      appBar: AppBar(
+        leading:IconButton(icon:const Icon(Icons.arrow_back),
+          tooltip:'Назад в меню',onPressed:()=>context.go('/menu')),
+        title: const Text('О приложении')),
       body: ListView(padding: const EdgeInsets.all(16), children: [
         Card(
           child: Padding(
@@ -29,7 +34,7 @@ class PromyselAboutScreen extends StatelessWidget {
               const Text('Цифровая система производственного учёта',
                 textAlign: TextAlign.center),
               const SizedBox(height: 10),
-              const Chip(label: Text('Версия v2.20')),
+              const Chip(label: Text('Версия v2.21')),
             ]),
           ),
         ),
@@ -137,10 +142,18 @@ class _ManualPage extends StatelessWidget {
           'Выберите участок, кустовую площадку и скважину для просмотра параметров.',
           'Создание и редактирование структуры доступны уполномоченным ИТР. Удаление объектов ограничено правами руководителя или администратора.',
         ], note:'Изменения структуры должны появиться на других устройствах после синхронизации.'),
-        _ManualTile('Производственные проблемы', [
-          'При обнаружении неисправности зарегистрируйте проблемный вопрос в доступном разделе.',
-          'Укажите объект и кратко опишите ситуацию без лишних персональных данных.',
-          'Следите за состоянием вопроса; руководитель и ИТР используют запись для организации устранения.',
+        _ManualTile('Подать заявку без обхода скважины', [
+          'Во вкладке «Обход» над участками нажмите кнопку «Подать заявку».',
+          'Выберите участок добычи и кустовую площадку — это обязательные поля.',
+          'При необходимости выберите скважину. Для проблемы на всей кустовой площадке скважину выбирать не требуется.',
+          'Опишите ситуацию и нажмите «Подать заявку». Вносить технологические параметры или выполнять обход не нужно.',
+          'На главной странице откройте «Проблемы». Заявка отображается с участком, кустом, скважиной (если выбрана), автором, датой и временем подачи.',
+          'При отсутствии связи запись остаётся на устройстве с отметкой «Ожидает отправки» и синхронизируется позже.',
+        ], note:'Пока запись не отправлена, не очищайте хранилище браузера и не удаляйте приложение.'),
+        _ManualTile('Производственные проблемы при обходе', [
+          'Если проблема обнаружена непосредственно при обходе скважины, внесите её в обычное поле замечаний.',
+          'Эта запись, как и новая самостоятельная заявка, показывается в разделе «Проблемы».',
+          'Уполномоченные сотрудники могут отметить устранённую проблему решённой.',
         ]),
         _ManualTile('Задания и фотографии', [
           'Откройте вкладку «Задания», выберите назначенное поручение.',
@@ -168,7 +181,7 @@ class _ManualPage extends StatelessWidget {
         ]),
         _ManualTile('Работа без интернета', [
           'Ранее полученные сведения могут оставаться доступными локально.',
-          'Сохраняйте обходы в обычном порядке; после восстановления связи повторите проверку синхронизации.',
+          'Сохраняйте обходы и заявки в обычном порядке; после восстановления связи повторите проверку синхронизации.',
           'Откройте «Меню → О приложении → Состояние сервера и синхронизации» и нажмите единственную кнопку проверки.',
           'Если появилась ошибка, сообщите техническому специалисту описание, код, тип и этап ошибки.',
         ], note:'Не очищайте данные браузера, не удаляйте приложение и не выходите из учётной записи, пока есть неотправленные данные.'),
@@ -262,7 +275,7 @@ class _ReleasePage extends StatelessWidget {
           const SizedBox(height: 12),
           Text('ПРОМЫСЕЛ', style: Theme.of(context).textTheme.titleLarge),
           const SizedBox(height: 6),
-          const Text('Версия v2.20', style: TextStyle(
+          const Text('Версия v2.21', style: TextStyle(
             fontWeight: FontWeight.bold, fontSize: 18)),
           const SizedBox(height: 5),
           const Text('Веб-приложение · 6 ноября 2026 года'),
@@ -477,6 +490,8 @@ class _PromyselConnectionPageState extends State<PromyselConnectionPage> {
                 pending:_checking?'Проверяется':'Не проверено'),
               const Divider(height:28),
               Text('Ожидают отправки замеры: ${sync.pending}'),
+              const SizedBox(height:5),
+              Text('Ожидают отправки заявки: ${FieldProblemReportStore.instance.pendingCount}'),
               const SizedBox(height:5),
               Text('Ожидают отправки изменения других разделов: ${sync.pendingDomainCount}'),
               const SizedBox(height:5),
