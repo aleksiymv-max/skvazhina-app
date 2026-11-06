@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
 import '../../core/services/sync_service.dart';
 
@@ -29,7 +29,7 @@ class PromyselAboutScreen extends StatelessWidget {
               const Text('Цифровая система производственного учёта',
                 textAlign: TextAlign.center),
               const SizedBox(height: 10),
-              const Chip(label: Text('Версия v2.18')),
+              const Chip(label: Text('Версия v2.19')),
             ]),
           ),
         ),
@@ -40,11 +40,11 @@ class PromyselAboutScreen extends StatelessWidget {
         _item(context, Icons.menu_book_outlined, 'Руководство пользователя',
           'Обход, история, задания и работа без сети',
           const _ManualPage()),
-        _item(context, Icons.history_toggle_off_outlined, 'Версия и история обновлений',
-          'Что изменилось в последних выпусках',
+        _item(context, Icons.history_toggle_off_outlined, 'Версия приложения',
+          'Номер установленной версии',
           const _ReleasePage()),
         _item(context, Icons.cloud_outlined, 'Состояние сервера и синхронизации',
-          'Проверка связи, ожидающие замеры и последний обмен',
+          'Единая проверка системы и передачи данных',
           const PromyselConnectionPage()),
         const SizedBox(height: 14),
         const Text('Информация о разработчике и правообладателе будет добавлена после подтверждения прав.',
@@ -98,212 +98,434 @@ class _Section extends StatelessWidget {
   );
 }
 
+
 class _ManualPage extends StatelessWidget {
   const _ManualPage();
-  @override Widget build(BuildContext context) => Scaffold(
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(title: const Text('Руководство пользователя')),
-    body: ListView(padding: const EdgeInsets.all(12), children: const [
-      _ManualTile('Главная',
-        'Просматривайте сводные показатели месторождения, фонд скважин, сотрудников и зарегистрированные проблемные вопросы.'),
-      _ManualTile('Обход',
-        'Выберите участок, кустовую площадку и скважину. Заполните доступные для неё технологические параметры, проверьте значения и сохраните обход. При отсутствии интернета не удаляйте приложение: ожидающие записи отправятся после восстановления соединения.'),
-      _ManualTile('История и тренды',
-        'Выберите площадку, скважину и дату, чтобы открыть сохранённые измерения. Корректировка и выгрузка данных доступны сотрудникам с соответствующими правами.'),
-      _ManualTile('Проблемные вопросы',
-        'При обнаружении неисправности зарегистрируйте проблему во время обхода. Руководители и ИТР смогут увидеть её для организации устранения.'),
-      _ManualTile('Задания',
-        'Откройте назначенное задание, ознакомьтесь с описанием и при выполнении приложите комментарий и необходимые фотографии. Закрытие задания может требовать подтверждения руководителем.'),
-      _ManualTile('Чаты',
-        'Используйте рабочие чаты для переписки с сотрудниками и обмена доступными вложениями. При слабом интернете дождитесь подтверждения отправки.'),
-      _ManualTile('Мой график и обучение',
-        'В профиле управляйте своим графиком, просматривайте обучение и уведомления. Набор функций определяется ролью.'),
-      _ManualTile('Если нет связи с сервером',
-        'Откройте «Меню → О приложении → Состояние сервера и синхронизации». Проверьте ответ сервера и очередь замеров. Не очищайте данные браузера и не переустанавливайте приложение, пока остались неотправленные записи.'),
-    ]),
+    body: ListView(
+      padding: const EdgeInsets.fromLTRB(14, 16, 14, 28),
+      children: const [
+        _Section('Как пользоваться «Промыслом»',
+          'Откройте интересующий раздел ниже. Инструкция рассчитана на сотрудников промысла. Доступные действия зависят от вашей роли и настроек месторождения.'),
+        _ManualTile('Первый вход и выбор месторождения', [
+          'Войдите с учётными данными, полученными после согласования регистрации.',
+          'Проверьте ФИО, роль и выбранное месторождение в профиле.',
+          'Если данные месторождения ещё загружаются, проверьте соединение через «Меню → О приложении → Состояние сервера и синхронизации».',
+        ], note:'Не создавайте вторую учётную запись из-за временной ошибки соединения.'),
+        _ManualTile('Главная страница', [
+          'Просматривайте количество участков добычи, кустовых площадок и скважин, состояние фонда и общие показатели.',
+          'Откройте карточку интересующего раздела для подробной информации.',
+          'Контролируйте открытые производственные проблемы и сведения о персонале.',
+        ]),
+        _ManualTile('Обход скважин', [
+          'Перейдите во вкладку «Обход», выберите участок добычи, кустовую площадку и скважину.',
+          'Заполните только параметры, предусмотренные для данной площадки и скважины. Используйте запятую или точку для дробных значений.',
+          'Для нефтяных скважин отмечайте ПКВ/ПИД, если соответствующие параметры включены в настройках. Для газоконденсатных скважин вводите доступные давления, температуры и положение штуцера или дросселя.',
+          'Проверьте значения и сохраните обход. При слабой связи дождитесь подтверждения отправки; несинхронизированный замер должен оставаться на устройстве.',
+        ], note:'Не повторяйте сохранение многократно. Проверяйте историю и состояние очереди.'),
+        _ManualTile('История замеров и тренды', [
+          'Откройте «История», выберите кустовую площадку, скважину и дату.',
+          'Просмотрите сохранённые значения и параметры конкретного обхода.',
+          'Для анализа изменений откройте тренд нужного параметра и период наблюдения.',
+          'Корректировка данных и выгрузки доступны только ролям, которым предоставлены соответствующие права.',
+        ]),
+        _ManualTile('Участки, кусты и скважины', [
+          'Откройте структуру месторождения через меню или главную страницу.',
+          'Выберите участок, кустовую площадку и скважину для просмотра параметров.',
+          'Создание и редактирование структуры доступны уполномоченным ИТР. Удаление объектов ограничено правами руководителя или администратора.',
+        ], note:'Изменения структуры должны появиться на других устройствах после синхронизации.'),
+        _ManualTile('Производственные проблемы', [
+          'При обнаружении неисправности зарегистрируйте проблемный вопрос в доступном разделе.',
+          'Укажите объект и кратко опишите ситуацию без лишних персональных данных.',
+          'Следите за состоянием вопроса; руководитель и ИТР используют запись для организации устранения.',
+        ]),
+        _ManualTile('Задания и фотографии', [
+          'Откройте вкладку «Задания», выберите назначенное поручение.',
+          'Изучите содержание, срок и объект, добавьте комментарий и фотографии при необходимости.',
+          'Отметьте выполнение. Если предусмотрено подтверждение, дождитесь решения проверяющего.',
+          'До успешной отправки не удаляйте локальные данные и вложения.',
+        ]),
+        _ManualTile('Чаты', [
+          'Откройте вкладку «Чат», выберите переписку или создайте новую, если это разрешено.',
+          'Отправляйте рабочие сообщения, фотографии и документы только предназначенным участникам.',
+          'Удержание чата открывает дополнительные действия, например закрепление и отключение уведомлений, если они доступны в вашей версии.',
+          'При слабой связи проверяйте, что сообщение действительно отправлено.',
+        ]),
+        _ManualTile('Персонал и статус работы', [
+          'Откройте раздел персонала, чтобы посмотреть сотрудников и их доступные рабочие статусы.',
+          'Отметки «На работе» и «Отдыхает» меняются сотрудником или уполномоченным руководителем.',
+          'Полночь сама по себе не означает окончание вахты. Последний подтверждённый статус должен сохраняться до явного изменения.',
+          'Если статус не обновился на другом устройстве, выполните проверку системы и синхронизации.',
+        ]),
+        _ManualTile('Мой график, отпуск и обучение', [
+          'Откройте профиль и раздел «Мой график», выберите дни вахты, отдыха или отпуска.',
+          'При необходимости настройте шаблон чередования или уточните даты вручную.',
+          'В разделе обучения просматривайте назначенные мероприятия и их состояние.',
+          'Следите за уведомлениями о заданиях, сообщениях и изменениях графика.',
+        ]),
+        _ManualTile('Работа без интернета', [
+          'Ранее полученные сведения могут оставаться доступными локально.',
+          'Сохраняйте обходы в обычном порядке; после восстановления связи повторите проверку синхронизации.',
+          'Откройте «Меню → О приложении → Состояние сервера и синхронизации» и нажмите единственную кнопку проверки.',
+          'Если появилась ошибка, сообщите техническому специалисту описание, код, тип и этап ошибки.',
+        ], note:'Не очищайте данные браузера, не удаляйте приложение и не выходите из учётной записи, пока есть неотправленные данные.'),
+        _ManualTile('Безопасность работы', [
+          'Работайте только под собственной учётной записью и не передавайте пароль другим сотрудникам.',
+          'Используйте приложение для производственного учёта; оно не заменяет эксплуатационные регламенты и требования безопасности.',
+          'Не прикладывайте к чатам и заданиям документы, которые не должны быть доступны участникам переписки.',
+        ]),
+      ],
+    ),
   );
 }
 
 class _ManualTile extends StatelessWidget {
-  const _ManualTile(this.title, this.description);
-  final String title, description;
-  @override Widget build(BuildContext context) => Card(
-    child: ExpansionTile(title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
-      children: [Padding(padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-        child: Align(alignment: Alignment.centerLeft, child: Text(description)))]),
-  );
+  const _ManualTile(this.title, this.steps, {this.note});
+  final String title;
+  final List<String> steps;
+  final String? note;
+
+  @override Widget build(BuildContext context) {
+    const radius = BorderRadius.all(Radius.circular(16));
+    const tileShape = RoundedRectangleBorder(
+      borderRadius: radius,
+      side: BorderSide(color: Colors.transparent, width: 0),
+    );
+    final scheme = Theme.of(context).colorScheme;
+    return Card(
+      margin: const EdgeInsets.only(bottom: 10),
+      shape: tileShape,
+      clipBehavior: Clip.antiAlias,
+      child: Theme(
+        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+        child: ExpansionTile(
+          shape: tileShape,
+          collapsedShape: tileShape,
+          tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+          childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          title: Text(title, style: const TextStyle(
+            fontSize: 15, fontWeight: FontWeight.w700)),
+          children: [
+            for (var i = 0; i < steps.length; i++)
+              Padding(
+                padding: const EdgeInsets.only(top: 11),
+                child: Row(crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: 25, height: 25,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: scheme.primaryContainer,
+                        borderRadius: BorderRadius.circular(8)),
+                      child: Text('${i + 1}', style: TextStyle(
+                        color: scheme.onPrimaryContainer,
+                        fontSize: 12, fontWeight: FontWeight.bold)),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(child: Padding(
+                      padding: const EdgeInsets.only(top: 2),
+                      child: Text(steps[i],
+                        style: const TextStyle(fontSize: 14, height: 1.45)))),
+                  ],
+                ),
+              ),
+            if (note != null)
+              Container(
+                margin: const EdgeInsets.only(top: 16),
+                padding: const EdgeInsets.all(12),
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  color: scheme.primaryContainer.withOpacity(.45),
+                  borderRadius: BorderRadius.circular(12)),
+                child: Text(note!, style: TextStyle(
+                  color: scheme.onSurface, fontSize: 13, height: 1.35)),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class _ReleasePage extends StatelessWidget {
   const _ReleasePage();
   @override Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('Версия и история обновлений')),
-    body: ListView(padding: const EdgeInsets.all(16), children: const [
-      _Section('Текущая версия: v2.18 · 06.11.2026',
-        'Устранено повторное хранение фотографий в общих локальных снимках, добавлены точные этапы сохранения.'),
-      _Section('v2.17',
-        'Исправлен повтор безопасного запроса чтения после HTTP 401.'),
-      _Section('v2.16',
-        'Расширена диагностика стадий синхронизации и ручная повторная попытка.'),
-      _Section('v2.15',
-        'Добавлены «О приложении», руководство, проверка сервера и улучшено отображение сетевых ошибок.'),
-      _Section('v2.14',
-        'Оптимизированы ожидания синхронизации отдельных разделов и сохранение очереди при частичных ошибках.'),
-      _Section('v2.13',
-        'Добавлена пакетная отправка замеров с подтверждением и уменьшена повторная передача фотографий сотрудников.'),
-      _Section('v2.11',
-        'Разделены очереди изменений структуры, задач, обучения и графика работы.'),
-      _Section('Обновление приложения',
-        'Веб-приложение обновляется после публикации новой сборки. Если версия не изменилась, полностью закройте и повторно откройте приложение. Не очищайте данные сайта при наличии неотправленных обходов.'),
+    appBar: AppBar(title: const Text('Версия приложения')),
+    body: ListView(padding: const EdgeInsets.all(18), children: [
+      Card(child: Padding(
+        padding: const EdgeInsets.all(22),
+        child: Column(children: [
+          Icon(Icons.apps_rounded, size: 42, color: Theme.of(context).colorScheme.primary),
+          const SizedBox(height: 12),
+          Text('ПРОМЫСЕЛ', style: Theme.of(context).textTheme.titleLarge),
+          const SizedBox(height: 6),
+          const Text('Версия v2.19', style: TextStyle(
+            fontWeight: FontWeight.bold, fontSize: 18)),
+          const SizedBox(height: 5),
+          const Text('Веб-приложение · 6 ноября 2026 года'),
+        ]),
+      )),
+      const SizedBox(height: 16),
+      const Text('Обновления устанавливаются при публикации новой версии приложения. Если отображается старая версия, полностью закройте и повторно откройте приложение.',
+        style: TextStyle(height: 1.45)),
+      const SizedBox(height: 10),
+      const Text('Не очищайте данные сайта при наличии неотправленных обходов.',
+        style: TextStyle(fontWeight: FontWeight.w600)),
     ]),
   );
 }
 
+class _CheckIssue {
+  const _CheckIssue(this.description, this.code, this.type,
+      {this.stage});
+  final String description, code, type;
+  final String? stage;
+}
+
 class PromyselConnectionPage extends StatefulWidget {
   const PromyselConnectionPage({super.key});
-  @override State<PromyselConnectionPage> createState() => _PromyselConnectionPageState();
+  @override State<PromyselConnectionPage> createState() =>
+    _PromyselConnectionPageState();
 }
 
 class _PromyselConnectionPageState extends State<PromyselConnectionPage> {
   static const _base = String.fromEnvironment('PROMYSEL_SYNC_URL',
     defaultValue: 'https://xptmcufhuvtcunqzlsme.supabase.co/functions/v1/promysel-compat');
-  bool _checking = false;
-  bool? _reachable;
-  String _probeDescription = 'Проверка сервера ещё не проводилась';
+  bool _checking=false, _checked=false;
+  bool? _systemOk, _serverOk, _syncOk;
+  final List<_CheckIssue> _issues=[];
+  String _checkStatus='Проверка ещё не выполнялась';
 
-  @override void initState() {
-    super.initState();
-    unawaited(_probe());
+  String _codeForPhase(String? phase) {
+    final value=(phase??'unknown').replaceAll(
+      RegExp(r'[^A-Za-z0-9]'),'_').toUpperCase();
+    return 'SYNC_' + value;
   }
 
-  Future<void> _probe() async {
-    if (_checking) return;
-    setState(() { _checking = true; _probeDescription = 'Проверяем ответ сервера…'; });
+  String _explainPhase(String? phase) {
+    if (phase==null) return 'Обмен завершился без подтверждения успеха.';
+    if (phase.contains('persistence')) {
+      return 'Не удалось записать полученный снимок на устройство. '
+        'Возможна нехватка места в браузерном хранилище.';
+    }
+    if (phase.contains('sqlite_measurement')) {
+      return 'Не удалось сохранить полученные замеры в локальной базе.';
+    }
+    if (phase.contains('http') || phase.contains('auth')) {
+      return 'Ошибка запроса к серверу или авторизации. '
+        'Проверьте доступ к сети и действительность сеанса.';
+    }
+    if (phase.contains('snapshot')) {
+      return 'Ошибка восстановления структуры или связанных данных месторождения.';
+    }
+    return 'Обмен прерван на этапе «' + phase + '». Локальные данные сохранены.';
+  }
+
+  Future<void> _checkAll() async {
+    final sync=SyncService.instance;
+    if (_checking || sync.syncing) return;
+    final started=DateTime.now();
+    setState(() {
+      _checking=true;
+      _checked=false;
+      _issues.clear();
+      _systemOk=null;_serverOk=null;_syncOk=null;
+      _checkStatus='Проверяем приложение, сервер и передачу данных…';
+    });
     try {
-      final response = await http.get(Uri.parse(_base + '/health'),
-        headers: const {'cache-control': 'no-store'}).timeout(const Duration(seconds: 7));
-      if (!mounted) return;
-      setState(() {
-        _reachable = response.statusCode >= 200 && response.statusCode < 300;
-        _probeDescription = _reachable!
-          ? 'Сервер отвечает на контрольный запрос'
-          : 'Сервер ответил с кодом HTTP ' + response.statusCode.toString();
-      });
-    } catch (_) {
-      if (!mounted) return;
-      setState(() {
-        _reachable = false;
-        _probeDescription = 'Контрольный запрос не завершился. Проверьте сеть.';
-      });
+      try {
+        final prefs=await SharedPreferences.getInstance();
+        // Read-only check: never remove or rewrite local state or queue.
+        prefs.getKeys();
+        _systemOk=true;
+      } catch (_) {
+        _systemOk=false;
+        _issues.add(const _CheckIssue(
+          'Не удаётся прочитать локальное хранилище устройства. '
+          'Сохранённые данные не очищались.',
+          'LOCAL_STORAGE_READ', 'Ошибка локального хранилища'));
+      }
+
+      try {
+        final uri=Uri.parse('$_base/health').replace(
+          queryParameters:{'check':DateTime.now().millisecondsSinceEpoch.toString()});
+        final response=await http.get(uri,
+          headers:const {'cache-control':'no-store'})
+          .timeout(const Duration(seconds:7));
+        _serverOk=response.statusCode>=200&&response.statusCode<300;
+        if (_serverOk!=true) {
+          _issues.add(_CheckIssue(
+            'Контрольный запрос получил ответ сервера с ошибкой.',
+            'HTTP_${response.statusCode}', 'Ошибка HTTP', stage:'server.health'));
+        }
+      } on TimeoutException {
+        _serverOk=false;
+        _issues.add(const _CheckIssue(
+          'Контрольный запрос не завершился за 7 секунд.',
+          'SERVER_TIMEOUT', 'Превышено время ожидания',stage:'server.health'));
+      } catch (_) {
+        _serverOk=false;
+        _issues.add(const _CheckIssue(
+          'Не удалось подключиться к серверу. Проверьте доступ к интернету.',
+          'SERVER_NETWORK', 'Ошибка сетевого соединения',stage:'server.health'));
+      }
+
+      if (_systemOk==true && _serverOk==true) {
+        try {
+          await sync.syncNow(force:true);
+          final failedAt=sync.lastSyncFailureAt;
+          final successAt=sync.lastSyncAt;
+          final freshFailure=failedAt!=null&&!failedAt.isBefore(started);
+          final freshSuccess=successAt!=null&&!successAt.isBefore(started);
+          if (freshFailure) {
+            _syncOk=false;
+            final code=sync.lastSyncHttpStatus==null
+              ?_codeForPhase(sync.lastSyncFailurePhase)
+              :'HTTP_${sync.lastSyncHttpStatus}';
+            _issues.add(_CheckIssue(
+              sync.lastSyncStorageCause??_explainPhase(sync.lastSyncFailurePhase),
+              code,
+              sync.lastSyncFailureType??'Ошибка синхронизации',
+              stage:sync.lastSyncFailurePhase));
+          } else if(freshSuccess&&sync.pending==0) {
+            _syncOk=true;
+          } else {
+            _syncOk=false;
+            _issues.add(_CheckIssue(
+              sync.status.isEmpty?'Подтверждение успешной синхронизации не получено.'
+                :sync.status,
+              sync.pending>0?'SYNC_PENDING': 'SYNC_UNCONFIRMED',
+              sync.pending>0?'Ожидают отправки':'Обмен не подтверждён',
+              stage:'sync.status'));
+          }
+        } catch (_) {
+          _syncOk=false;
+          _issues.add(const _CheckIssue(
+            'Произошла ошибка во время проверки синхронизации. '
+            'Локальные записи не очищались.',
+            'SYNC_CHECK_FAILED','Ошибка приложения',stage:'sync.check'));
+        }
+      } else {
+        _syncOk=null; // Skip remote sync if a prerequisite is unavailable.
+      }
     } finally {
-      if (mounted) setState(() => _checking = false);
+      if (mounted) setState(() {
+        _checking=false;_checked=true;
+        _checkStatus=_issues.isEmpty
+          ?'Проверка завершена: ошибок не обнаружено'
+          :'Проверка завершена: обнаружены проблемы';
+      });
     }
   }
 
-  String _date(DateTime? at) {
-    if (at == null) return 'Успешный обмен ещё не зарегистрирован';
-    final local = at.toLocal();
-    String two(int n) => n.toString().padLeft(2, '0');
-    return two(local.day) + '.' + two(local.month) + '.' +
-      local.year.toString() + '  ' + two(local.hour) + ':' + two(local.minute);
+  Widget _line(IconData icon, String label, bool? result,
+      {String? pending}) {
+    final scheme=Theme.of(context).colorScheme;
+    return Padding(padding:const EdgeInsets.symmetric(vertical:6),
+      child:Row(children:[
+        Icon(icon,size:21,color:result==null?scheme.outline:
+          result?Colors.green:scheme.error),
+        const SizedBox(width:10),
+        Expanded(child:Text(label)),
+        Flexible(child:Text(result==null?(pending??'Не проверено'):
+          result?'Успешно':'Ошибка',
+          textAlign:TextAlign.end,style:TextStyle(
+            color:result==false?scheme.error:null,
+            fontWeight:FontWeight.w600))),
+      ]));
   }
 
   @override Widget build(BuildContext context) {
-    final sync = SyncService.instance;
+    final sync=SyncService.instance;
+    final scheme=Theme.of(context).colorScheme;
     return Scaffold(
-      appBar: AppBar(title: const Text('Сервер и синхронизация')),
-      body: ListenableBuilder(listenable: sync, builder: (context, _) {
-        final available = sync.serverAvailable;
-        final busy = sync.syncing;
-        return ListView(padding: const EdgeInsets.all(16), children: [
-          Card(child: Padding(padding: const EdgeInsets.all(16),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text('Доступность сервера',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
-              const SizedBox(height: 10),
-              Row(children: [
-                Icon(_reachable == null ? Icons.help_outline :
-                  _reachable! ? Icons.check_circle_outline : Icons.error_outline,
-                  color: _reachable == true ? Colors.green : null),
-                const SizedBox(width: 10),
-                Expanded(child: Text(_probeDescription)),
-              ]),
-              const SizedBox(height: 10),
-              OutlinedButton.icon(
-                onPressed: _checking ? null : () => unawaited(_probe()),
-                icon: const Icon(Icons.refresh), label: const Text('Проверить сервер')),
-            ]),
-          )),
-          const SizedBox(height: 10),
-          Card(child: Padding(padding: const EdgeInsets.all(16),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text('Обмен данными приложения',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
-              const SizedBox(height: 10),
-              Text(busy ? 'Синхронизация выполняется' :
-                available ? 'Последний запрос выполнен' : 'Состояние обмена требует проверки',
-                style: const TextStyle(fontWeight: FontWeight.w600)),
-              const SizedBox(height: 8),
-              Text(sync.status),
-              const Divider(height: 28),
-              _metric('Ожидающие замеры', sync.pending.toString()),
-              const SizedBox(height: 8),
-              _metric('Последний успешный обмен', _date(sync.lastSyncAt)),
-              if(sync.lastSyncFailurePhase!=null)...[
-                const SizedBox(height: 12),
-                _metric('Этап последней ошибки',sync.lastSyncFailurePhase!),
-                const SizedBox(height: 8),
-                _metric('Тип ошибки',sync.lastSyncFailureType??'Не определён'),
-                if(sync.lastSyncStorageCause!=null)...[
-                  const SizedBox(height:8),
-                  _metric('Причина записи',sync.lastSyncStorageCause!),
-                ],
-                if(sync.lastSyncHttpStatus!=null)...[
-                  const SizedBox(height:8),
-                  _metric('Код ответа HTTP',sync.lastSyncHttpStatus.toString()),
-                ],
-                const SizedBox(height: 8),
-                _metric('Время ошибки',_date(sync.lastSyncFailureAt)),
-                const SizedBox(height: 12),
-                OutlinedButton.icon(
-                  onPressed: () {
-                    final safeReport='Промысел v2.16\n'
-                      'Этап: ${sync.lastSyncFailurePhase??"не определён"}\n'
-                      'Тип: ${sync.lastSyncFailureType??"не определён"}\n'
-                      'Время: ${_date(sync.lastSyncFailureAt)}\n'
-                      'Ожидающих замеров: ${sync.pending}\n'
-                      'HTTP: ${sync.lastSyncHttpStatus?.toString()??"нет"}';
-                    Clipboard.setData(ClipboardData(text:safeReport));
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content:Text('Диагностический код скопирован')));
-                  },
-                  icon:const Icon(Icons.copy_outlined),
-                  label:const Text('Скопировать диагностику')),
-              ],
-              const SizedBox(height: 14),
+      appBar:AppBar(title:const Text('Сервер и синхронизация')),
+      body:ListenableBuilder(listenable:sync,builder:(context,_) {
+        final disabled=_checking||sync.syncing;
+        return ListView(padding:const EdgeInsets.all(16),children:[
+          Card(child:Padding(padding:const EdgeInsets.all(18),
+            child:Column(crossAxisAlignment:CrossAxisAlignment.stretch,children:[
+              Text('Проверка системы',style:Theme.of(context).textTheme.titleLarge
+                ?.copyWith(fontWeight:FontWeight.w700)),
+              const SizedBox(height:8),
+              const Text('Одной кнопкой проверяются локальные данные приложения, '
+                'доступность сервера и фактическая синхронизация.',
+                style:TextStyle(height:1.4)),
+              const SizedBox(height:16),
               FilledButton.icon(
-                onPressed: busy ? null : () { unawaited(sync.syncNow(force:true)); },
-                icon: const Icon(Icons.sync),
-                label: Text(busy ? 'Синхронизация выполняется…' : 'Повторить синхронизацию')),
-            ]),
-          )),
-          const SizedBox(height: 14),
-          const Text('Важно: ответ сервера на проверку связи не означает, что все данные синхронизированы. Ориентируйтесь также на количество ожидающих замеров и время последнего успешного обмена.',
-            style: TextStyle(fontSize: 12)),
-          const SizedBox(height: 12),
-          const Text('Не удаляйте приложение и не очищайте данные браузера при незавершённой синхронизации.',
-            style: TextStyle(fontWeight: FontWeight.w600)),
+                onPressed:disabled?null:_checkAll,
+                icon:_checking?const SizedBox(width:18,height:18,
+                   child:CircularProgressIndicator(strokeWidth:2)):
+                   const Icon(Icons.fact_check_outlined),
+                label:Text(_checking?'Проверка выполняется…':
+                  sync.syncing?'Дождитесь завершения обмена':
+                  'Проверить систему')),
+              const SizedBox(height:14),
+              Text(_checkStatus,style:TextStyle(
+                fontWeight:FontWeight.w600,
+                color:_checked&&_issues.isNotEmpty?scheme.error:null)),
+              const SizedBox(height:10),
+              _line(Icons.phone_iphone,'Приложение',_systemOk,
+                pending:_checking?'Проверяется':'Не проверено'),
+              _line(Icons.cloud_outlined,'Сервер',_serverOk,
+                pending:_checking?'Проверяется':'Не проверено'),
+              _line(Icons.sync,'Синхронизация',_syncOk,
+                pending:_checking?'Проверяется':'Не проверено'),
+              const Divider(height:28),
+              Text('Ожидают отправки замеры: ${sync.pending}'),
+              const SizedBox(height:5),
+              Text(sync.lastSyncAt==null
+                ?'Успешный обмен ещё не зарегистрирован'
+                :'Последний успешный обмен: ${_stamp(sync.lastSyncAt!)}'),
+            ]))),
+          if(_checked&&_issues.isNotEmpty)...[
+            const SizedBox(height:14),
+            Text('Обнаруженные ошибки',style:Theme.of(context)
+              .textTheme.titleMedium?.copyWith(fontWeight:FontWeight.bold)),
+            const SizedBox(height:8),
+            for(final issue in _issues)
+              Card(
+                color:scheme.errorContainer.withOpacity(.40),
+                child:Padding(padding:const EdgeInsets.all(16),
+                  child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+                    Text('Описание ошибки',style:TextStyle(
+                      color:scheme.error,fontWeight:FontWeight.w700)),
+                    const SizedBox(height:5),
+                    SelectableText(issue.description),
+                    const SizedBox(height:12),
+                    _detail('Код ошибки',issue.code),
+                    const SizedBox(height:7),
+                    _detail('Тип ошибки',issue.type),
+                    if(issue.stage!=null)...[
+                      const SizedBox(height:7),
+                      _detail('Этап',issue.stage!),
+                    ]
+                  ])))
+          ],
+          const SizedBox(height:16),
+          const Text('При неудачной синхронизации не очищайте данные браузера '
+            'и не удаляйте приложение: неотправленные записи должны сохраниться.',
+            style:TextStyle(fontWeight:FontWeight.w600,height:1.35)),
         ]);
       }),
     );
   }
 
-  Widget _metric(String label, String value) => Row(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      Expanded(child: Text(label, style: const TextStyle(color: Colors.grey))),
-      const SizedBox(width: 12),
-      Flexible(child: Text(value, textAlign: TextAlign.end,
-        style: const TextStyle(fontWeight: FontWeight.w600))),
-    ],
-  );
+  static String _stamp(DateTime date) {
+    final d=date.toLocal();
+    String t(int x)=>x.toString().padLeft(2,'0');
+    return '${t(d.day)}.${t(d.month)}.${d.year} ${t(d.hour)}:${t(d.minute)}';
+  }
+
+  Widget _detail(String title,String value)=>Row(
+    crossAxisAlignment:CrossAxisAlignment.start,
+    children:[
+      SizedBox(width:106,child:Text(title,style:const TextStyle(fontSize:13))),
+      const SizedBox(width:8),
+      Expanded(child:SelectableText(value,
+        style:const TextStyle(fontWeight:FontWeight.w700,fontSize:13))),
+    ]);
 }
