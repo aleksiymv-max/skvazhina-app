@@ -247,3 +247,5 @@ build=Web DEV first, TUQO release stage only after passed tests
 
 release=v2.21-quick-problem-report-stable-home-refresh-anchor
 reason=align generated Home source indentation while keeping existing listeners and cache
+
+release=v2.21-quick-report-existing-home-empty-state-anchor-fixed
