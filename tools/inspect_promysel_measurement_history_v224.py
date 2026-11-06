@@ -27,4 +27,12 @@ for name,path in files.items():
  for n in needles:
   idx=s.find(n)
   if idx>=0:print('EXCERPT',name,n,s[max(0,idx-550):idx+ (7500 if name in ['well','history','database'] else 3500)][:8200])
+s=(base/'core/database/app_database.dart').read_text(encoding='utf8')
+for pattern in ['_fromMap(', 'capturedParameters:', "'captured_parameters':", 'Future<int> insertMeasurement', '_createMeasurements(', 'version: 15']:
+ positions=[m.start() for m in re.finditer(re.escape(pattern),s)]
+ print('DB_REFS',pattern,positions[:15])
+ for idx in positions[:2]:
+  print('DB_CONTEXT',pattern,s[max(0,idx-500):idx+5500])
+w=(base/'features/wells/well_screen.dart').read_text(encoding='utf8')
+print('WELL_HEAD',w[:5600])
 print('DONE_READ_ONLY_INSPECTION')
