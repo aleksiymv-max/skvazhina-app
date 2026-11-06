@@ -13,7 +13,7 @@ checks={
     "О системе", "Руководство пользователя",
     "Версия и история обновлений", "Состояние сервера и синхронизации"
  ]),
- "version metadata":"Версия v2.15" in about and "v2.14" in about,
+ "version metadata":"Версия v2.16" in about and "v2.15" in about and "v2.14" in about,
  "manual covers offline care": "Не очищайте данные браузера" in about,
  "live server probe bounded": "final response = await http.get(" in about and
     "Duration(seconds: 7)" in about,
@@ -21,10 +21,10 @@ checks={
     "sync.serverAvailable" in about,
  "pending count visible": "sync.pending.toString()" in about,
  "last successful sync visible": "_date(sync.lastSyncAt)" in about,
- "manual sync does not erase data": "unawaited(sync.syncNow())" in about and
+ "manual sync does not erase data": "unawaited(sync.syncNow(force:true))" in about and
     "clearPersistedSession" not in about and "clearDirty" not in about,
  "no regular background health polling": "Timer.periodic" not in about,
- "sync avoids redundant second read": "if(_stateDirty){await _pushState();if(!_stateDirty)await _pull();}" in sync,
+ "sync avoids redundant second read": "if(!_stateDirty){_syncPhase='pull.confirm';await _pull();}" in sync,
  "sync differentiates transport": "error is TimeoutException||error is http.ClientException" in sync,
  "PWA online hint is not a hard gate":"_online=kIsWeb||results.any(" in sync and
     "if(kIsWeb)_online=true;" in sync,
