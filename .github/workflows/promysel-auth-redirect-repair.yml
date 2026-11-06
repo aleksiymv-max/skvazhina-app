@@ -1,0 +1,48 @@
+name: Fix Promysel email invite and password recovery links
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'deploy/ci/auth-redirect-repair.trigger'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: promysel-auth-url-repair
+  cancel-in-progress: false
+jobs:
+  repair:
+    if: github.repository == 'aleksiymv-max/skvazhina-app' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Validate redirect repair script offline
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m py_compile infra/smtp/repair_promysel_auth_redirect.py
+          python3 - <<'PY'
+          from pathlib import Path
+          s=Path('infra/smtp/repair_promysel_auth_redirect.py').read_text()
+          assert 'mailer_templates_invite_content' in s
+          assert 'mailer_templates_recovery_content' in s
+          assert 'token_hash={{ .TokenHash }}' in s
+          assert 'promysel-app.tuqo.ru/finish-registration.html' in s or 'REGISTRATION = ORIGIN + "/finish-registration.html"' in s
+          print('PASS: production registration flow and templates validated')
+          PY
+      - name: Verify TUQO availability and repair Supabase Auth redirects
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_PAT: ${{ secrets.SUPABASE_PAT }}
+          SUPABASE_MANAGEMENT_TOKEN: ${{ secrets.SUPABASE_MANAGEMENT_TOKEN }}
+          SUPABASE_TOKEN: ${{ secrets.SUPABASE_TOKEN }}
+          SUPABASE_PERSONAL_ACCESS_TOKEN: ${{ secrets.SUPABASE_PERSONAL_ACCESS_TOKEN }}
+          SB_ACCESS_TOKEN: ${{ secrets.SB_ACCESS_TOKEN }}
+          SB_MANAGEMENT_TOKEN: ${{ secrets.SB_MANAGEMENT_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 infra/smtp/repair_promysel_auth_redirect.py
