@@ -26,7 +26,7 @@ item="""   const SizedBox(height:8),
      ),
    ),
 """
-s=s.replace(anchor,item+anchor,1)
+s=s.replace(anchor,anchor+"\n"+item.rstrip("\n"),1)
 assert s.count("PromyselAboutScreen()")==1
 p.write_text(s,encoding="utf-8")
 assert Path("lib/features/menu/about_screen.dart").exists()
