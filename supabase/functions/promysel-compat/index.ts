@@ -245,6 +245,38 @@ Deno.serve(async(req:Request)=>{
   const {data:auth,error:authError}=await actorClient.auth.getUser(token);
   if(authError||!auth.user)return reply({detail:"Сессия истекла. Войдите повторно."},401);
   const user=auth.user;
+  // The invitation landing may be used before field access is approved.
+  // Query Supabase service-role RPC by authenticated token; never trust email
+  // or user ID supplied by the browser. This also protects OLD invite URLs.
+  if(route==="/v1/registration/password-status"&&req.method==="GET"||
+     route==="/v1/registration/initial-password"&&req.method==="POST"){
+    const {data:state,error:stateError}=await admin.rpc("promysel_initial_password_status",{
+      p_user_id:user.id
+    });
+    if(stateError)throw stateError;
+    if(route.endsWith("password-status"))
+      return reply({passwordSet:state?.passwordSet===true,approved:state?.approved===true});
+    const newPassword=typeof body.password==="string"?body.password:"";
+    if(state?.passwordSet===true)return reply({
+      detail:"Пароль уже установлен. Повторная регистрация не требуется. Войдите с прежним паролем."
+    },409);
+    if(state?.approved!==true)return reply({
+      detail:"Заявка ещё не согласована. Обратитесь к руководителю."
+    },403);
+    if(newPassword.length<12||newPassword.length>128)
+      return reply({detail:"Пароль должен содержать от 12 до 128 символов."},400);
+    const {error:passwordError}=await admin.auth.admin.updateUserById(user.id,{
+      password:newPassword,app_metadata:{
+        ...user.app_metadata,must_change_password:false,
+        password_changed_at:new Date().toISOString()
+      }
+    });
+    if(passwordError){
+      console.error("initial password setup",passwordError.code??"unknown");
+      return reply({detail:"Не удалось установить пароль. Попробуйте ещё раз."},400);
+    }
+    return reply({status:"password_set",detail:"Пароль установлен. Теперь войдите в приложение."});
+  }
   const elevated=user.app_metadata?.system_admin===true;
   if(user.app_metadata?.must_change_password===true&&
      !["/v1/auth/first-password","/v1/auth/change-password"].includes(route)){
@@ -431,6 +463,25 @@ Deno.serve(async(req:Request)=>{
      console.error("registration invitation claim",claimError.code??"unknown");
      return reply({status:"approved",invitationSent:false,
        detail:"Заявка согласована, но очередь приглашений временно недоступна."},202);
+   }
+   if(claim?.status==="already_registered"){
+     const existingId=txt(claim?.acceptedUserId);
+     if(!existingId)return reply({detail:"Не удалось определить действующий аккаунт"},409);
+     const {data:result,error:finalizeError}=await admin.rpc("promysel_finish_registration_approval",{
+       p_request_id:target,p_actor:user.id,p_user_id:existingId
+     });
+     if(finalizeError){
+       console.error("existing account approval finalization",finalizeError.code??"unknown");
+       return reply({status:"approved",invitationSent:false,
+         detail:"Учётная запись существует, но доступ пока не согласован."},202);
+     }
+     const {error:recordError}=await admin.rpc("promysel_record_registration_invitation",{
+       p_request_id:target,p_actor:user.id,p_status:"accepted",p_user_id:existingId
+     });
+     if(recordError)console.warn("existing account mail status",recordError.code??"unknown");
+     return reply({...result,status:"approved",invitationSent:false,
+       invitationStatus:"already_registered",
+       detail:"Сотрудник уже установил пароль. Доступ подтверждён, повторное письмо не отправляется. Войдите с прежним паролем."});
    }
    if(claim?.status==="sent")return reply({status:"approved",invitationSent:true,
      detail:"Заявка уже согласована и приглашение отправлено."});
