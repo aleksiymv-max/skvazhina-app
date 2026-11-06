@@ -300,3 +300,8 @@ production=not automatically deployed
 
 retry=v2.24-network-diagnostics-template-path-v225
 reason=source-safe standalone HTML test must resolve template from repository workspace when Flutter build is extracted
+
+release=v2.25-VPN-sync-API-probe-20261106
+feature=read-only authenticated revisions GET; manual VPN on/off; response ms HTTP error report
+no_production_database_changes=true
+source=e6fa777a5d632ac4fa69ca148853290809c071d4
