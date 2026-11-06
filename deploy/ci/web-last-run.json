@@ -1,10 +1,10 @@
 {
-  "run_id": 42189261455,
-  "head_sha": "c9e5f627f4a5a30b59b331f48e6da0371a756bf1",
+  "run_id": 42189404275,
+  "head_sha": "e1a88832dac5d8ac43b98b29df3e501269d9a7db",
   "conclusion": "failure",
-  "run_url": "https://github.com/aleksiymv-max/skvazhina-app/actions/runs/42189261455",
-  "started_at": "2026-11-06T08:39:35Z",
-  "updated_at": "2026-11-06T08:39:52Z",
+  "run_url": "https://github.com/aleksiymv-max/skvazhina-app/actions/runs/42189404275",
+  "started_at": "2026-11-06T08:40:46Z",
+  "updated_at": "2026-11-06T08:41:03Z",
   "artifact_available": false,
   "queue_wait_seconds": 0,
   "total_elapsed_seconds": 17.0,
@@ -16,7 +16,7 @@
     },
     {
       "name": "Run actions/checkout@v4",
-      "seconds": 1.0,
+      "seconds": 3.0,
       "conclusion": "success"
     },
     {
@@ -26,7 +26,7 @@
     },
     {
       "name": "Supabase compatibility endpoint preflight",
-      "seconds": 2.0,
+      "seconds": 1.0,
       "conclusion": "success"
     },
     {
@@ -36,7 +36,7 @@
     },
     {
       "name": "Verify preinstalled icon renderer",
-      "seconds": 1.0,
+      "seconds": 0,
       "conclusion": "success"
     },
     {
