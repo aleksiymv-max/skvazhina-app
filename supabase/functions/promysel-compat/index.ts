@@ -18,7 +18,12 @@ function validatedPublicOrigin(value:string):string{
   }catch(_){}
   return "";
 }
-const publicOrigin=validatedPublicOrigin(configuredPublicOrigin)||"https://promysel-app.tuqo.ru";
+// Production invitations must never be redirected to a retired Cloudflare
+// hostname, even if a stale PROMYSEL_PUBLIC_ORIGIN environment variable exists.
+const approvedRegistrationOrigin="https://promysel-app.tuqo.ru";
+const candidateRegistrationOrigin=validatedPublicOrigin(configuredPublicOrigin);
+const publicOrigin=candidateRegistrationOrigin===approvedRegistrationOrigin
+  ?candidateRegistrationOrigin:approvedRegistrationOrigin;
 const passwordSetupUrl=publicOrigin+"/finish-registration.html";
 
 const validEmail=(x:string)=>x.length<=254&&/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(x);
