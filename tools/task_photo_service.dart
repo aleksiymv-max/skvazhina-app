@@ -55,6 +55,18 @@ class TaskPhotoService {
   TaskPhotoService._();
   static final instance=TaskPhotoService._();
   static const base='https://xptmcufhuvtcunqzlsme.supabase.co/functions/v1/promysel-task-photos';
+  // Read-only metadata for a task is cached briefly, per field AND user.
+  // No photos are cached in this map; signed originals load on explicit tap.
+  final Map<String,List<Map<String,dynamic>>> _listCache={};
+  final Map<String,DateTime> _listCachedAt={};
+  final Map<String,Future<List<Map<String,dynamic>>>> _listPending={};
+  String _key(String field,String task)=>SessionService.instance.currentUser.id+
+    '|'+field+'|'+task;
+  void _invalidate(String field,String task){
+    final k=_key(field,task);
+    _listCache.remove(k);
+    _listCachedAt.remove(k);
+  }
   Future<String> token()async{
     await SessionService.instance.ensureFreshToken();
     final t=SessionService.instance.token;
@@ -78,6 +90,7 @@ class TaskPhotoService {
         'targetType':task.targetType.name,'targetId':task.targetId})
     ).timeout(const Duration(seconds:16));
     parse(res);
+    _invalidate(fieldId,task.id);
   }
   Future<void> upload(WorkTask task,String phase,List<TaskSelectedPhoto> photos)async{
     if(photos.isEmpty)return;
@@ -91,15 +104,42 @@ class TaskPhotoService {
         filename:photo.name,contentType:MediaType.parse(photo.mime)));
       final stream=await req.send().timeout(const Duration(seconds:35));
       parse(await http.Response.fromStream(stream));
+      // If a later upload fails, already confirmed images remain visible
+      // rather than being hidden behind a cached empty list.
+      _invalidate(fieldId,task.id);
     }
   }
-  Future<List<Map<String,dynamic>>> list(WorkTask task)async{
+  Future<List<Map<String,dynamic>>> list(WorkTask task,{bool force=false})async{
     final fieldId=SessionService.instance.currentFieldId;
     if(fieldId==null)return [];
-    final uri=Uri.parse(base+'/list').replace(queryParameters:{'fieldId':fieldId,'taskId':task.id});
-    final res=await http.get(uri,headers:{'authorization':'Bearer '+await token()}).timeout(const Duration(seconds:14));
-    final items=parse(res)['items'];
-    return items is List?items.whereType<Map>().map((x)=>Map<String,dynamic>.from(x)).toList():[];
+    final key=_key(fieldId,task.id);
+    final cachedAt=_listCachedAt[key];
+    if(!force&&cachedAt!=null&&_listCache.containsKey(key)&&
+       DateTime.now().difference(cachedAt)<const Duration(seconds:20)){
+      return _listCache[key]!.map((r)=>Map<String,dynamic>.from(r)).toList();
+    }
+    if(_listPending.containsKey(key))return _listPending[key]!;
+    Future<List<Map<String,dynamic>>> load()async{
+      final uri=Uri.parse(base+'/list').replace(
+        queryParameters:{'fieldId':fieldId,'taskId':task.id});
+      final res=await http.get(uri,
+        headers:{'authorization':'Bearer '+await token()})
+        .timeout(const Duration(seconds:14));
+      final items=parse(res)['items'];
+      final rows=items is List?items.whereType<Map>()
+        .map((x)=>Map<String,dynamic>.from(x)).toList():<Map<String,dynamic>>[];
+      if(_listCache.length>=64){
+        final oldest=_listCache.keys.first;
+        _listCache.remove(oldest);
+        _listCachedAt.remove(oldest);
+      }
+      _listCache[key]=rows;
+      _listCachedAt[key]=DateTime.now();
+      return rows.map((r)=>Map<String,dynamic>.from(r)).toList();
+    }
+    final pending=load();
+    _listPending[key]=pending;
+    try{return await pending;}finally{_listPending.remove(key);}
   }
   Future<String> signedUrl(String photoId)async{
     final res=await http.get(Uri.parse(base+'/'+photoId+'/url'),
