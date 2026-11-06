@@ -156,7 +156,7 @@ class FieldProblemReportStore extends ChangeNotifier {
  Future<void> refresh({bool force=false})async{
   if(_busy)return;
   await ensureLoaded();
-  if(_scope.isEmpty)return;
+  if(_busy||_scope.isEmpty)return;
   if(!force&&_pending.isEmpty&&_lastFetch!=null&&
      DateTime.now().difference(_lastFetch!)<const Duration(seconds:25))return;
   _busy=true;notifyListeners();
