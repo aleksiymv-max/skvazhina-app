@@ -141,7 +141,7 @@ Deno.serve(async (request:Request)=>{
        else userId=invited.user.id;
      }else{
        const {error:resetError}=await client.auth.resetPasswordForEmail(String(decision.email),{
-         redirectTo:"https://promysel-app.tuqo.ru/finish-registration.html"
+         redirectTo:"https://promysel-app.tuqo.ru/finish-registration.html?mode=first&token_hash="
        });
        if(resetError)deliveryError=resetError;
      }
