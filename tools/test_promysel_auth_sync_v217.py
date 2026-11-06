@@ -28,8 +28,8 @@ checks={
     "_lastSyncProblem=lastSyncHttpStatus==401" in sync,
   "status clears on new and successful sync":"_syncPhase='session';lastSyncHttpStatus=null;" in sync and
     "_lastSyncProblem=null;lastSyncHttpStatus=null;" in sync,
-  "UI offers safe numeric diagnostic":"_metric('Код ответа HTTP',sync.lastSyncHttpStatus.toString())" in about and
-    "Версия v2.18" in about,
+  "UI offers safe numeric diagnostic":"sync.lastSyncHttpStatus" in about and
+    "Версия v2.19" in about,
   "no structural changes or data deletion":"await _db.markSyncError" in sync and
     "await _db.applyRemoteMeasurement" in sync and
     "await AppStateStore.instance.clearDirty(fid)" in sync,
