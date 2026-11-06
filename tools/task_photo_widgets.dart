@@ -38,7 +38,7 @@ class TaskPhotoGallery extends StatefulWidget {
 class _TaskPhotoGalleryState extends State<TaskPhotoGallery>{
   late Future<List<Map<String,dynamic>>> future;
   @override void initState(){super.initState();_reload();}
-  void _reload(){future=TaskPhotoService.instance.list(widget.task);}
+  void _reload({bool force=false}){future=TaskPhotoService.instance.list(widget.task,force:force); }
   Future<void> _open(String id)async{
     try{
       final signed=await TaskPhotoService.instance.signedUrl(id);
@@ -53,7 +53,7 @@ class _TaskPhotoGalleryState extends State<TaskPhotoGallery>{
   }
   @override Widget build(BuildContext context)=>Scaffold(
     appBar:AppBar(title:const Text('Фото задания'),
-      actions:[IconButton(onPressed:()=>setState(_reload),icon:const Icon(Icons.refresh))]),
+      actions:[IconButton(onPressed:()=>setState(()=>_reload(force:true)),icon:const Icon(Icons.refresh))]),
     body:FutureBuilder<List<Map<String,dynamic>>>(future:future,builder:(context,snapshot){
       if(snapshot.connectionState!=ConnectionState.done)return const Center(child:CircularProgressIndicator());
       if(snapshot.hasError)return Center(child:Padding(padding:const EdgeInsets.all(20),
