@@ -58,8 +58,7 @@ one("  String _checkStatus='Проверка ещё не выполнялась'
         });
       final response=await http.get(uri,headers:{
         'authorization':'Bearer $token',
-        'accept':'application/json',
-        'cache-control':'no-store'
+        'accept':'application/json'
       }).timeout(const Duration(seconds:12));
       _apiCode='HTTP_${response.statusCode}';
       if(response.statusCode==200){
