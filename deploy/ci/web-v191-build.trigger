@@ -229,3 +229,6 @@ root_cause=public.promysel_commit_sync_domain executed as service_role could not
 server_fix=restricted SECURITY DEFINER; service_role-only execute; verified conflict-only read-only call and one HTTP 200 domain/push
 client_fix=show actual failed domain server code HTTP status and count separate pending domain changes
 scope=Web DEV build and staged TUQO after verification; preserve all offline data
+
+release=v2.20-domain-sqlstate-build-anchor-correction
+reason=storage exception instrumentation now targets top-level sync catch, not domain-level catch
