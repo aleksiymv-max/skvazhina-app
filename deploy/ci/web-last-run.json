@@ -1,13 +1,13 @@
 {
-  "run_id": 42199772958,
-  "head_sha": "ddfc501b97b4b2a232c7d60b14f37377cf78797c",
+  "run_id": 42199904394,
+  "head_sha": "5621deac9e2b3992ef77bef877c214b7b86b20ef",
   "conclusion": "failure",
-  "run_url": "https://github.com/aleksiymv-max/skvazhina-app/actions/runs/42199772958",
-  "started_at": "2026-11-06T10:04:04Z",
-  "updated_at": "2026-11-06T10:04:17Z",
+  "run_url": "https://github.com/aleksiymv-max/skvazhina-app/actions/runs/42199904394",
+  "started_at": "2026-11-06T10:05:05Z",
+  "updated_at": "2026-11-06T10:05:19Z",
   "artifact_available": false,
   "queue_wait_seconds": 0,
-  "total_elapsed_seconds": 13.0,
+  "total_elapsed_seconds": 14.0,
   "step_durations": [
     {
       "name": "Set up job",
@@ -16,12 +16,12 @@
     },
     {
       "name": "Run actions/checkout@v4",
-      "seconds": 1.0,
+      "seconds": 0,
       "conclusion": "success"
     },
     {
       "name": "Approval-first registration regression",
-      "seconds": 0,
+      "seconds": 1.0,
       "conclusion": "success"
     },
     {
@@ -41,7 +41,7 @@
     },
     {
       "name": "Apply current Promysel updates",
-      "seconds": 5.0,
+      "seconds": 4.0,
       "conclusion": "failure"
     },
     {
@@ -91,7 +91,7 @@
     },
     {
       "name": "Post Run actions/checkout@v4",
-      "seconds": 0,
+      "seconds": 1.0,
       "conclusion": "success"
     },
     {
