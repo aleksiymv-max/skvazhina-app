@@ -235,3 +235,6 @@ reason=storage exception instrumentation now targets top-level sync catch, not d
 
 release=v2.20-domain-error-valid-source-regex-corrected
 reason=regenerated Dart template from parent version and verified exact bounded error-code regex
+
+release=v2.20-dev-cloudflare-internal-error-retry
+reason=Flutter analyzer/tests and artifact passed; Cloudflare Pages returned transient internal function publish error
