@@ -223,3 +223,9 @@ reason=recognize correct 7-second health timeout in unified diagnostic test
 
 release=v2.19-help-presence-test-project-root-corrected
 reason=read Edge Function source from GitHub workspace, not nested extracted Flutter source directory
+
+release=v2.20-fix-42501-domain-sync-and-meaningful-diagnostic
+root_cause=public.promysel_commit_sync_domain executed as service_role could not SELECT auth.users; SQLSTATE 42501
+server_fix=restricted SECURITY DEFINER; service_role-only execute; verified conflict-only read-only call and one HTTP 200 domain/push
+client_fix=show actual failed domain server code HTTP status and count separate pending domain changes
+scope=Web DEV build and staged TUQO after verification; preserve all offline data
