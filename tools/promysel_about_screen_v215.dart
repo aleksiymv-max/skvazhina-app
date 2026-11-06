@@ -29,7 +29,7 @@ class PromyselAboutScreen extends StatelessWidget {
               const Text('Цифровая система производственного учёта',
                 textAlign: TextAlign.center),
               const SizedBox(height: 10),
-              const Chip(label: Text('Версия v2.16')),
+              const Chip(label: Text('Версия v2.17')),
             ]),
           ),
         ),
@@ -138,8 +138,10 @@ class _ReleasePage extends StatelessWidget {
   @override Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(title: const Text('Версия и история обновлений')),
     body: ListView(padding: const EdgeInsets.all(16), children: const [
-      _Section('Текущая версия: v2.16 · 06.11.2026',
+      _Section('Текущая версия: v2.17 · 06.11.2026',
         'Добавлены расширенные коды диагностики обмена, проверка этапов импорта SQLite и восстановления данных, а также ручной повтор без ожидания автоматической паузы.'),
+      _Section('v2.16',
+        'Расширена диагностика стадий синхронизации и ручная повторная попытка.'),
       _Section('v2.15',
         'Добавлены «О приложении», руководство, проверка сервера и улучшено отображение сетевых ошибок.'),
       _Section('v2.14',
@@ -249,6 +251,10 @@ class _PromyselConnectionPageState extends State<PromyselConnectionPage> {
                 _metric('Этап последней ошибки',sync.lastSyncFailurePhase!),
                 const SizedBox(height: 8),
                 _metric('Тип ошибки',sync.lastSyncFailureType??'Не определён'),
+                if(sync.lastSyncHttpStatus!=null)...[
+                  const SizedBox(height:8),
+                  _metric('Код ответа HTTP',sync.lastSyncHttpStatus.toString()),
+                ],
                 const SizedBox(height: 8),
                 _metric('Время ошибки',_date(sync.lastSyncFailureAt)),
                 const SizedBox(height: 12),
@@ -258,7 +264,8 @@ class _PromyselConnectionPageState extends State<PromyselConnectionPage> {
                       'Этап: ${sync.lastSyncFailurePhase??"не определён"}\n'
                       'Тип: ${sync.lastSyncFailureType??"не определён"}\n'
                       'Время: ${_date(sync.lastSyncFailureAt)}\n'
-                      'Ожидающих замеров: ${sync.pending}';
+                      'Ожидающих замеров: ${sync.pending}\n'
+                      'HTTP: ${sync.lastSyncHttpStatus?.toString()??"нет"}';
                     Clipboard.setData(ClipboardData(text:safeReport));
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(content:Text('Диагностический код скопирован')));
