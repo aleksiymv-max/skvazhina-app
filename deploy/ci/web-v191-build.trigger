@@ -189,3 +189,6 @@ reason=insert after stable History tile, without breaking avatar/profile menu tr
 
 release=v2.15-sync-accurate-error-classification
 reason=avoid reporting HTTP or local decoding failures as no network; keep pending queue and clear diagnostics after successful sync
+
+release=v2.15-web-reachability-and-about-final
+reason=Web cannot trust navigator.onLine=false; attempt bounded Supabase sync and report actual transport/HTTP error separately
