@@ -88,4 +88,8 @@ new=r"""if(latestState!=null&&_stateDirty) {
     if(latestState!=null&&!_stateDirty){"""
 s=s.replace(anchor,new,1)
 p.write_text(s,encoding='utf-8')
+about=Path('lib/features/menu/about_screen.dart')
+current=about.read_text(encoding='utf-8')
+assert current.count('Версия v2.22')==2, 'current release labels changed'
+about.write_text(current.replace('Версия v2.22','Версия v2.23'),encoding='utf-8')
 print('PASS v2.23: first-login field structure restores despite pending domain conflicts')
