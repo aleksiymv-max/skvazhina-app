@@ -1,0 +1,29 @@
+name: One-shot set Promysel Auth mail cap for Gmail SMTP
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'deploy/ci/smtp-rate-120.trigger'
+permissions:
+  contents: read
+jobs:
+  configure:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Raise only Auth email-per-hour cap after verifying Gmail
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_PAT: ${{ secrets.SUPABASE_PAT }}
+          SUPABASE_MANAGEMENT_TOKEN: ${{ secrets.SUPABASE_MANAGEMENT_TOKEN }}
+          SUPABASE_TOKEN: ${{ secrets.SUPABASE_TOKEN }}
+          SUPABASE_PERSONAL_ACCESS_TOKEN: ${{ secrets.SUPABASE_PERSONAL_ACCESS_TOKEN }}
+          SB_ACCESS_TOKEN: ${{ secrets.SB_ACCESS_TOKEN }}
+          SB_MANAGEMENT_TOKEN: ${{ secrets.SB_MANAGEMENT_TOKEN }}
+        run: |
+          set -euo pipefail
+          python3 -m py_compile infra/smtp/set_auth_email_limit_120.py
+          python3 infra/smtp/set_auth_email_limit_120.py
