@@ -40,3 +40,15 @@ jobs:
           code=$(curl -sS --max-time 20 -H 'Authorization: Bearer obviously.invalid.token' -o /tmp/promysel-v213-invalid.json -w '%{http_code}' "$API/v1/users")
           test "$code" = 401
           echo 'PASS: canary rejects missing and forged sessions without calling real employee accounts'
+          PUSH='https://xptmcufhuvtcunqzlsme.supabase.co/functions/v1/promysel-device-push-canary-v213'
+          code=$(curl -sS --max-time 20 -o /tmp/promysel-v213-push.json -w '%{http_code}' "$PUSH/public-key")
+          test "$code" = 200
+          python3 - <<'PY'
+          import json
+          o=json.load(open('/tmp/promysel-v213-push.json'))
+          assert isinstance(o.get('publicKey'),str) and len(o['publicKey'])>30
+          print('PASS canary public VAPID key without logging key material')
+          PY
+          code=$(curl -sS --max-time 20 -o /tmp/promysel-v213-inbox.json -w '%{http_code}' "$PUSH/inbox?fieldId=field-fake")
+          test "$code" = 403
+          echo 'PASS: push canary unauthorized inbox access denied'
