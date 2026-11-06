@@ -284,3 +284,6 @@ fix=remove mandatory PID and PKV state confirmation; independently record ESP fr
 history=show oil Rline and all saved param groups, distinguish T_after_choke versus Tpr, expose archived well measurements without reviving structure
 safety=SQLite additive v16 column; no production measurement or Supabase rewrites; preserve offline queues
 scope=Web DEV test only, stage TUQO after successful tests
+
+release=v2.24-measurement-constructor-anchor-corrected
+reason=match stable capturedUnits constructor terminator without depending on newline formatting
