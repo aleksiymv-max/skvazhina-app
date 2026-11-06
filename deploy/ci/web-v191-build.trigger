@@ -274,3 +274,7 @@ scope=Web DEV then stage TUQO after passed CI
 
 release=v2.23-final-one-time-restore-missing-areas-after-advanced-cursor
 reason=with old cursor already acknowledged, a device can remain with zero areas while sync returns no changes; force one bounded full recovery without losing local outbox
+
+release=v2.23-verified-final-after-recovery-landing-syntax-smoke
+recovery_smoke=42218407408 success
+scope=final validated Web DEV and TUQO staging, no direct production deploy
