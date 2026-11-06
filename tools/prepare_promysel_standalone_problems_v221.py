@@ -145,7 +145,7 @@ replace(app,
  GoRoute(path:'documentation',builder:(_,__)=>const PromyselDocumentationScreen()),""",
  'about in Menu route')
 replace(app,
- "void _navigate(BuildContext context,int index){\nfinal branch=",
- "void _navigate(BuildContext context,int index){\nif(index==4){context.go('/menu');return;}\nfinal branch=",
+ "shell.goBranch(branch,initialLocation:branch==shell.currentIndex);",
+ "if(index==4){context.go('/menu');return;}\nshell.goBranch(branch,initialLocation:branch==shell.currentIndex);",
  'bottom Menu returns to menu root')
 print('PASS v2.21: Walk report form, home problems, and About-to-Menu routing integrated')
