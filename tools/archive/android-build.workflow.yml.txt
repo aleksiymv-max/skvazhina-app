@@ -194,6 +194,8 @@ jobs:
           python3 "$GITHUB_WORKSPACE/tools/test_promysel_domain_transport_v211.py"
           python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_avatar_delta_v213.py"
           python3 "$GITHUB_WORKSPACE/tools/test_promysel_avatar_delta_v213.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_measurement_batch_v213.py"
+          python3 "$GITHUB_WORKSPACE/tools/test_promysel_measurement_batch_v213.py"
           python3 "$GITHUB_WORKSPACE/tools/inspect_promysel_home_layout.py"
           cp "$GITHUB_WORKSPACE/tools/work_schedule_test.dart" test/work_schedule_test.dart
           mkdir -p test
