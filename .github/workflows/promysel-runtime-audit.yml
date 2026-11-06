@@ -150,6 +150,8 @@ jobs:
           python3 "$GITHUB_WORKSPACE/tools/test_promysel_history_scoping_v204.py"
           python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_registration_invites_v205.py"
           python3 "$GITHUB_WORKSPACE/tools/test_promysel_registration_invites_v205.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_smtp_retry_v211.py"
+          python3 "$GITHUB_WORKSPACE/tools/test_promysel_smtp_retry_v211.py"
           python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_decimal_fields_v206.py"
           python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_avatar_sync_v206.py"
           python3 "$GITHUB_WORKSPACE/tools/test_promysel_decimal_avatar_v206.py"
@@ -157,6 +159,10 @@ jobs:
           python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_remove_comma_button_v208.py"
           python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_issued_review_v209.py"
           python3 "$GITHUB_WORKSPACE/tools/test_promysel_walk_validation_v207.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_client_cursor_v210.py"
+          python3 "$GITHUB_WORKSPACE/tools/test_promysel_client_cursor_v210.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_domain_transport_v211.py"
+          python3 "$GITHUB_WORKSPACE/tools/test_promysel_domain_transport_v211.py"
           python3 "$GITHUB_WORKSPACE/tools/inspect_promysel_home_layout.py"
           cp "$GITHUB_WORKSPACE/tools/work_schedule_test.dart" test/work_schedule_test.dart
           mkdir -p test
