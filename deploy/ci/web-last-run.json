@@ -1,13 +1,13 @@
 {
-  "run_id": 42217526845,
-  "head_sha": "62503cdbe6dbe2bc912eb9cd0cd548731a9b6b71",
-  "conclusion": "cancelled",
-  "run_url": "https://github.com/aleksiymv-max/skvazhina-app/actions/runs/42217526845",
-  "started_at": "2026-11-06T12:25:17Z",
-  "updated_at": "2026-11-06T12:28:44Z",
+  "run_id": 42217932407,
+  "head_sha": "d094b825df9e65d350aa7e1ca252bb66ede266df",
+  "conclusion": "success",
+  "run_url": "https://github.com/aleksiymv-max/skvazhina-app/actions/runs/42217932407",
+  "started_at": "2026-11-06T12:28:32Z",
+  "updated_at": "2026-11-06T12:31:53Z",
   "artifact_available": true,
   "queue_wait_seconds": 0,
-  "total_elapsed_seconds": 207.0,
+  "total_elapsed_seconds": 201.0,
   "step_durations": [
     {
       "name": "Set up job",
@@ -21,7 +21,7 @@
     },
     {
       "name": "Approval-first registration regression",
-      "seconds": 1.0,
+      "seconds": 0,
       "conclusion": "success"
     },
     {
@@ -36,27 +36,27 @@
     },
     {
       "name": "Verify preinstalled icon renderer",
-      "seconds": 1.0,
+      "seconds": 0,
       "conclusion": "success"
     },
     {
       "name": "Apply current Promysel updates",
-      "seconds": 8.0,
+      "seconds": 10.0,
       "conclusion": "success"
     },
     {
       "name": "Run subosito/flutter-action@v2",
-      "seconds": 24.0,
+      "seconds": 22.0,
       "conclusion": "success"
     },
     {
       "name": "Create web platform and configure iPhone PWA",
-      "seconds": 46.0,
+      "seconds": 39.0,
       "conclusion": "success"
     },
     {
       "name": "Analyze and build web release",
-      "seconds": 92.0,
+      "seconds": 86.0,
       "conclusion": "success"
     },
     {
@@ -86,12 +86,12 @@
     },
     {
       "name": "Publish development preview only (stable production remains frozen)",
-      "seconds": 17.0,
+      "seconds": 16.0,
       "conclusion": "success"
     },
     {
       "name": "Post Run subosito/flutter-action@v2",
-      "seconds": 1.0,
+      "seconds": 0,
       "conclusion": "success"
     },
     {
