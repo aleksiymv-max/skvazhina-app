@@ -64,7 +64,7 @@ p.write_text(s,encoding='utf-8')
 p=Path('lib/core/services/sync_service.dart')
 s=p.read_text(encoding='utf-8')
 a='timeout:const Duration(seconds:25),attempts:2'
-b='timeout:const Duration(seconds:16),attempts:2'
+b='timeout:const Duration(seconds:12),attempts:2'
 assert s.count(a)==1,'sync read timeout anchor changed'
 p.write_text(s.replace(a,b,1),encoding='utf-8')
 
