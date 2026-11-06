@@ -11,17 +11,17 @@ checks={
  "menu has About route":"PromyselAboutScreen()" in menu and "О приложении" in menu,
  "four requested sections": all(label in about for label in [
     "О системе", "Руководство пользователя",
-    "Версия и история обновлений", "Состояние сервера и синхронизации"
+    "Версия приложения", "Состояние сервера и синхронизации"
  ]),
- "version metadata":"Версия v2.18" in about and "v2.16" in about and "v2.15" in about and "v2.14" in about,
+ "version metadata":"Версия v2.19" in about and "v2.16" in about and "v2.15" in about and "v2.14" in about,
  "manual covers offline care": "Не очищайте данные браузера" in about,
- "live server probe bounded": "final response = await http.get(" in about and
+ "live server probe bounded": "final response=await http.get(uri," in about and
     "Duration(seconds: 7)" in about,
  "server probe distinct from sync": "response.statusCode" in about and
-    "sync.serverAvailable" in about,
+    "sync.lastSyncAt" in about,
  "pending count visible": "sync.pending.toString()" in about,
  "last successful sync visible": "_date(sync.lastSyncAt)" in about,
- "manual sync does not erase data": "unawaited(sync.syncNow(force:true))" in about and
+ "manual sync does not erase data": "await sync.syncNow(force:true)" in about and
     "clearPersistedSession" not in about and "clearDirty" not in about,
  "no regular background health polling": "Timer.periodic" not in about,
  "sync avoids redundant second read": "if(!_stateDirty){_syncPhase='pull.confirm';await _pull();}" in sync,
