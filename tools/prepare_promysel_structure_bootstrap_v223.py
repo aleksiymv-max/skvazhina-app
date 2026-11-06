@@ -10,6 +10,32 @@ from pathlib import Path
 
 p=Path('lib/core/services/sync_service.dart')
 s=p.read_text(encoding='utf-8')
+# A stale successful cursor may otherwise make the server return an empty
+# delta forever even though the device never stored its first area list.
+original="    final recover=_cursor=='0'||lastRepair==null||"
+prefix="""    final missingKey='promysel_missing_structure_probe_v223_'+fieldId;
+    final localBefore=AppStateStore.instance.snapshot(fieldId);
+    final localAreasBefore=localBefore['areas'];
+    final localPadsBefore=localBefore['pads'];
+    final missingStructure=(localAreasBefore is! List||localAreasBefore.isEmpty)&&
+      (localPadsBefore is! List||localPadsBefore.isEmpty);
+    final forceMissingStructure=missingStructure&&_cursor!='0'&&
+      recoveryPrefs.getBool(missingKey)!=true;
+    final recover=_cursor=='0'||forceMissingStructure||lastRepair==null||"""
+assert s.count(original)==1,'Recover predicate anchor changed'
+s=s.replace(original,prefix,1)
+# The first read-only restore probe is now completed. Do not repeat it on an
+# intentionally empty field each time the user opens the app.
+guard="""    if(latestState!=null&&_stateDirty){
+      status='Локальные изменения ожидают отправки · обновления сервера будут загружены повторно';"""
+result="""    if(forceMissingStructure){
+      await recoveryPrefs.setBool(missingKey,true);
+    }
+    if(latestState!=null&&_stateDirty){
+      status='Локальные изменения ожидают отправки · обновления сервера будут загружены повторно';"""
+assert s.count(guard)==1,'Cursor safety guard changed'
+s=s.replace(guard,result,1)
+
 anchor="if(latestState!=null&&!_stateDirty){"
 assert s.count(anchor)==1, 'Expected one guarded snapshot apply'
 new=r"""if(latestState!=null&&_stateDirty) {
