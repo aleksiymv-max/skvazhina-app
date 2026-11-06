@@ -1,13 +1,13 @@
 {
-  "run_id": 42218475115,
-  "head_sha": "9c3c6108e8dab4eccd1c13ed8838de0095ab93b0",
-  "conclusion": "success",
-  "run_url": "https://github.com/aleksiymv-max/skvazhina-app/actions/runs/42218475115",
-  "started_at": "2026-11-06T12:32:41Z",
-  "updated_at": "2026-11-06T12:36:15Z",
-  "artifact_available": true,
+  "run_id": 42225508682,
+  "head_sha": "75f2adaf93cf3bad6272536946b24f61f24a1683",
+  "conclusion": "failure",
+  "run_url": "https://github.com/aleksiymv-max/skvazhina-app/actions/runs/42225508682",
+  "started_at": "2026-11-06T13:26:27Z",
+  "updated_at": "2026-11-06T13:26:46Z",
+  "artifact_available": false,
   "queue_wait_seconds": 0,
-  "total_elapsed_seconds": 214.0,
+  "total_elapsed_seconds": 19.0,
   "step_durations": [
     {
       "name": "Set up job",
@@ -36,67 +36,62 @@
     },
     {
       "name": "Verify preinstalled icon renderer",
-      "seconds": 5.0,
+      "seconds": 1.0,
       "conclusion": "success"
     },
     {
       "name": "Apply current Promysel updates",
-      "seconds": 9.0,
-      "conclusion": "success"
+      "seconds": 5.0,
+      "conclusion": "failure"
     },
     {
       "name": "Run subosito/flutter-action@v2",
-      "seconds": 34.0,
-      "conclusion": "success"
+      "seconds": 0,
+      "conclusion": "skipped"
     },
     {
       "name": "Create web platform and configure iPhone PWA",
-      "seconds": 41.0,
-      "conclusion": "success"
+      "seconds": 0,
+      "conclusion": "skipped"
     },
     {
       "name": "Analyze and build web release",
-      "seconds": 88.0,
-      "conclusion": "success"
+      "seconds": 0,
+      "conclusion": "skipped"
     },
     {
       "name": "Add first-run account setup and Cloudflare hosting metadata",
       "seconds": 0,
-      "conclusion": "success"
+      "conclusion": "skipped"
     },
     {
       "name": "Probe existing Tuqo site and backend DNS HTTPS (external GitHub network only)",
-      "seconds": 3.0,
-      "conclusion": "success"
+      "seconds": 0,
+      "conclusion": "skipped"
     },
     {
       "name": "Package iPhone web app",
-      "seconds": 2.0,
-      "conclusion": "success"
+      "seconds": 0,
+      "conclusion": "skipped"
     },
     {
       "name": "Run actions/upload-artifact@v4",
-      "seconds": 2.0,
-      "conclusion": "success"
+      "seconds": 0,
+      "conclusion": "skipped"
     },
     {
       "name": "Confirm Cloudflare-ready root structure",
       "seconds": 0,
-      "conclusion": "success"
+      "conclusion": "skipped"
     },
     {
       "name": "Publish development preview only (stable production remains frozen)",
-      "seconds": 17.0,
-      "conclusion": "success"
-    },
-    {
-      "name": "Post Run subosito/flutter-action@v2",
       "seconds": 0,
-      "conclusion": "success"
+      "conclusion": "skipped"
     },
     {
       "name": "Post Run actions/checkout@v4",
-      "seconds": 0,
+      "seconds": 1.0,
       "conclusion": "success"
     },
     {
