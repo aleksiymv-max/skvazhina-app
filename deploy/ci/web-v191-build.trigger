@@ -308,3 +308,6 @@ source=e6fa777a5d632ac4fa69ca148853290809c071d4
 
 retry=v2.25-flutter-vpn-interpolation-quote-fix
 reason=Flutter parser requires distinct string delimiters around embedded ternary/map expressions
+
+retry=v2.25-CORS-compatible-authorized-GET
+reason=remove unsupported cache-control request header from Supabase Edge OPTIONS, retain unique cache-busting query
