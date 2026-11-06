@@ -46,7 +46,11 @@ def recipe(source: str):
         source,
     )
     # This test checks emitted Web files and therefore has no Android equivalent.
-    checks=[x for x in checks if x!="test_promysel_cellular_startup_v201.py"]
+    # Browser-only HTML output checks have no Android equivalent; the Flutter
+    # source and shared sync tests must still remain byte-for-byte in parity.
+    web_output_checks={"test_promysel_cellular_startup_v201.py",
+                       "test_promysel_network_diagnostics_v225.py"}
+    checks=[x for x in checks if x not in web_output_checks]
     return common_loop,preparations,patches,checks
 
 web_recipe=recipe(web)
