@@ -830,10 +830,21 @@ Deno.serve(async(req:Request)=>{
     const fid=fieldTag(u.searchParams.get("fieldId")),day=txt(u.searchParams.get("day"));
     if(!/^\d{4}-\d{2}-\d{2}$/.test(day)||!fid)return reply({detail:"Неверная дата или месторождение"},400);
     if(!administrator&&!canField(fid))return reply({detail:"Нет доступа к месторождению"},403);
+    // Presence represents a person's explicit work/rest choice, not a
+    // midnight-generated default. Latest entry at or before the target day
+    // remains authoritative until the person/supervisor changes the flag.
+    // The date remains in the audit trail; nothing is copied or deleted.
     const {data,error}=await admin.from("promysel_daily_presence")
-      .select("user_id,is_working,updated_at").eq("field_id",fid).eq("work_day",day).limit(1000);
+      .select("user_id,is_working,updated_at,work_day").eq("field_id",fid)
+      .lte("work_day",day).order("work_day",{ascending:false})
+      .order("updated_at",{ascending:false}).limit(1000);
     if(error)throw error;
-    return reply({fieldId:fid,day,items:(data??[]).map((x:J)=>({
+    const latest=new Map<string,J>();
+    for(const row of data??[]){
+      const id=String(row.user_id??"");
+      if(id&&!latest.has(id))latest.set(id,row as J);
+    }
+    return reply({fieldId:fid,day,items:[...latest.values()].map((x:J)=>({
       id:x.user_id,atWork:x.is_working,updatedAt:x.updated_at
     }))});
   }
