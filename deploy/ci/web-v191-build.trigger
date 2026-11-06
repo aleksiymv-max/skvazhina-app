@@ -201,3 +201,6 @@ release=v2.17-refresh-token-singleflight-and-pull401-recovery
 incident=2026-11-06T07:27:03Z sync pull HTTP401 with expired JWT and concurrent refresh HTTP200
 fix=singleflight refresh token rotation; exactly-one safe GET retry; preserve offline queues and exact HTTP code
 scope=Web DEV preview; staged TUQO only after passed Flutter analyze and tests
+
+release=v2.17-safe-auth-singleflight-patch-corrected
+reason=existing generated SessionService already used _tokenRefreshPending; retain original method, extend forced 401 recovery
