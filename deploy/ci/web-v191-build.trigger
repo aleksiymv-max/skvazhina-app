@@ -183,3 +183,6 @@ scope=Web DEV and Android source parity only; TUQO promotion after successful bu
 
 release=v2.15-about-sync-menu-patch-order-corrected
 reason=apply new About tile after v1.84 menu avatar patch to preserve legacy build compatibility
+
+release=v2.15-about-sync-menu-history-anchor-fixed
+reason=insert after stable History tile, without breaking avatar/profile menu transformation
