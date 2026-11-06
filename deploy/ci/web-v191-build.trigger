@@ -255,3 +255,8 @@ release=v2.21-root-menu-navigation-stable-shell-anchor
 release=v2.21-problem-report-outbox-regression-corrected
 
 release=v2.21-menu-router-regression-updated
+
+release=v2.22-lte-handover-health-sync-recovery
+incident=2026-11-06 mobile Safari LTE HEALTH_TIMEOUT SYNC_CHECK_FAILED and domain 409
+fix=14s bounded health check, independently check actual auth sync when health fails, concrete failure types, preserve outboxes, one debounce on web transport handover, guarded CAS retry only schedule/training
+safety=no data reset, no extra automatic POST retry of measurements or structural state, TEST first TUQO staging on success
