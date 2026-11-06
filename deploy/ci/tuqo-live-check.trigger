@@ -1,4 +1,4 @@
-expected_run_id=42226283036
-expected_source_sha=8ec5b70bfe52cdd4dea0be7902cc841be64d79eb
+expected_run_id=42235278590
+expected_source_sha=1b323e64357fddb19a21c050ccbc36a001848122
 expected_version=v2.24
-reason=confirm production TUQO still on older release until publisher deploys
+reason=confirm live TUQO deployment after staging corrected network diagnostics
