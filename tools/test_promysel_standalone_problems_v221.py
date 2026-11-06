@@ -35,7 +35,7 @@ checks={
       store.index("unawaited(refresh(force:true))"),
  'idempotency and no blind retries':'resolution=ignore-duplicates' in store and
       "for(final m in _pending.values.toList())" in store and
-      "return; // Keep pending." in store,
+      "lastError='Заявка ожидает отправки" in store,
  'auth and field scope':'RegistrationService.publishableKey' in store and
       'SessionService.instance.ensureFreshToken()' in store and
       "field_id':'eq.$fid" in store and
