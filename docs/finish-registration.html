@@ -39,7 +39,7 @@ const passwordForm=document.getElementById("setPassword"), recoveryForm=document
 const params=new URLSearchParams(location.hash.replace(/^#/,""));
 const query=new URLSearchParams(location.search);
 let token=null;
-const explicitRecovery=query.get("mode")==="forgot"&&query.get("type")==="recovery";
+const explicitRecovery=query.get("mode")==="forgot"&&\n (query.get("type")==="recovery"||params.get("type")==="recovery");
 async function appCall(path,method,body,accessToken){
  const response=await fetch(BASE+"/functions/v1/promysel-compat"+path,{
    method,headers:{"apikey":KEY,"Content-Type":"application/json",
