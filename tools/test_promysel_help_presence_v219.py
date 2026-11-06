@@ -22,7 +22,7 @@ checks={
    'id:x.user_id,atWork:x.is_working,updatedAt:x.updated_at' in presence,
  'no midnight database rewrites':
    '.upsert(' not in presence and '.delete(' not in presence,
- 'version only': "Версия v2.19" in releases and
+ 'version only': "Версия v2.20" in releases and
    "История обновлений" not in releases and "_Section('v2." not in releases,
  'one combined action button':about.count('FilledButton.icon(')==1 and
    'OutlinedButton.icon(' not in about and 'await sync.syncNow(force:true);' in about,
