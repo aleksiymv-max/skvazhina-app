@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'promysel_about_screen_v215.dart';
+import 'about_screen.dart';
 
 /// Secondary sections remain on their original routes and deep links.
 class PromyselMenuScreen extends StatelessWidget {
