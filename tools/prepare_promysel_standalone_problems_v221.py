@@ -64,8 +64,8 @@ replace(home,
  "'Проблемные вопросы · ${problems.length+FieldProblemReportStore.instance.openCount}'",
  'problem modal count')
 replace(home,
- "if (problems.isEmpty)\nconst Card(",
- "if (problems.isEmpty && FieldProblemReportStore.instance.openCount==0)\nconst Card(",
+ "if (problems.isEmpty)",
+ "if (problems.isEmpty && FieldProblemReportStore.instance.openCount==0)",
  'empty feed')
 replace(home,
  "...problems.map((m) {",
