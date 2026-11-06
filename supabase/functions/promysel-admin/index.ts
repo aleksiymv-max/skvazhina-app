@@ -106,6 +106,22 @@ Deno.serve(async (request:Request)=>{
      return json({status:"approved",invitationSent:false,
        detail:"Заявка согласована. Не удалось проверить очередь приглашений."},202);
    }
+   if(claim?.status==="already_registered"){
+     const uid=String(claim?.acceptedUserId??"");
+     if(!uid)return json({detail:"Действующая учётная запись не найдена"},409);
+     const {data:finished,error:finishError}=await admin.rpc("promysel_finish_registration_approval",{
+       p_request_id:n,p_actor:actor.id,p_user_id:uid
+     });
+     if(finishError)return json({status:"approved",invitationSent:false,
+       detail:"Не удалось подтвердить доступ существующего сотрудника"},202);
+     const {error:recordError}=await admin.rpc("promysel_record_registration_invitation",{
+       p_request_id:n,p_actor:actor.id,p_status:"accepted",p_user_id:uid
+     });
+     if(recordError)console.warn("existing account invitation status",recordError.code??"unknown");
+     return json({...finished,status:"approved",invitationSent:false,
+       invitationStatus:"already_registered",
+       detail:"Сотрудник уже установил пароль. Доступ согласован без повторной отправки письма."});
+   }
    if(claim?.status==="sent")return json({status:"approved",invitationSent:true});
    const acceptedId=String(claim?.acceptedUserId??"");
    if(!claim?.canSend&&!acceptedId)return json({status:"approved",invitationSent:false,
