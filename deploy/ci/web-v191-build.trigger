@@ -204,3 +204,8 @@ scope=Web DEV preview; staged TUQO only after passed Flutter analyze and tests
 
 release=v2.17-safe-auth-singleflight-patch-corrected
 reason=existing generated SessionService already used _tokenRefreshPending; retain original method, extend forced 401 recovery
+
+release=v2.18-compact-ios-browser-snapshots
+reason=snapshot_persistence failed; avoid duplicate 422KB avatar payload in both field and global localStorage snapshots
+safety=avatar cache and pending mutation queue retained, no database purge, detailed persistence stages
+scope=Web DEV preview and optional TUQO stage after tests
