@@ -34,7 +34,7 @@ checks={
     "FROM PUBLIC,anon,authenticated;" in migration and
     "TO service_role;" in migration,
  "no direct auth.users grant":"GRANT SELECT ON auth.users TO service_role" not in migration,
- "version bumped":"Версия v2.20" in about,
+ "version bumped":"Версия v2.21" in about,
 }
 for label, ok in checks.items():
  print(("PASS " if ok else "FAIL ")+label)
