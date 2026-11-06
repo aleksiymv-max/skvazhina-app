@@ -8,7 +8,7 @@ menu=Path("lib/features/menu/menu_screen.dart").read_text(encoding="utf-8")
 about=Path("lib/features/menu/about_screen.dart").read_text(encoding="utf-8")
 sync=Path("lib/core/services/sync_service.dart").read_text(encoding="utf-8")
 checks={
- "menu has About route":"PromyselAboutScreen()" in menu and "О приложении" in menu,
+ "menu has About route":"context.push('/menu/about')" in menu and "О приложении" in menu,
  "four requested sections": all(label in about for label in [
     "О системе", "Руководство пользователя",
     "Версия приложения", "Состояние сервера и синхронизации"
