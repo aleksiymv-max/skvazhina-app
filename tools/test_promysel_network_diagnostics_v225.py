@@ -5,7 +5,8 @@ import re
 import subprocess
 import tempfile
 
-template = Path("tools/promysel_network_diagnostics_v225.html")
+# Run equally from repository root and extracted Flutter project build directory.
+template = Path(__file__).resolve().with_name("promysel_network_diagnostics_v225.html")
 build = Path("build/web/diagnostics.html")
 assert template.is_file()
 source = template.read_text(encoding="utf-8")
