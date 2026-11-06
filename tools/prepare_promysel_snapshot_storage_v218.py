@@ -53,6 +53,19 @@ once("""Future<void> persist(String fieldId)async{final p=await SharedPreference
 once("Future<void> loadLocal([String? fieldId])async{await WorkScheduleStore.instance.ensureLoaded();",
      "Future<void> loadLocal([String? fieldId])async{await WorkScheduleStore.instance.ensureLoaded();await AvatarStore.instance.ensureLoaded();",
      "restore independent avatars before compact snapshots")
+# Separate every local-storage write into named stages. This determines
+# whether quota hits the field copy, global fallback, or independent config.
+for before, name in [
+ ("await prefs.setString('walk_parameter_config_v1',", "persistence.walk_config"),
+ ("await prefs.setString('annulus_pressure_v2',", "persistence.annulus"),
+ ("await prefs.setString('problem_applications_v2',", "persistence.problems"),
+ ("await prefs.setString(_fieldKey(fid),raw);", "persistence.field_snapshot"),
+ ("await prefs.setString(_key,raw);", "persistence.global_snapshot"),
+]:
+ n=s.count(before)
+ if n!=1:raise RuntimeError(f"storage stage {name}: {n} anchors")
+ s=s.replace(before, "onStage?.call('"+name+"');"+before,1)
+
 assert s.count("await prefs.setString(_fieldKey(fid),raw);")==1
 assert s.count("result.remove('avatars');")==1
 assert "final raw=jsonEncode(_compactLocalSnapshot(snapshot(fieldId)));" in s
