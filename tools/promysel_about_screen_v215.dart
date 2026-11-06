@@ -29,7 +29,7 @@ class PromyselAboutScreen extends StatelessWidget {
               const Text('Цифровая система производственного учёта',
                 textAlign: TextAlign.center),
               const SizedBox(height: 10),
-              const Chip(label: Text('Версия v2.19')),
+              const Chip(label: Text('Версия v2.20')),
             ]),
           ),
         ),
@@ -262,7 +262,7 @@ class _ReleasePage extends StatelessWidget {
           const SizedBox(height: 12),
           Text('ПРОМЫСЕЛ', style: Theme.of(context).textTheme.titleLarge),
           const SizedBox(height: 6),
-          const Text('Версия v2.19', style: TextStyle(
+          const Text('Версия v2.20', style: TextStyle(
             fontWeight: FontWeight.bold, fontSize: 18)),
           const SizedBox(height: 5),
           const Text('Веб-приложение · 6 ноября 2026 года'),
@@ -382,11 +382,12 @@ class _PromyselConnectionPageState extends State<PromyselConnectionPage> {
           final freshSuccess=successAt!=null&&!successAt.isBefore(started);
           if (freshFailure) {
             _syncOk=false;
-            final code=sync.lastSyncHttpStatus==null
-              ?_codeForPhase(sync.lastSyncFailurePhase)
-              :'HTTP_${sync.lastSyncHttpStatus}';
+            final code=sync.lastDomainSyncErrorCode ??
+              (sync.lastSyncHttpStatus==null
+                ?_codeForPhase(sync.lastSyncFailurePhase)
+                :'HTTP_${sync.lastSyncHttpStatus}');
             _issues.add(_CheckIssue(
-              sync.lastSyncStorageCause??_explainPhase(sync.lastSyncFailurePhase),
+              sync.lastDomainSyncErrorDescription??sync.lastSyncStorageCause??_explainPhase(sync.lastSyncFailurePhase),
               code,
               sync.lastSyncFailureType??'Ошибка синхронизации',
               stage:sync.lastSyncFailurePhase));
@@ -476,6 +477,8 @@ class _PromyselConnectionPageState extends State<PromyselConnectionPage> {
                 pending:_checking?'Проверяется':'Не проверено'),
               const Divider(height:28),
               Text('Ожидают отправки замеры: ${sync.pending}'),
+              const SizedBox(height:5),
+              Text('Ожидают отправки изменения других разделов: ${sync.pendingDomainCount}'),
               const SizedBox(height:5),
               Text(sync.lastSyncAt==null
                 ?'Успешный обмен ещё не зарегистрирован'
