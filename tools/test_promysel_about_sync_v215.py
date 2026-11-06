@@ -13,7 +13,7 @@ checks={
     "О системе", "Руководство пользователя",
     "Версия и история обновлений", "Состояние сервера и синхронизации"
  ]),
- "version metadata":"Версия v2.17" in about and "v2.16" in about and "v2.15" in about and "v2.14" in about,
+ "version metadata":"Версия v2.18" in about and "v2.16" in about and "v2.15" in about and "v2.14" in about,
  "manual covers offline care": "Не очищайте данные браузера" in about,
  "live server probe bounded": "final response = await http.get(" in about and
     "Duration(seconds: 7)" in about,
