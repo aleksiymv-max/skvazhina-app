@@ -93,8 +93,31 @@ def repair(token: str) -> None:
             change[key] = newer
             templated.append(key.replace("mailer_templates_", "").replace("_content", ""))
     print("TEMPLATES_REQUIRING_OLD_HOST_REPLACEMENT:", ",".join(templated) or "none")
+    # Email links now OPEN TUQO DIRECTLY, without first navigating through
+    # supabase.co/auth/v1/verify or a discontinued Cloudflare Pages hostname.
+    # finish-registration.html already understands token_hash + invite/recovery.
+    def direct_template(flow: str) -> str:
+        label = "Принять приглашение" if flow == "invite" else "Установить новый пароль"
+        introduction = ("Вас пригласили в приложение «Промысел»."
+                        if flow == "invite" else
+                        "Вы запросили установку нового пароля для «Промысла».")
+        link = REGISTRATION + "?token_hash={{ .TokenHash }}&amp;type=" + flow
+        return (
+            "<!doctype html><html lang='ru'><meta charset='utf-8'>"
+            "<body style='font-family:Arial,sans-serif'>"
+            "<h2>Промысел</h2><p>" + introduction + "</p>"
+            "<p><a href='" + link + "'>" + label + "</a></p>"
+            "<p>Если вы не ожидали это письмо, не переходите по ссылке.</p>"
+            "</body></html>"
+        )
+    change["mailer_templates_invite_content"] = direct_template("invite")
+    change["mailer_templates_recovery_content"] = direct_template("recovery")
+    print("EMAIL_LINKS: direct TUQO landing page, token_hash flow; no legacy domain")
 
-    if old_url.rstrip("/") == ORIGIN and all(x in existing for x in [ORIGIN, REGISTRATION]) and not templated:
+    if (old_url.rstrip("/") == ORIGIN and
+        all(x in existing for x in [ORIGIN, REGISTRATION]) and
+        all(str(current.get(k) or "") == value for k,value in change.items()
+            if k.startswith("mailer_templates_"))):
         print("NO_CHANGE_REQUIRED: Auth already points to TUQO")
     else:
         status, _ = fetch(MANAGEMENT_API, method="PATCH", token=token, payload=change)
@@ -107,11 +130,10 @@ def repair(token: str) -> None:
     verified_allowed = allow_entries(str(verified.get("uri_allow_list") or ""))
     if str(verified.get("site_url") or "").rstrip("/") != ORIGIN or REGISTRATION not in verified_allowed:
         raise RuntimeError("Auth configuration GET does not confirm new production redirect")
-    for key in templated:
-        actual_key = "mailer_templates_" + key + "_content"
-        if "promysel-web.pages.dev" in str(verified.get(actual_key) or ""):
-            raise RuntimeError("Legacy Cloudflare domain remains in changed template")
-    print("AUTH_REDIRECT_VERIFIED: production Site URL and exact password setup allow-list")
+    for key, value in change.items():
+        if key.startswith("mailer_templates_") and verified.get(key) != value:
+            raise RuntimeError("Supabase did not persist the direct TUQO email link template")
+    print("AUTH_REDIRECT_VERIFIED: production Site URL, allow-list, invite and recovery email links")
     print("NO_EMAIL_SENT: previous invitation links must be reissued separately")
 
 def main() -> int:
