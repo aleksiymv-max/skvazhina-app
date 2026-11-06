@@ -850,6 +850,16 @@ Deno.serve(async(req:Request)=>{
         return reply({detail:"Список заданий превышает ограничения"},400);
       const old=new Map<string,J>((Array.isArray(current.tasks)?current.tasks:[])
         .filter(good).map((v:J)=>[String(v.id),v]));
+      // Masters can confirm only tasks directed to APPROVED operators,
+      // never every personal task in the field.
+      const masterOperatorIds=new Set<string>();
+      if(master){
+        const {data:operators,error:operatorsError}=await admin.from("field_memberships")
+          .select("user_id").eq("field_id",field).eq("role","operator")
+          .eq("approved",true).eq("blocked",false);
+        if(operatorsError)throw operatorsError;
+        for(const row of operators??[])masterOperatorIds.add(String(row.user_id));
+      }
       const changed:J[]=[];
       for(const raw of src.tasks){
         if(!good(raw))continue;
@@ -866,7 +876,7 @@ Deno.serve(async(req:Request)=>{
         const completer=prev.targetType==="personal"?String(prev.targetId)===user.id:
           ["area","pad"].includes(String(prev.targetType))&&(role==="operator"||engineer||chief);
         const reviewer=chief||String(prev.createdById)===user.id||
-          (master&&prev.targetType==="personal");
+          (master&&prev.targetType==="personal"&&masterOperatorIds.has(String(prev.targetId)));
         if(before==="confirmed"&&after!=="confirmed")continue;
         if(before==="active"&&after==="awaitingConfirmation"&&completer){
           changed.push({...prev,status:"awaitingConfirmation",
