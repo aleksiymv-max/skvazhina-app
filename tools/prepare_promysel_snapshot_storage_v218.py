@@ -70,4 +70,35 @@ assert s.count("await prefs.setString(_fieldKey(fid),raw);")==1
 assert s.count("result.remove('avatars');")==1
 assert "final raw=jsonEncode(_compactLocalSnapshot(snapshot(fieldId)));" in s
 p.write_text(s,encoding="utf-8")
+
+# Classify the browser storage failure WITHOUT exposing native exception text.
+p=Path("lib/core/services/sync_service.dart")
+sync=p.read_text(encoding="utf-8")
+def patch(old,new,label):
+ global sync
+ n=sync.count(old)
+ if n!=1:raise AssertionError(f"{label}: {n} anchors")
+ sync=sync.replace(old,new,1)
+patch("int? lastSyncHttpStatus;",
+      "int? lastSyncHttpStatus;\n  String? lastSyncStorageCause;",
+      "storage-cause diagnostic field")
+patch("      lastSyncFailureAt=DateTime.now();",
+      """      lastSyncFailureAt=DateTime.now();
+      // Web builds minify Dart error class names. Classify a DOM/storage
+      // exception by safe keywords, never surface the original message.
+      final storageErr=error.toString().toLowerCase();
+      lastSyncStorageCause=_syncPhase.startsWith('pull.snapshot_persistence')
+        ?(storageErr.contains('quota')||storageErr.contains('exceed'))
+          ?'Превышен лимит локального хранилища'
+          :(storageErr.contains('security')||storageErr.contains('denied'))
+            ?'Браузер запретил запись в хранилище'
+            :'Не удалось сохранить локальный снимок'
+        :null;""",
+      "safe storage category")
+patch("_lastSyncProblem=null;lastSyncHttpStatus=null;lastSyncFailurePhase=null;",
+      "_lastSyncProblem=null;lastSyncHttpStatus=null;lastSyncStorageCause=null;lastSyncFailurePhase=null;",
+      "clear storage cause after success")
+p.write_text(sync,encoding="utf-8")
+print("PASS v2.18: stage and safe browser storage exception category captured")
+
 print("PASS v2.18: redundant avatar bytes excluded from durable field/global snapshots; canonical photos and queues preserved")
