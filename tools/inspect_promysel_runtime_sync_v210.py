@@ -12,6 +12,7 @@ paths={
   'tasks':'core/models/work_task.dart',
   'task_ui':'features/tasks/tasks_screen.dart',
   'session':'core/services/session_service.dart',
+  'registration':'core/services/registration_service.dart',
   'network':'core/network/weak_network.dart',
   'database':'core/database/app_database.dart'
 }
@@ -47,4 +48,12 @@ excerpts('sync',[('pull-full','Future<void> _pull()')],23000)
 excerpts('sync',[('syncNow-full','Future<void> syncNow()')],8500)
 excerpts('app_state',[('apply-full','Future<void> apply('),('snapshot-full','Map<String,dynamic> snapshot(')],9500)
 excerpts('database',[('remote-measurement','Future<void> applyRemoteMeasurement(')],7500)
+excerpts('session', [
+ ('refresh_token_method','Future<void> ensureFreshToken()'),
+ ('session_persistence','Future<void> _persistSession('),
+ ('session_restore','Future<bool> restoreSession('),
+],5400)
+excerpts('registration', [
+ ('refresh_session','Future<Map<String,dynamic>> refreshSession('),
+],1800)
 print('PASS generated source inspection completed')
