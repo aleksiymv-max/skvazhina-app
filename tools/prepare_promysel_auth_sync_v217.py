@@ -14,53 +14,29 @@ def one(s, old, new, label):
 
 p=Path("lib/core/services/session_service.dart")
 s=p.read_text(encoding="utf-8")
-begin=s.index(" Future<void> ensureFreshToken()async{")
-end=s.index("\n }",begin)+len("\n }")
-old=s[begin:end]
-assert "refreshSession(refresh)" in old and "promysel_refresh_token" in old and "_persistSession()" in old
-new=""" Future<void>? _tokenRefreshFlight;
-
- // All API consumers in one running app share one rotating refresh token.
- // A 401 reader may ask for a forced refresh; if another request already
- // replaced its stale access token, do NOT rotate again.
- Future<void> ensureFreshToken({bool force=false,String? rejectedAccessToken})async{
-   final inflight=_tokenRefreshFlight;
-   if(inflight!=null){await inflight;return;}
-   final token=api.token;
-   if(token==null||token.isEmpty||token.startsWith('offline-'))return;
-   if(rejectedAccessToken!=null&&rejectedAccessToken!=token)return;
-   if(!force){
-     final parts=token.split('.');
-     if(parts.length<2)return;
-     final claims=jsonDecode(utf8.decode(base64Url.decode(base64Url.normalize(parts[1]))));
-     if(claims is! Map)return;
-     final expires=(claims['exp'] as num?)?.toInt()??0;
-     if(expires>DateTime.now().millisecondsSinceEpoch~/1000+120)return;
-   }
-   // Assign the flight synchronously before the first caller can suspend.
-   final op=_rotateAccessToken();
-   _tokenRefreshFlight=op;
-   try{await op;}finally{
-     if(identical(_tokenRefreshFlight,op))_tokenRefreshFlight=null;
-   }
- }
-
- Future<void> _rotateAccessToken()async{
-   final prefs=await SharedPreferences.getInstance();
-   final refresh=prefs.getString('promysel_refresh_token');
-   if(refresh==null||refresh.isEmpty)
-     throw const ApiException('Сессия истекла. Выполните повторный вход.');
-   // This is a mutating token rotation. It is deliberately never retried.
-   final response=await RegistrationService.instance.refreshSession(refresh);
-   final next=(response['access_token']??'').toString();
-   if(next.isEmpty)throw const ApiException('Не удалось обновить сессию');
-   final nextRefresh=(response['refresh_token']??refresh).toString();
-   api.token=next;
-   await prefs.setString('promysel_refresh_token',nextRefresh);
-   await _persistSession();
- }"""
-s=s[:begin]+new+s[end:]
-assert "ensureFreshToken({bool force=false,String? rejectedAccessToken})" in s
+# The existing v1.9x code ALREADY serializes token refresh with
+# _tokenRefreshPending. Extend it; do not replace it or undo earlier fixes.
+s=one(s,
+      "Future<void> ensureFreshToken()async{",
+      "Future<void> ensureFreshToken({bool force=false,String? rejectedAccessToken})async{",
+      "refresh API remains backward-compatible")
+s=one(s,
+      "if(_tokenRefreshPending!=null)return _tokenRefreshPending!;",
+      """if(_tokenRefreshPending!=null){await _tokenRefreshPending!;return;}
+   // If another caller refreshed since this GET was sent, reuse the new JWT.
+   if(rejectedAccessToken!=null&&rejectedAccessToken!=api.token)return;""",
+      "reuse existing single-flight refresh")
+s=one(s,"final op=_ensureFreshTokenOnce();",
+      "final op=_ensureFreshTokenOnce(force:force);",
+      "force requested JWT refresh only after an HTTP 401")
+s=one(s,"Future<void> _ensureFreshTokenOnce()async{",
+      "Future<void> _ensureFreshTokenOnce({bool force=false})async{",
+      "existing token rotation remains single-attempt")
+s=one(s,"if(expires>DateTime.now().millisecondsSinceEpoch~/1000+120)return;",
+      "if(!force&&expires>DateTime.now().millisecondsSinceEpoch~/1000+120)return;",
+      "do not skip forced refresh on 401")
+assert "_tokenRefreshPending" in s and "refreshSession(refresh)" in s
+assert "await prefs.setString('promysel_refresh_token',nextRefresh);" in s
 p.write_text(s,encoding="utf-8")
 
 p=Path("lib/core/services/sync_service.dart")
