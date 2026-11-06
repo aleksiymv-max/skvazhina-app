@@ -162,9 +162,8 @@ replacement=r"""  Future<void> _checkAll() async {
 
 """
 s=s[:start]+replacement+s[end:]
-s=once(s,'Версия v2.21','Версия v2.22','current version in app header')
-# Version appears twice in the generated About (the second one in metadata).
-s=once(s,'Версия v2.21','Версия v2.22','version-only page')
+assert s.count('Версия v2.21')==2,'Version labels changed'
+s=s.replace('Версия v2.21','Версия v2.22')
 assert 'await sync.syncNow(force:true);' in s
 assert "Duration(seconds:7)" not in s
 assert 'healthProblem=null;' in s
