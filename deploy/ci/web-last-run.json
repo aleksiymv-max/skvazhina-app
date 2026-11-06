@@ -1,13 +1,13 @@
 {
-  "run_id": 42172750702,
-  "head_sha": "faec5399ea413cafc5e5a5862a84a0bbc8412a85",
+  "run_id": 42173129856,
+  "head_sha": "9f9280386d2f2cf59dc5a01f14ca16b29da0fa84",
   "conclusion": "success",
-  "run_url": "https://github.com/aleksiymv-max/skvazhina-app/actions/runs/42172750702",
-  "started_at": "2026-11-06T06:10:20Z",
-  "updated_at": "2026-11-06T06:13:12Z",
+  "run_url": "https://github.com/aleksiymv-max/skvazhina-app/actions/runs/42173129856",
+  "started_at": "2026-11-06T06:13:56Z",
+  "updated_at": "2026-11-06T06:17:15Z",
   "artifact_available": true,
   "queue_wait_seconds": 0,
-  "total_elapsed_seconds": 172.0,
+  "total_elapsed_seconds": 199.0,
   "step_durations": [
     {
       "name": "Set up job",
@@ -26,7 +26,7 @@
     },
     {
       "name": "Supabase compatibility endpoint preflight",
-      "seconds": 1.0,
+      "seconds": 2.0,
       "conclusion": "success"
     },
     {
@@ -36,27 +36,27 @@
     },
     {
       "name": "Verify preinstalled icon renderer",
-      "seconds": 0,
+      "seconds": 1.0,
       "conclusion": "success"
     },
     {
       "name": "Apply current Promysel updates",
-      "seconds": 7.0,
+      "seconds": 8.0,
       "conclusion": "success"
     },
     {
       "name": "Run subosito/flutter-action@v2",
-      "seconds": 19.0,
+      "seconds": 16.0,
       "conclusion": "success"
     },
     {
       "name": "Create web platform and configure iPhone PWA",
-      "seconds": 36.0,
+      "seconds": 45.0,
       "conclusion": "success"
     },
     {
       "name": "Analyze and build web release",
-      "seconds": 78.0,
+      "seconds": 94.0,
       "conclusion": "success"
     },
     {
@@ -76,7 +76,7 @@
     },
     {
       "name": "Run actions/upload-artifact@v4",
-      "seconds": 1.0,
+      "seconds": 2.0,
       "conclusion": "success"
     },
     {
@@ -86,7 +86,7 @@
     },
     {
       "name": "Publish development preview only (stable production remains frozen)",
-      "seconds": 18.0,
+      "seconds": 19.0,
       "conclusion": "success"
     },
     {
@@ -96,7 +96,7 @@
     },
     {
       "name": "Post Run actions/checkout@v4",
-      "seconds": 0,
+      "seconds": 1.0,
       "conclusion": "success"
     },
     {
