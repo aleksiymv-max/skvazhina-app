@@ -9,8 +9,8 @@ top="import 'package:flutter/material.dart';\n"
 assert s.count(top)==1, "About import anchor missing"
 assert "import 'about_screen.dart';" not in s
 s=s.replace(top,top+"import 'about_screen.dart';\n",1)
-anchor="  ]))),"
-assert s.count(anchor)==1, "Expected avatar-aware v1.84 menu layout"
+anchor="    'История обходов, параметры и журналы','/history'),"
+assert s.count(anchor)==1, "Expected exactly one History menu entry"
 item="""   const SizedBox(height:8),
    Card(
      margin:const EdgeInsets.only(bottom:10),
