@@ -1,13 +1,13 @@
 {
-  "run_id": 42173129856,
-  "head_sha": "9f9280386d2f2cf59dc5a01f14ca16b29da0fa84",
+  "run_id": 42173510556,
+  "head_sha": "22641f716bb3c34f2ee6fc1fc8df7f0fa2dee9a0",
   "conclusion": "success",
-  "run_url": "https://github.com/aleksiymv-max/skvazhina-app/actions/runs/42173129856",
-  "started_at": "2026-11-06T06:13:56Z",
-  "updated_at": "2026-11-06T06:17:15Z",
+  "run_url": "https://github.com/aleksiymv-max/skvazhina-app/actions/runs/42173510556",
+  "started_at": "2026-11-06T06:17:37Z",
+  "updated_at": "2026-11-06T06:20:50Z",
   "artifact_available": true,
   "queue_wait_seconds": 0,
-  "total_elapsed_seconds": 199.0,
+  "total_elapsed_seconds": 193.0,
   "step_durations": [
     {
       "name": "Set up job",
@@ -16,7 +16,7 @@
     },
     {
       "name": "Run actions/checkout@v4",
-      "seconds": 1.0,
+      "seconds": 0,
       "conclusion": "success"
     },
     {
@@ -26,7 +26,7 @@
     },
     {
       "name": "Supabase compatibility endpoint preflight",
-      "seconds": 2.0,
+      "seconds": 1.0,
       "conclusion": "success"
     },
     {
@@ -36,12 +36,12 @@
     },
     {
       "name": "Verify preinstalled icon renderer",
-      "seconds": 1.0,
+      "seconds": 2.0,
       "conclusion": "success"
     },
     {
       "name": "Apply current Promysel updates",
-      "seconds": 8.0,
+      "seconds": 7.0,
       "conclusion": "success"
     },
     {
@@ -51,12 +51,12 @@
     },
     {
       "name": "Create web platform and configure iPhone PWA",
-      "seconds": 45.0,
+      "seconds": 46.0,
       "conclusion": "success"
     },
     {
       "name": "Analyze and build web release",
-      "seconds": 94.0,
+      "seconds": 93.0,
       "conclusion": "success"
     },
     {
@@ -76,7 +76,7 @@
     },
     {
       "name": "Run actions/upload-artifact@v4",
-      "seconds": 2.0,
+      "seconds": 1.0,
       "conclusion": "success"
     },
     {
@@ -86,7 +86,7 @@
     },
     {
       "name": "Publish development preview only (stable production remains frozen)",
-      "seconds": 19.0,
+      "seconds": 15.0,
       "conclusion": "success"
     },
     {
