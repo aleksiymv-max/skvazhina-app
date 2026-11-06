@@ -3,7 +3,7 @@
 from pathlib import Path
 session=Path('lib/core/services/session_service.dart').read_text(encoding='utf-8')
 about=Path('lib/features/menu/about_screen.dart').read_text(encoding='utf-8')
-server=Path('supabase/functions/promysel-compat/index.ts').read_text(encoding='utf-8')
+server=(Path(__file__).resolve().parents[1]/'supabase/functions/promysel-compat/index.ts').read_text(encoding='utf-8')
 presence=server[server.index('if(route==="/v1/presence"&&req.method==="GET")'):
                 server.index('const presenceRoute=route.match')]
 releases=about[about.index('class _ReleasePage'):about.index('class _CheckIssue')]
