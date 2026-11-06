@@ -1,13 +1,13 @@
 {
-  "run_id": 42194490983,
-  "head_sha": "451f54673888ef28eab37ad8b4ff1a72bef0dd67",
+  "run_id": 42195058347,
+  "head_sha": "619da0bb944e7c29fb69f9e476c9ec38e234c00d",
   "conclusion": "failure",
-  "run_url": "https://github.com/aleksiymv-max/skvazhina-app/actions/runs/42194490983",
-  "started_at": "2026-11-06T09:21:58Z",
-  "updated_at": "2026-11-06T09:25:34Z",
+  "run_url": "https://github.com/aleksiymv-max/skvazhina-app/actions/runs/42195058347",
+  "started_at": "2026-11-06T09:26:24Z",
+  "updated_at": "2026-11-06T09:28:59Z",
   "artifact_available": true,
   "queue_wait_seconds": 0,
-  "total_elapsed_seconds": 216.0,
+  "total_elapsed_seconds": 155.0,
   "step_durations": [
     {
       "name": "Set up job",
@@ -16,7 +16,7 @@
     },
     {
       "name": "Run actions/checkout@v4",
-      "seconds": 2.0,
+      "seconds": 1.0,
       "conclusion": "success"
     },
     {
@@ -41,22 +41,22 @@
     },
     {
       "name": "Apply current Promysel updates",
-      "seconds": 7.0,
+      "seconds": 5.0,
       "conclusion": "success"
     },
     {
       "name": "Run subosito/flutter-action@v2",
-      "seconds": 30.0,
+      "seconds": 23.0,
       "conclusion": "success"
     },
     {
       "name": "Create web platform and configure iPhone PWA",
-      "seconds": 45.0,
+      "seconds": 30.0,
       "conclusion": "success"
     },
     {
       "name": "Analyze and build web release",
-      "seconds": 91.0,
+      "seconds": 63.0,
       "conclusion": "success"
     },
     {
@@ -66,7 +66,7 @@
     },
     {
       "name": "Probe existing Tuqo site and backend DNS HTTPS (external GitHub network only)",
-      "seconds": 3.0,
+      "seconds": 2.0,
       "conclusion": "success"
     },
     {
@@ -86,7 +86,7 @@
     },
     {
       "name": "Publish development preview only (stable production remains frozen)",
-      "seconds": 23.0,
+      "seconds": 19.0,
       "conclusion": "failure"
     },
     {
