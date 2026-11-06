@@ -183,6 +183,8 @@ jobs:
           python3 "$GITHUB_WORKSPACE/tools/test_promysel_history_scoping_v204.py"
           python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_registration_invites_v205.py"
           python3 "$GITHUB_WORKSPACE/tools/test_promysel_registration_invites_v205.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_smtp_retry_v211.py"
+          python3 "$GITHUB_WORKSPACE/tools/test_promysel_smtp_retry_v211.py"
           python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_decimal_fields_v206.py"
           python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_avatar_sync_v206.py"
           python3 "$GITHUB_WORKSPACE/tools/test_promysel_decimal_avatar_v206.py"
