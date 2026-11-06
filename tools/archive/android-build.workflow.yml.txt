@@ -111,6 +111,7 @@ jobs:
           python3 "$GITHUB_WORKSPACE/tools/prepare_organization_role_security.py"
           mkdir -p lib/features/menu
           cp "$GITHUB_WORKSPACE/tools/promysel_menu_screen.dart" lib/features/menu/menu_screen.dart
+          cp "$GITHUB_WORKSPACE/tools/promysel_about_screen_v215.dart" lib/features/menu/about_screen.dart
           python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_calendar_russian.py"
           python3 "$GITHUB_WORKSPACE/tools/prepare_profile_single_pencil.py"
           python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_menu_navigation.py"
@@ -196,6 +197,8 @@ jobs:
           python3 "$GITHUB_WORKSPACE/tools/test_promysel_avatar_delta_v213.py"
           python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_measurement_batch_v213.py"
           python3 "$GITHUB_WORKSPACE/tools/test_promysel_measurement_batch_v213.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_sync_v215.py"
+          python3 "$GITHUB_WORKSPACE/tools/test_promysel_about_sync_v215.py"
           python3 "$GITHUB_WORKSPACE/tools/inspect_promysel_home_layout.py"
           cp "$GITHUB_WORKSPACE/tools/work_schedule_test.dart" test/work_schedule_test.dart
           mkdir -p test
