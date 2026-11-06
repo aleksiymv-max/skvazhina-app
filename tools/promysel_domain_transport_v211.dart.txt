@@ -62,8 +62,10 @@
       _dirtyDomains.add('misc');
     }
     final prefs=await SharedPreferences.getInstance();
+    Object? firstDomainFailure;
     for(final domain in ['tasks','schedules','training','structure','misc']){
       if(!_dirtyDomains.contains(domain))continue;
+      try{
       final role=SessionService.instance.currentUser.role.name;
       if(domain=='structure'&&role!='shopChief'&&role!='engineer'&&role!='admin'){
         throw StateError('Недостаточно прав для отправки изменений структуры');
@@ -124,6 +126,16 @@
       }else{
         _syncAgain=true;
       }
+      }catch(error){
+        // A failure in tasks must not block schedules, training or structure.
+        firstDomainFailure??=error;
+        continue;
+      }
+    }
+    if(firstDomainFailure!=null){
+      status='Часть разделов ожидает синхронизации; сохранено на устройстве';
+      notifyListeners();
+      throw StateError('Не удалось синхронизировать один из разделов: '+firstDomainFailure.toString());
     }
     if(_dirtyDomains.isNotEmpty){
       _stateDirty=true;return;
