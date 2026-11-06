@@ -311,3 +311,6 @@ reason=Flutter parser requires distinct string delimiters around embedded ternar
 
 retry=v2.25-CORS-compatible-authorized-GET
 reason=remove unsupported cache-control request header from Supabase Edge OPTIONS, retain unique cache-busting query
+
+retry=v2.25-Dart-generated-report-newline-fixed
+reason=report now joins with String.fromCharCode(10), no escaped newline in generated Dart literal
