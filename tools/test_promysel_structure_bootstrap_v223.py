@@ -4,6 +4,10 @@ from pathlib import Path
 s=Path('lib/core/services/sync_service.dart').read_text(encoding='utf-8')
 about=Path('lib/features/menu/about_screen.dart').read_text(encoding='utf-8')
 checks={
+ 'one-time restore when cursor is ahead but areas are missing':
+    "forceMissingStructure=missingStructure&&_cursor!='0'" in s and
+    "promysel_missing_structure_probe_v223_" in s and
+    "await recoveryPrefs.setBool(missingKey,true);" in s,
  'remote structure bootstrap conditional':
     'if(latestState!=null&&_stateDirty)' in s and
     'if(snapshotField==fieldId&&emptyLocal&&hasRemoteStructure)' in s,
