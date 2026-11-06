@@ -84,7 +84,9 @@ async function call(path,method,body,accessToken){
     return;
   }
   if(account.approved!==true&&!explicitRecovery){
-    token=null;recovery("Ваша заявка ещё не согласована. Обратитесь к начальнику цеха.");return;
+    token=null;passwordForm.hidden=true;recoveryForm.hidden=true;
+    message("Ваша заявка ещё не согласована. Дождитесь подтверждения руководителя; повторное письмо сейчас не требуется.","error");
+    return;
   }
   message(explicitRecovery?"Установите новый пароль для восстановления доступа.":"Приглашение подтверждено. Задайте первый пароль для входа.","success");
   passwordForm.hidden=false;
