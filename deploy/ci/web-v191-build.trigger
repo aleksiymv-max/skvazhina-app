@@ -196,3 +196,8 @@ reason=Web cannot trust navigator.onLine=false; attempt bounded Supabase sync an
 release=v2.16-deep-sync-failure-diagnostics
 reason=verified server HTTP 200 responses but local deserialization/storage never completed; add precise client stages, manual retry bypass, per-section trace, no sensitive payload leakage
 safety=no local state reset; no database migrations; no automatic production publish
+
+release=v2.17-refresh-token-singleflight-and-pull401-recovery
+incident=2026-11-06T07:27:03Z sync pull HTTP401 with expired JWT and concurrent refresh HTTP200
+fix=singleflight refresh token rotation; exactly-one safe GET retry; preserve offline queues and exact HTTP code
+scope=Web DEV preview; staged TUQO only after passed Flutter analyze and tests
