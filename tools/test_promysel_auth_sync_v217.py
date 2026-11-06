@@ -9,15 +9,15 @@ sync=Path("lib/core/services/sync_service.dart").read_text(encoding="utf-8")
 about=Path("lib/features/menu/about_screen.dart").read_text(encoding="utf-8")
 
 checks={
-  "refresh token is singleflight":"Future<void>? _tokenRefreshFlight;" in session and
-    "final inflight=_tokenRefreshFlight;" in session and
-    "if(inflight!=null){await inflight;return;}" in session,
-  "no second refresh for stale request":"rejectedAccessToken!=null&&rejectedAccessToken!=token" in session,
+  "refresh token is singleflight":"Future<void>? _tokenRefreshPending;" in session and
+    "if(_tokenRefreshPending!=null){await _tokenRefreshPending!;return;}" in session and
+    "final op=_ensureFreshTokenOnce(force:force);" in session,
+  "no second refresh for stale request":"rejectedAccessToken!=null&&rejectedAccessToken!=api.token" in session,
   "fresh token is persisted":"await prefs.setString('promysel_refresh_token',nextRefresh);" in session and
     "await _persistSession();" in session,
   "no implicit refresh POST retries":"final response=await RegistrationService.instance.refreshSession(refresh);" in session and
-    "WeakNetwork.read" not in session[session.index("Future<void> _rotateAccessToken()async{"):
-                                           session.index("Future<void> _rotateAccessToken()async{")+1100],
+    "WeakNetwork.read" not in session[session.index("Future<void> _ensureFreshTokenOnce({bool force=false})async{"):
+                                           session.index("Future<void> _ensureFreshTokenOnce({bool force=false})async{")+1100],
   "pull is read-only GET":"Future<http.Response> pullOnce()=>WeakNetwork.read(()=>_client.get(_uri('/v1/sync/pull',{" in sync,
   "HTTP 401 triggers exact single re-read":"if(res.statusCode==401&&attemptedToken!=null&&attemptedToken.isNotEmpty)" in sync and
     "force:true,rejectedAccessToken:attemptedToken" in sync and
