@@ -191,4 +191,5 @@ jobs:
           cd "${{ steps.project.outputs.project_dir }}"
           python3 "$GITHUB_WORKSPACE/tools/inspect_promysel_runtime_sync_v210.py"
           python3 "$GITHUB_WORKSPACE/tools/inspect_promysel_problem_entry_v221.py"
+          python3 "$GITHUB_WORKSPACE/tools/inspect_promysel_measurement_history_v224.py"
           python3 "$GITHUB_WORKSPACE/tools/audit_promysel_request_sources_v213.py"
