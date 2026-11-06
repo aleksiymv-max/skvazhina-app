@@ -82,7 +82,7 @@ def patch(old,new,label):
 patch("int? lastSyncHttpStatus;",
       "int? lastSyncHttpStatus;\n  String? lastSyncStorageCause;",
       "storage-cause diagnostic field")
-patch("      lastSyncFailureAt=DateTime.now();",
+patch("      lastSyncFailureAt=DateTime.now();\n      final transport=",
       """      lastSyncFailureAt=DateTime.now();
       // Web builds minify Dart error class names. Classify a DOM/storage
       // exception by safe keywords, never surface the original message.
@@ -93,7 +93,7 @@ patch("      lastSyncFailureAt=DateTime.now();",
           :(storageErr.contains('security')||storageErr.contains('denied'))
             ?'Браузер запретил запись в хранилище'
             :'Не удалось сохранить локальный снимок'
-        :null;""",
+        :null;\n      final transport=""",
       "safe storage category")
 patch("_lastSyncProblem=null;lastSyncHttpStatus=null;lastSyncFailurePhase=null;",
       "_lastSyncProblem=null;lastSyncHttpStatus=null;lastSyncStorageCause=null;lastSyncFailurePhase=null;",
