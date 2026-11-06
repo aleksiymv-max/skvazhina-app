@@ -1,3 +1,4 @@
-expected_run_id=42200384031
-expected_source_sha=fac7595bd8962173529169273265293a553c203f
-expected_version=v2.21
+expected_run_id=42205967024
+expected_source_sha=10eec6c5dc23e49770f0a17e7b01497bd946e009
+expected_version=v2.22
+reason=confirm working TUQO version after staging cellular sync repair
