@@ -16,7 +16,7 @@ checks={
  "version metadata":"Версия v2.19" in about and "Текущая версия" not in about,
  "manual covers offline care": "Не очищайте данные браузера" in about,
  "live server probe bounded": "final response=await http.get(uri," in about and
-    "Duration(seconds: 7)" in about,
+    "Duration(seconds:7)" in about,
  "server probe distinct from sync": "response.statusCode" in about and
     "sync.lastSyncAt" in about,
  "pending count visible": "sync.pending" in about,
