@@ -5,15 +5,18 @@ import re
 
 root=Path("lib")
 paths=[
+"features/walk/walk_start_screen.dart",
 "features/walk/walk_screen.dart",
 "features/walk/walk_area_screen.dart",
 "features/walk/walk_summary_screen.dart",
 "features/home/home_screen.dart",
+"features/menu/menu_screen.dart",
 "app/app.dart",
 "core/models/measurement.dart",
 "core/models/production_area.dart",
 "core/models/well.dart",
 "core/models/pad.dart",
+"core/repositories/measurement_repository.dart",
 "core/services/repository.dart",
 "core/services/sync_service.dart",
 "core/database/app_database.dart",
@@ -24,7 +27,7 @@ for sub in paths:
     if not file.exists():print("NOT_FOUND",sub);continue
     content=file.read_text(encoding="utf-8")
     print("FILE",sub,"bytes",len(content))
-    if sub in ("features/walk/walk_screen.dart","features/walk/walk_area_screen.dart","features/home/home_screen.dart"):
+    if sub in ("features/walk/walk_start_screen.dart","features/walk/walk_screen.dart","features/walk/walk_area_screen.dart","features/home/home_screen.dart","features/menu/menu_screen.dart"):
         print("FIRST",content[:11500])
         keys=["Widget build(", "_showProblems(", "_load()", "Widget _problemsDashboard", "Future<void> _load(", "Widget _show", "ListView("]
         for key in keys:
