@@ -253,6 +253,10 @@ class _PromyselConnectionPageState extends State<PromyselConnectionPage> {
                 _metric('Этап последней ошибки',sync.lastSyncFailurePhase!),
                 const SizedBox(height: 8),
                 _metric('Тип ошибки',sync.lastSyncFailureType??'Не определён'),
+                if(sync.lastSyncStorageCause!=null)...[
+                  const SizedBox(height:8),
+                  _metric('Причина записи',sync.lastSyncStorageCause!),
+                ],
                 if(sync.lastSyncHttpStatus!=null)...[
                   const SizedBox(height:8),
                   _metric('Код ответа HTTP',sync.lastSyncHttpStatus.toString()),
