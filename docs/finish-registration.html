@@ -94,7 +94,7 @@ passwordForm.addEventListener("submit",async event=>{
  event.preventDefault();const password=document.getElementById("password").value;
  if(password!==document.getElementById("repeat").value){message("Пароли не совпадают.","error");return;}
  if(password.length<12){message("Пароль должен содержать минимум 12 символов.","error");return;}
- const button=document.getElementById("save");button.disabled=true;
+ const button=document.getElementById("save");if(button.disabled)return;button.disabled=true;
  try{
    if(!token)throw Error("Сессия истекла.");
    if(explicitRecovery){
@@ -112,7 +112,7 @@ passwordForm.addEventListener("submit",async event=>{
 });
 recoveryForm.addEventListener("submit",async event=>{
  event.preventDefault();const email=document.getElementById("email").value.trim().toLowerCase();
- const button=document.getElementById("send");button.disabled=true;
+ const button=document.getElementById("send");if(button.disabled)return;button.disabled=true;
  try{
    // Distinguish a deliberate "forgot password" request from a re-invite.
    // The recovery mail template appends the OTP hash after this prefix.
