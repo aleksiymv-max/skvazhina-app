@@ -287,3 +287,6 @@ scope=Web DEV test only, stage TUQO after successful tests
 
 release=v2.24-measurement-constructor-anchor-corrected
 reason=match stable capturedUnits constructor terminator without depending on newline formatting
+
+release=v2.24-history-annulus-anchor-independent-of-newline
+reason=use stable method identifier instead of formatted preceding newline
