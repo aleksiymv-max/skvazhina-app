@@ -1,0 +1,36 @@
+name: One-shot Yandex API Gateway probe
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'deploy/ci/yandex-gateway-probe.trigger'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Test public gateway GET and upstream Supabase health
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import json,time,urllib.request,urllib.error,socket
+          endpoints=[
+            ("yandex-gateway", "https://d5dcuqhl81fmr7cmipov.4kscn31j.apigw.yandexcloud.net/probe"),
+            ("supabase-direct", "https://xptmcufhuvtcunqzlsme.supabase.co/functions/v1/promysel-compat/health"),
+          ]
+          for label,url in endpoints:
+            t=time.monotonic()
+            try:
+              req=urllib.request.Request(url,method="GET",headers={"User-Agent":"Promysel-Yandex-Gateway-public-health-probe/1.0"})
+              with urllib.request.urlopen(req,timeout=20) as res:
+                b=res.read(2048)
+                print(json.dumps({"label":label,"http":res.status,"elapsed_ms":int((time.monotonic()-t)*1000),"content_type":res.headers.get("content-type"),"body_prefix":b.decode("utf-8","replace")[:1200]},ensure_ascii=False))
+            except urllib.error.HTTPError as error:
+              b=error.read(1000)
+              print(json.dumps({"label":label,"http":error.code,"elapsed_ms":int((time.monotonic()-t)*1000),"body_prefix":b.decode("utf-8","replace")[:800]},ensure_ascii=False))
+            except Exception as error:
+              print(json.dumps({"label":label,"error_type":type(error).__name__,"elapsed_ms":int((time.monotonic()-t)*1000)},ensure_ascii=False))
+          PY
