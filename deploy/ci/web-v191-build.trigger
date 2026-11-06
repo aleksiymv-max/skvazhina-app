@@ -305,3 +305,6 @@ release=v2.25-VPN-sync-API-probe-20261106
 feature=read-only authenticated revisions GET; manual VPN on/off; response ms HTTP error report
 no_production_database_changes=true
 source=e6fa777a5d632ac4fa69ca148853290809c071d4
+
+retry=v2.25-flutter-vpn-interpolation-quote-fix
+reason=Flutter parser requires distinct string delimiters around embedded ternary/map expressions
