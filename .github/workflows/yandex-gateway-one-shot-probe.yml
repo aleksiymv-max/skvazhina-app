@@ -23,6 +23,9 @@ jobs:
             ("yandex-revisions-field", "https://d5dcuqhl81fmr7cmipov.4kscn31j.apigw.yandexcloud.net/v1/sync/domain/revisions?fieldId=diagnostic-test"),
             ("yandex-revisions-field-utm", "https://d5dcuqhl81fmr7cmipov.4kscn31j.apigw.yandexcloud.net/v1/sync/domain/revisions?fieldId=diagnostic-test&utm_source=chatgpt.com"),
             ("yandex-probe-utm", "https://d5dcuqhl81fmr7cmipov.4kscn31j.apigw.yandexcloud.net/probe?fieldId=diagnostic-test&utm_source=chatgpt.com"),
+            ("yandex-stage2-probe", "https://d5dsfi5n1cppkq2427n3.s183zexc.apigw.yandexcloud.net/probe"),
+            ("yandex-stage2-revisions-no-token", "https://d5dsfi5n1cppkq2427n3.s183zexc.apigw.yandexcloud.net/v1/sync/domain/revisions?fieldId=diagnostic-test"),
+            ("yandex-stage2-revisions-noquery", "https://d5dsfi5n1cppkq2427n3.s183zexc.apigw.yandexcloud.net/v1/sync/domain/revisions"),
             ("supabase-direct", "https://xptmcufhuvtcunqzlsme.supabase.co/functions/v1/promysel-compat/health"),
           ]
           for label,url in endpoints:
