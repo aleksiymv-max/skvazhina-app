@@ -142,7 +142,7 @@ function avatarTransportDigest(value:string):string{
 function scopedOperatorMisc(raw:J,actorId:string,fieldId:string):J|null{
  const allowed=new Set(["fieldId","schema","updatedAt","annulus","notifications","problemApplications"]);
  if(raw.fieldId!==fieldId||Object.keys(raw).some(k=>!allowed.has(k)))return null;
- if(raw.schema!==undefined&&(!Number.isInteger(raw.schema)||Number(raw.schema)<1))return null;
+ if(raw.schema!==undefined&&(typeof raw.schema!=="number"||!Number.isInteger(raw.schema)||raw.schema<1))return null;
  if(raw.updatedAt!==undefined&&(typeof raw.updatedAt!=="string"||raw.updatedAt.length>80))return null;
  const annulus=raw.annulus;
  if(annulus!==undefined&&(!Array.isArray(annulus)||annulus.length>2000||!annulus.every(good)))return null;
