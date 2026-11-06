@@ -278,3 +278,9 @@ reason=with old cursor already acknowledged, a device can remain with zero areas
 release=v2.23-verified-final-after-recovery-landing-syntax-smoke
 recovery_smoke=42218407408 success
 scope=final validated Web DEV and TUQO staging, no direct production deploy
+
+release=v2.24-PID-PKV-optional-full-walk-history-roundtrip
+fix=remove mandatory PID and PKV state confirmation; independently record ESP frequency/current/load; snapshot only enabled pad parameters
+history=show oil Rline and all saved param groups, distinguish T_after_choke versus Tpr, expose archived well measurements without reviving structure
+safety=SQLite additive v16 column; no production measurement or Supabase rewrites; preserve offline queues
+scope=Web DEV test only, stage TUQO after successful tests
