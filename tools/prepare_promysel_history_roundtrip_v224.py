@@ -167,16 +167,19 @@ s=one(s,anchor,
 void _remoteMeasurementsChanged(){
  if(mounted){_load();_loadArchivedWells();}
 }''','archived history refresh')
-s=one(s,'items.clear();_hasMore=false;\n_resolvedProblemsFuture=repo.resolvedProblems();',
-      'items.clear();_hasMore=false;archivedWells.clear();\n_resolvedProblemsFuture=repo.resolvedProblems();',
+s=one(s,'items.clear();_hasMore=false;',
+      'items.clear();_hasMore=false;archivedWells.clear();',
       'clear archived choices when user/field changes')
-s=one(s,'_load();\n}\nvoid _filterHistoryDebounced()',
-      '_load();_loadArchivedWells();\n}\nvoid _filterHistoryDebounced()',
-      'reload archived when field changes')
+session_start=s.index('void _onSessionChanged(){')
+session_end=s.index('void _filterHistoryDebounced()',session_start)
+session_block=s[session_start:session_end]
+assert session_block.count('_load();')==1,'expected one reload in session handler'
+session_block=session_block.replace('_load();','_load();_loadArchivedWells();',1)
+s=s[:session_start]+session_block+s[session_end:]
 s=one(s,'MeasurementRepository.measurementRevision.addListener(_remoteMeasurementsChanged);_load();}',
       'MeasurementRepository.measurementRevision.addListener(_remoteMeasurementsChanged);_load();_loadArchivedWells();}',
       'initial archived well discovery')
-s=one(s,'const SizedBox(height: 18),\nif (wellId == \'__annulus__\')',
+s=one(s,"if (wellId == '__annulus__') _annulusParametersBlock()",
 """if(archivedWells.isNotEmpty)...[
  const SizedBox(height: 12),
  DropdownButtonFormField<String>(
@@ -196,8 +199,7 @@ s=one(s,'const SizedBox(height: 18),\nif (wellId == \'__annulus__\')',
      _load();
    }),
 ],
-const SizedBox(height: 18),
-if (wellId == '__annulus__')""",
+if (wellId == '__annulus__') _annulusParametersBlock()""",
       'archived selector UI')
 s=one(s,"if (well != null) Text('Замеры скважины ${well!.number}', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),",
       """if (well != null) Text('Замеры скважины '+well!.number, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
