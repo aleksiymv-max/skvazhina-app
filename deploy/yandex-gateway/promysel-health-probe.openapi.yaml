@@ -1,0 +1,33 @@
+openapi: 3.0.0
+info:
+  title: Promysel Supabase connectivity probe
+  version: "1.0.0"
+  description: >-
+    Safe, read-only test of the route Yandex API Gateway to the existing
+    Promysel Supabase Edge Function. No credentials or production data.
+paths:
+  /probe:
+    get:
+      operationId: probeSupabaseReachability
+      summary: Check whether Yandex API Gateway can reach Supabase
+      description: >-
+        Public GET to the existing Edge Function health endpoint. No
+        authorization token, query parameters or user data are forwarded.
+      responses:
+        "200":
+          description: The upstream health endpoint answered successfully
+          content:
+            application/json:
+              schema:
+                type: object
+        "502":
+          description: Gateway could not obtain an upstream response
+        "504":
+          description: Upstream timed out
+      x-yc-apigateway-integration:
+        type: http
+        url: https://xptmcufhuvtcunqzlsme.supabase.co/functions/v1/promysel-compat/health
+        method: GET
+        timeouts:
+          connect: 5
+          read: 12
