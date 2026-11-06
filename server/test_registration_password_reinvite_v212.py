@@ -18,7 +18,7 @@ checks={
  "first password server marks user metadata": 'password_changed_at:new Date().toISOString()' in api,
  "first password done via protected backend": '/v1/registration/initial-password' in landing,
  "old invite link blocked before form": "account.passwordSet===true&&!explicitRecovery" in landing,
- "recovery must be explicit": 'query.get("mode")==="forgot"&&query.get("type")==="recovery"' in landing,
+ "recovery must be explicit": 'query.get("mode")==="forgot"&&' in landing and 'params.get("type")==="recovery"' in landing in landing,
  "deliberate reset supported": 'if(explicitRecovery)' in landing and 'call("user","PUT",{password},token)' in landing,
  "automatic reset does not grant explicit mode": 'passwordSetupUrl+"?mode=first&token_hash="' in api,
  "explicit forgot carries separate intent": 'passwordSetupUrl+"?mode=forgot&token_hash="' in api,
