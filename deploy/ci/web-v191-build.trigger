@@ -217,3 +217,6 @@ release=v2.19-help-and-presence-continuity
 features=remove version history; one-tap system/server/sync check with error description/type/code; expanded user manual and clean rounded tile corners
 fix=work/rest attendance remains last explicit value across midnight; server last-record view without data mutation
 safety=preserve offline edits, photos, measurement queue and previous work statuses
+
+release=v2.19-help-presence-ci-test-timeout-fix
+reason=recognize correct 7-second health timeout in unified diagnostic test
