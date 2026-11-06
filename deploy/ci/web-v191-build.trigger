@@ -271,3 +271,6 @@ release=v2.23-structure-bootstrap-password-recovery-hash-correction
 reason=secure signup link from email may put recovery type in URL hash; ensure first-time setup and recovery both work
 verification=runtime landing test for hash recovery and preserved old invite protection
 scope=Web DEV then stage TUQO after passed CI
+
+release=v2.23-final-one-time-restore-missing-areas-after-advanced-cursor
+reason=with old cursor already acknowledged, a device can remain with zero areas while sync returns no changes; force one bounded full recovery without losing local outbox
