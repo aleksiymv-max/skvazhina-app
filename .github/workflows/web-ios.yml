@@ -208,6 +208,11 @@ jobs:
           python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_auth_sync_v217.py"
           python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_snapshot_storage_v218.py"
           python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_presence_continuity_v219.py"
+          mkdir -p lib/features/problems
+          cp "$GITHUB_WORKSPACE/tools/field_problem_report_store_v221.dart" lib/core/services/field_problem_report_store.dart
+          cp "$GITHUB_WORKSPACE/tools/field_problem_form_v221.dart" lib/features/problems/field_problem_form_screen.dart
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_standalone_problems_v221.py"
+          python3 "$GITHUB_WORKSPACE/tools/test_promysel_standalone_problems_v221.py"
           python3 "$GITHUB_WORKSPACE/tools/test_promysel_about_sync_v215.py"
           python3 "$GITHUB_WORKSPACE/tools/test_promysel_help_presence_v219.py"
           python3 "$GITHUB_WORKSPACE/tools/test_promysel_domain_failure_v220.py"
