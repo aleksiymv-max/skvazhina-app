@@ -46,7 +46,7 @@ Path(repo).write_text(s,encoding='utf8')
 path='lib/features/history/history_screen.dart'
 s=Path(path).read_text(encoding='utf8')
 start=s.index('List<(String,List<(String,String)>)> _historyBlocks(Measurement m)')
-end=s.index('\nbool get _canEditAnnulus',start)
+end=s.index('bool get _canEditAnnulus',start)
 new=r"""List<(String,List<(String,String)>)> _historyBlocks(Measurement m){
  final out=<(String,List<(String,String)>)>[];
  void add(String title,List<(String,String)> rows){
