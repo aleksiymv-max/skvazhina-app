@@ -4,3 +4,5 @@ mode=read-only
 report=generated-method-excerpts-v2
 report=pull-cursor-full
 v211=domain-queues-and-smtp
+
+request_audit=v213
