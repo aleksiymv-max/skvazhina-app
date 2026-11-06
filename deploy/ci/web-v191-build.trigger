@@ -209,3 +209,6 @@ release=v2.18-compact-ios-browser-snapshots
 reason=snapshot_persistence failed; avoid duplicate 422KB avatar payload in both field and global localStorage snapshots
 safety=avatar cache and pending mutation queue retained, no database purge, detailed persistence stages
 scope=Web DEV preview and optional TUQO stage after tests
+
+release=v2.18-browser-snapshot-compact-storage-test-corrected
+reason=static regression checked unexpected whitespace before avatar source token; actual state patch validations passed
