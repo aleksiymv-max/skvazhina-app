@@ -138,6 +138,29 @@ function avatarTransportDigest(value:string):string{
   return value.length+":"+a.toString(16)+":"+b.toString(16);
 }
 
+/** Backward-compatible operator misc delta; never grants structure access. */
+function scopedOperatorMisc(raw:J,actorId:string,fieldId:string):J|null{
+ const allowed=new Set(["fieldId","schema","updatedAt","annulus","notifications","problemApplications"]);
+ if(raw.fieldId!==fieldId||Object.keys(raw).some(k=>!allowed.has(k)))return null;
+ if(raw.schema!==undefined&&(!Number.isInteger(raw.schema)||Number(raw.schema)<1))return null;
+ if(raw.updatedAt!==undefined&&(typeof raw.updatedAt!=="string"||raw.updatedAt.length>80))return null;
+ const annulus=raw.annulus;
+ if(annulus!==undefined&&(!Array.isArray(annulus)||annulus.length>2000||!annulus.every(good)))return null;
+ const notifications=raw.notifications;
+ if(notifications!==undefined&&(!Array.isArray(notifications)||notifications.length>1000||
+    !notifications.every((n:unknown)=>good(n)&&String((n as J).userId??"")===actorId)))return null;
+ const problems=raw.problemApplications;
+ // Non-empty legacy map changes have no secure per-entry ownership proof.
+ // Reject rather than acknowledge or silently lose these queued edits.
+ if(problems!==undefined&&(!good(problems)||Object.keys(problems).length>0))return null;
+ return {fieldId,
+   ...(raw.schema!==undefined?{schema:raw.schema}:{}),
+   ...(raw.updatedAt!==undefined?{updatedAt:raw.updatedAt}:{}),
+   ...(annulus!==undefined?{annulus}:{}),
+   ...(notifications!==undefined?{notifications}:{}),
+   ...(problems!==undefined?{problemApplications:{}}:{})};
+}
+
 Deno.serve(async(req:Request)=>{
  if(req.method==="OPTIONS")return new Response(null,{status:204,headers:HEAD});
  const route=new URL(req.url).pathname.replace(/^.*?\/promysel-compat/,"");
@@ -1172,12 +1195,20 @@ Deno.serve(async(req:Request)=>{
    const canStructure=member.role==="shopChief"||member.role==="admin"||specialist;
    const canWalk=["operator","engineer","shopChief"].includes(String(member.role));
    const records:J[]=[];
+   const ordinaryRecords:J[]=[],scopedMiscRecords:J[]=[];
    const tombstoneRequests:{field_id:string,kind:string,entity_id:string,actor_id:string}[]=[];
    for(const item of items){
     if(!good(item)||!good(item.payload))return reply({detail:"Некорректный элемент синхронизации"},400);
-    const i=item as J,key=txt(i.key),type=txt(i.type),payload=i.payload as J;
+    const i=item as J,key=txt(i.key),type=txt(i.type);let payload=i.payload as J;
     if(key.length<1||key.length>300||!["measurement","app_state"].includes(type))return reply({detail:"Неверный тип изменения"},400);
-    if(type==="measurement"&&!canWalk||type==="app_state"&&!canStructure)return reply({detail:"Нет прав на изменение"},403);
+    if(type==="measurement"&&!canWalk)return reply({detail:"Нет прав на изменение"},403);
+    const operatorMisc=type==="app_state"&&!canStructure;
+    if(operatorMisc){
+      if(!canWalk)return reply({detail:"Нет прав на изменение"},403);
+      const scoped=scopedOperatorMisc(payload,user.id,fieldId);
+      if(!scoped)return reply({detail:"Требуется обновить приложение для безопасной отправки изменений этого раздела"},403);
+      payload=scoped;
+    }
     if(type==="app_state"&&payload.fieldId!==fieldId)return reply({detail:"Месторождение снимка не совпадает"},403);
     if(type==="app_state"&&payload.structureDeleted!==undefined){
       if(!good(payload.structureDeleted))return reply({detail:"Некорректные метки удаления"},400);
@@ -1190,8 +1221,10 @@ Deno.serve(async(req:Request)=>{
         }
       }
     }
-    records.push({event_key:key,field_id:fieldId,device_id:device,event_type:type,
-     payload,actor_id:user.id,client_updated_at:i.updatedAt??null});
+    const record:J={event_key:key,field_id:fieldId,device_id:device,event_type:type,
+     payload,actor_id:user.id,client_updated_at:i.updatedAt??null};
+    records.push(record);
+    if(operatorMisc)scopedMiscRecords.push(record);else ordinaryRecords.push(record);
    }
    // Server-enforced role gate: regular ITR can edit names but cannot introduce
    // deletion markers. Already recorded markers may be relayed by any writer.
@@ -1211,8 +1244,18 @@ Deno.serve(async(req:Request)=>{
        if(insertError)throw insertError;
      }
    }
-   const {error}=await actorClient.from("sync_events").upsert(records,{onConflict:"event_key",ignoreDuplicates:true});
-   if(error)throw error;
+   // Ordinary measurements and structural snapshots continue through RLS.
+   if(ordinaryRecords.length){
+     const {error}=await actorClient.from("sync_events").upsert(ordinaryRecords,{onConflict:"event_key",ignoreDuplicates:true});
+     if(error)throw error;
+   }
+   // Strictly scoped operator misc is written by the trusted server after
+   // authenticating actor and field. No structure, tasks, or third-party
+   // notifications are included, and original event keys remain idempotent.
+   if(scopedMiscRecords.length){
+     const {error}=await admin.from("sync_events").upsert(scopedMiscRecords,{onConflict:"event_key",ignoreDuplicates:true});
+     if(error)throw error;
+   }
    return reply({accepted:records.map((x:J)=>x.event_key)});
   }
   return reply({detail:"Маршрут не найден"},404);
