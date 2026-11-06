@@ -290,3 +290,5 @@ reason=match stable capturedUnits constructor terminator without depending on ne
 
 release=v2.24-history-annulus-anchor-independent-of-newline
 reason=use stable method identifier instead of formatted preceding newline
+
+release=v2.24-history-routing-robust-session-and-archive-anchors
