@@ -18,9 +18,6 @@ def once(a,b,label):
 
 # Safe only because both remote and locally edited photos are durably managed
 # by AvatarStore (the v2.06 queue) BEFORE the snapshot-persistence step.
-anchor="Future<void> apply(Map<String,dynamic> s,{"
-assert anchor not in s,"Run v2.18 AFTER v2.16 diagnostic patch"
-anchor="Future<void> apply(Map<String,dynamic> s,{"
 # The v2.16 method signature starts as shown below and accepts onStage.
 anchor="""Future<void> apply(Map<String,dynamic> s,{
     bool persist=true,void Function(String)? onStage
