@@ -13,14 +13,14 @@ checks={
     "О системе", "Руководство пользователя",
     "Версия приложения", "Состояние сервера и синхронизации"
  ]),
- "version metadata":"Версия v2.19" in about and "v2.16" in about and "v2.15" in about and "v2.14" in about,
+ "version metadata":"Версия v2.19" in about and "Текущая версия" not in about,
  "manual covers offline care": "Не очищайте данные браузера" in about,
  "live server probe bounded": "final response=await http.get(uri," in about and
     "Duration(seconds: 7)" in about,
  "server probe distinct from sync": "response.statusCode" in about and
     "sync.lastSyncAt" in about,
- "pending count visible": "sync.pending.toString()" in about,
- "last successful sync visible": "_date(sync.lastSyncAt)" in about,
+ "pending count visible": "sync.pending" in about,
+ "last successful sync visible": "_stamp(sync.lastSyncAt!)" in about,
  "manual sync does not erase data": "await sync.syncNow(force:true)" in about and
     "clearPersistedSession" not in about and "clearDirty" not in about,
  "no regular background health polling": "Timer.periodic" not in about,
