@@ -1,0 +1,44 @@
+openapi: 3.0.0
+info:
+  title: Promysel gateway stage2 TLS isolation
+  version: "0.2.0"
+  description: >-
+    Diagnostic only. No credentials, no user data and no mutations.
+    Do not forward original request headers, especially Host.
+paths:
+  /probe:
+    get:
+      operationId: stage2Health
+      responses:
+        '200':
+          description: Supabase Edge Function responded
+        '502':
+          description: Upstream error
+        '503':
+          description: Upstream TLS or routing error
+      x-yc-apigateway-integration:
+        type: http
+        method: GET
+        url: https://xptmcufhuvtcunqzlsme.supabase.co/functions/v1/promysel-compat/health
+        timeouts:
+          connect: 5
+          read: 12
+  /v1/sync/domain/revisions:
+    get:
+      operationId: stage2RevisionsWithoutAuth
+      responses:
+        '401':
+          description: No token supplied
+        '502':
+          description: Upstream error
+        '503':
+          description: Upstream TLS or routing error
+      x-yc-apigateway-integration:
+        type: http
+        method: GET
+        url: https://xptmcufhuvtcunqzlsme.supabase.co/functions/v1/promysel-compat/v1/sync/domain/revisions
+        query:
+          '*': '*'
+        timeouts:
+          connect: 5
+          read: 12
