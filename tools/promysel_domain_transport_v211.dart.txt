@@ -111,10 +111,31 @@
       };
       // Bound a single domain request on weak links. The operation key is
       // durable: an uncertain timeout must remain pending, never acknowledged.
-      final res=await _client.post(
+      var res=await _client.post(
         _uri(isLegacy?'/v1/sync/push':'/v1/sync/domain/push'),
         headers:_authHeaders,body:jsonEncode(body))
         .timeout(const Duration(seconds:18));
+      // A safe one-time revision rebase for user-scoped schedules and
+      // per-record timestamp-guarded training. Do not automatically rebase
+      // structure or tasks: stale broad payloads could overwrite colleagues.
+      // A 409 is an explicit rejection: the first POST was not committed.
+      if(res.statusCode==409&&(domain=='schedules'||domain=='training')){
+        try{
+          final conflict=jsonDecode(res.body);
+          final next=conflict is Map ? conflict['revision'] : null;
+          final old=body['expectedRevision'];
+          if(next is num&&old is num&&next.toInt()>old.toInt()){
+            final rebase=Map<String,dynamic>.from(body);
+            rebase['expectedRevision']=next.toInt();
+            // Exactly one guarded second attempt, using the SAME operation key.
+            res=await _client.post(_uri('/v1/sync/domain/push'),
+              headers:_authHeaders,body:jsonEncode(rebase))
+              .timeout(const Duration(seconds:18));
+          }
+        }on FormatException{
+          // Keep original conflict visible; never discard the pending edit.
+        }
+      }
       domainHttpStatus=res.statusCode>=400?res.statusCode:null;
       if(domainHttpStatus!=null){
         try{
