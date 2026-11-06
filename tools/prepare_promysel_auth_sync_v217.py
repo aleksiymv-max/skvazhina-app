@@ -77,6 +77,7 @@ new="""    // An in-flight GET can race an unrelated caller refreshing its JWT.
     final attemptedToken=SessionService.instance.token;
 """+once+"""
     var res=await pullOnce();
+    lastSyncHttpStatus=res.statusCode>=400?res.statusCode:null;
     if(res.statusCode==401&&attemptedToken!=null&&attemptedToken.isNotEmpty){
       _syncPhase='pull.auth_refresh';
       // If another caller has already installed a newer token, simply use it.
@@ -91,6 +92,7 @@ s=s[:start]+new+s[end:]
 s=one(s,"String? lastSyncFailurePhase,lastSyncFailureType;",
       "String? lastSyncFailurePhase,lastSyncFailureType;\n  int? lastSyncHttpStatus;",
       "numeric HTTP code diagnostic")
+s=one(s,"    _syncPhase='session';", "    _syncPhase='session';lastSyncHttpStatus=null;", "reset old HTTP status at new attempt")
 s=one(s,"_lastSyncProblem=null;lastSyncFailurePhase=null;",
       "_lastSyncProblem=null;lastSyncHttpStatus=null;lastSyncFailurePhase=null;",
       "clear old HTTP status on full success")
