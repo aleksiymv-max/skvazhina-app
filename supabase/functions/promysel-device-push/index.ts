@@ -54,6 +54,24 @@ async function vapid(){
   if(error||!data)throw new Error("Push keys unavailable");
   return data as {public_key:string,private_key:string};
 }
+// v2.13: public VAPID key changes rarely. Repeated PWA opens must not
+// fetch the PRIVATE key from PostgreSQL only to show the public key.
+let publicVapidUntil=0;
+let publicVapidCache:string|null=null;
+let publicVapidPending:Promise<string>|null=null;
+async function publicVapidKey():Promise<string>{
+  if(publicVapidCache!==null&&Date.now()<publicVapidUntil)return publicVapidCache;
+  if(publicVapidPending!==null)return publicVapidPending;
+  publicVapidPending=(async()=>{
+    const {data,error}=await db.from("promysel_push_keys")
+      .select("public_key").eq("key_name","vapid-main").maybeSingle();
+    if(error||!data?.public_key)throw new Error("Public push key unavailable");
+    publicVapidCache=String(data.public_key);
+    publicVapidUntil=Date.now()+60*1000;
+    return publicVapidCache;
+  })();
+  try{return await publicVapidPending;}finally{publicVapidPending=null;}
+}
 Deno.serve(async(req:Request)=>{
   const origin=req.headers.get("origin")??undefined;
   if(req.method==="OPTIONS")return response(null,204,origin);
@@ -63,7 +81,7 @@ Deno.serve(async(req:Request)=>{
     if(route==="/health"&&req.method==="GET")
       return response({status:"ok",service:"promysel-device-push"},200,origin);
     if(route==="/public-key"&&req.method==="GET")
-      return response({publicKey:(await vapid()).public_key},200,origin);
+      return response({publicKey:await publicVapidKey()},200,origin);
     // Server-side, membership-scoped notification feed. Never accept a
     // userId supplied by the browser. This is the sole read path for events.
     if(route==="/inbox"&&req.method==="GET"){
