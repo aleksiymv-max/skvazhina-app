@@ -2,9 +2,11 @@
 const fs=require("fs"),vm=require("vm"),assert=require("node:assert/strict");
 const source=fs.readFileSync("supabase/functions/promysel-compat/index.ts","utf8");
 const start=source.indexOf("function avatarTransportDigest(value:string):string{");
-const end=source.indexOf("\nDeno.serve(",start);
+// Execute only the fingerprint helper. Unrelated typed Edge helpers may be
+// inserted between this helper and Deno.serve, and are not valid plain JS.
+const end=source.indexOf("\n}",start);
 assert(start>=0&&end>start,"Supabase avatar fingerprint helper missing");
-const compiled=source.slice(start,end).replace("value:string):string","value)");
+const compiled=source.slice(start,end+2).replace("value:string):string","value)");
 const digest=vm.runInNewContext(compiled+"\navatarTransportDigest;",{}, {timeout:3000});
 function independentDigest(text){
  let a=2166136261,b=5381;
