@@ -28,7 +28,8 @@ for name, code in [("compat", compat), ("admin", admin)]:
     assert code.index("promysel_start_registration_approval") < code.index("promysel_finish_registration_approval"), name
     if name == "compat":
         assert "passwordSetupUrl" in code, "compat needs configurable user redirect"
-        assert 'publicOrigin=validatedPublicOrigin(configuredPublicOrigin)||"https://promysel-app.tuqo.ru"' in code
+        assert 'approvedRegistrationOrigin="https://promysel-app.tuqo.ru"' in code
+        assert "candidateRegistrationOrigin===approvedRegistrationOrigin" in code
         assert 'redirectTo:passwordSetupUrl' in code
     else:
         assert "https://promysel-app.tuqo.ru/finish-registration.html" in code, name
