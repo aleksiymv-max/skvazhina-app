@@ -297,3 +297,6 @@ release=v2.24-network-diagnostics-20261106
 scope=one-shot Web DEV build, separate TUQO and Supabase probes, manual VPN comparison, no database mutation
 source_commit=4cc2526a3ec0007d8f7987cb777783885d2ede0a
 production=not automatically deployed
+
+retry=v2.24-network-diagnostics-template-path-v225
+reason=source-safe standalone HTML test must resolve template from repository workspace when Flutter build is extracted
