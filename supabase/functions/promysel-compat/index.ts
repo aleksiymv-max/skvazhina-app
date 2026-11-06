@@ -244,9 +244,21 @@ Deno.serve(async(req:Request)=>{
   if(!token)return reply({detail:"Необходимо войти в приложение"},401);
   const actorClient=createClient(base,publish,{global:{headers:{Authorization:"Bearer "+token}},
     auth:{persistSession:false,autoRefreshToken:false}});
-  const {data:auth,error:authError}=await actorClient.auth.getUser(token);
-  if(authError||!auth.user)return reply({detail:"Сессия истекла. Войдите повторно."},401);
-  const user=auth.user;
+  // ES256: verify the signature with cached Supabase JWKS locally.
+  // Immediately check auth.sessions and LIVE memberships in a single
+  // service-role RPC. Signed JWTs alone must NOT bypass server-side logout.
+  const {data:verified,error:claimsError}=await actorClient.auth.getClaims(token);
+  const claims=verified?.claims as Record<string,unknown>|undefined;
+  const uid=String(claims?.sub??""),sessionId=String(claims?.session_id??"");
+  if(claimsError||!/^[0-9a-f-]{36}$/i.test(uid)||
+     !/^[0-9a-f-]{36}$/i.test(sessionId))
+    return reply({detail:"Сессия истекла. Войдите повторно."},401);
+  const {data:scope,error:scopeError}=await admin.rpc("promysel_request_scope_v213",{
+    p_user_id:uid,p_session_id:sessionId
+  });
+  if(scopeError)throw scopeError;
+  if(!scope?.user)return reply({detail:"Сессия завершена. Войдите повторно."},401);
+  const user=scope.user as J;
   // The invitation landing may be used before field access is approved.
   // Query Supabase service-role RPC by authenticated token; never trust email
   // or user ID supplied by the browser. This also protects OLD invite URLs.
@@ -284,22 +296,14 @@ Deno.serve(async(req:Request)=>{
      !["/v1/auth/first-password","/v1/auth/change-password"].includes(route)){
      return reply({detail:"Необходимо изменить временный пароль"},403);
   }
-  // Most requests are made by field employees. Resolve active memberships in
-  // one indexed FK join instead of querying the entire field catalogue on
-  // every API call. Admins still receive the full active field list.
-  const [memberResult,allFieldsResult]=await Promise.all([
-    admin.from("field_memberships")
-      .select("field_id,role,subrole,display_name,approved,blocked,oil_fields!inner(id,archived_at)")
-      .eq("user_id",user.id).is("oil_fields.archived_at",null).limit(30),
-    elevated?admin.from("oil_fields").select("id").is("archived_at",null).limit(500):
-      Promise.resolve({data:[],error:null})
-  ]);
-  if(memberResult.error)throw memberResult.error;
-  if(allFieldsResult.error)throw allFieldsResult.error;
-  const memberships=(memberResult.data??[]).filter((m:J)=>m.approved===true&&m.blocked!==true);
+  // All scope checks are current on EVERY request, not cached in the
+  // browser and not taken from user-writable JWT metadata.
+  const memberships: J[]=(Array.isArray(scope.memberships)?scope.memberships:[])
+    .filter((m:J)=>m.approved===true&&m.blocked!==true);
   const activeFields=new Set<string>([
     ...memberships.map((m:J)=>String(m.field_id)),
-    ...(allFieldsResult.data??[]).map((f:J)=>String(f.id))
+    ...(elevated&&Array.isArray(scope.admin_field_ids)?
+       scope.admin_field_ids.map((id:unknown)=>String(id)):[])
   ]);
   const canField=(fieldId:string)=>memberships.find((m:J)=>m.field_id===fieldId);
   async function effectiveState(fid:string):Promise<{snapshot:J|null,seq:number,changed:boolean,revisions:J}>{
