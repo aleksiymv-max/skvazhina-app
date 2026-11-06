@@ -251,3 +251,5 @@ reason=align generated Home source indentation while keeping existing listeners 
 release=v2.21-quick-report-existing-home-empty-state-anchor-fixed
 
 release=v2.21-root-menu-navigation-stable-shell-anchor
+
+release=v2.21-problem-report-outbox-regression-corrected
