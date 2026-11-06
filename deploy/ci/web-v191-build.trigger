@@ -232,3 +232,6 @@ scope=Web DEV build and staged TUQO after verification; preserve all offline dat
 
 release=v2.20-domain-sqlstate-build-anchor-correction
 reason=storage exception instrumentation now targets top-level sync catch, not domain-level catch
+
+release=v2.20-domain-error-valid-source-regex-corrected
+reason=regenerated Dart template from parent version and verified exact bounded error-code regex
