@@ -6,3 +6,6 @@ report=pull-cursor-full
 v211=domain-queues-and-smtp
 
 request_audit=v213
+
+audit=sync-v215-generated-pull-state-sqlite-20261106
+scope=read-only generated-source diagnostics after exact Flutter patches
