@@ -11,6 +11,8 @@ checks={
    all(x not in probe for x in ["http.post(", "syncNow(", "http.put(", "http.delete(",
                               "applyRemoteMeasurement", "clearDirty", "markSynced"]),
  'bounded timeout':"Duration(seconds:12)" in probe and "Stopwatch()..start()" in probe,
+ 'CORS-compatible request headers':"'cache-control':'no-store'" not in probe and
+   "'authorization':'Bearer $token'" in probe,
  'genuine response validation':"response.statusCode==200" in probe and
    "json['revisions'] is Map" in probe,
  'diagnose timeout network http and session':
