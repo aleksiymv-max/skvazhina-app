@@ -1,13 +1,13 @@
 {
-  "run_id": 42151653618,
-  "head_sha": "a7a36a72c8969c0f3e6bfe8a845caa676f7e1fda",
+  "run_id": 42152118343,
+  "head_sha": "fef27bdac1dd7aab34bb11fbebc7fb8088b7debc",
   "conclusion": "success",
-  "run_url": "https://github.com/aleksiymv-max/skvazhina-app/actions/runs/42151653618",
-  "started_at": "2026-11-06T02:38:55Z",
-  "updated_at": "2026-11-06T02:42:22Z",
+  "run_url": "https://github.com/aleksiymv-max/skvazhina-app/actions/runs/42152118343",
+  "started_at": "2026-11-06T02:43:24Z",
+  "updated_at": "2026-11-06T02:46:28Z",
   "artifact_available": true,
   "queue_wait_seconds": 0,
-  "total_elapsed_seconds": 207.0,
+  "total_elapsed_seconds": 184.0,
   "step_durations": [
     {
       "name": "Set up job",
@@ -16,7 +16,7 @@
     },
     {
       "name": "Run actions/checkout@v4",
-      "seconds": 2.0,
+      "seconds": 1.0,
       "conclusion": "success"
     },
     {
@@ -46,17 +46,17 @@
     },
     {
       "name": "Run subosito/flutter-action@v2",
-      "seconds": 25.0,
+      "seconds": 32.0,
       "conclusion": "success"
     },
     {
       "name": "Create web platform and configure iPhone PWA",
-      "seconds": 46.0,
+      "seconds": 35.0,
       "conclusion": "success"
     },
     {
       "name": "Analyze and build web release",
-      "seconds": 95.0,
+      "seconds": 77.0,
       "conclusion": "success"
     },
     {
@@ -71,12 +71,12 @@
     },
     {
       "name": "Package iPhone web app",
-      "seconds": 3.0,
+      "seconds": 2.0,
       "conclusion": "success"
     },
     {
       "name": "Run actions/upload-artifact@v4",
-      "seconds": 2.0,
+      "seconds": 3.0,
       "conclusion": "success"
     },
     {
