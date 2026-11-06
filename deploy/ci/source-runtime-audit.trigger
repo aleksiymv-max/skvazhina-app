@@ -11,3 +11,6 @@ audit=sync-v215-generated-pull-state-sqlite-20261106
 scope=read-only generated-source diagnostics after exact Flutter patches
 
 audit=auth-session-v217-actual-generated-source-20261106
+
+audit=v221-walk-standalone-problem-and-about-menu-routing
+reason=read-only inspect generated Flutter source for new problem report UX
