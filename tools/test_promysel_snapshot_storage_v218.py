@@ -16,7 +16,7 @@ checks={
  "compaction is a copy, never mutates state":
     "final result=Map<String,dynamic>.from(source);" in state and
     "result.remove('avatars');" in state,
- "remote API snapshot retains photos":" 'avatars':AvatarStore.instance.data" in state,
+ "remote API snapshot retains photos":"'avatars':AvatarStore.instance.data" in state,
  "avatar cache independently durable":
     "await prefs.setString(_key,jsonEncode(data));" in avatar and
     "await prefs.setString(_pendingKey,jsonEncode(_pending));" in avatar and
