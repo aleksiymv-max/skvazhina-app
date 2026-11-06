@@ -1,13 +1,13 @@
 {
-  "run_id": 42161125966,
-  "head_sha": "60a9af9c81fda38c3102b3713d5d9b57674d90d3",
+  "run_id": 42168302630,
+  "head_sha": "28e405160cc69890dd71cad5b5ad419afe648a61",
   "conclusion": "success",
-  "run_url": "https://github.com/aleksiymv-max/skvazhina-app/actions/runs/42161125966",
-  "started_at": "2026-11-06T04:12:35Z",
-  "updated_at": "2026-11-06T04:15:24Z",
+  "run_url": "https://github.com/aleksiymv-max/skvazhina-app/actions/runs/42168302630",
+  "started_at": "2026-11-06T05:25:05Z",
+  "updated_at": "2026-11-06T05:28:27Z",
   "artifact_available": true,
   "queue_wait_seconds": 0,
-  "total_elapsed_seconds": 169.0,
+  "total_elapsed_seconds": 202.0,
   "step_durations": [
     {
       "name": "Set up job",
@@ -26,7 +26,7 @@
     },
     {
       "name": "Supabase compatibility endpoint preflight",
-      "seconds": 1.0,
+      "seconds": 2.0,
       "conclusion": "success"
     },
     {
@@ -41,22 +41,22 @@
     },
     {
       "name": "Apply current Promysel updates",
-      "seconds": 6.0,
+      "seconds": 7.0,
       "conclusion": "success"
     },
     {
       "name": "Run subosito/flutter-action@v2",
-      "seconds": 24.0,
+      "seconds": 15.0,
       "conclusion": "success"
     },
     {
       "name": "Create web platform and configure iPhone PWA",
-      "seconds": 31.0,
+      "seconds": 47.0,
       "conclusion": "success"
     },
     {
       "name": "Analyze and build web release",
-      "seconds": 72.0,
+      "seconds": 102.0,
       "conclusion": "success"
     },
     {
@@ -66,17 +66,17 @@
     },
     {
       "name": "Probe existing Tuqo site and backend DNS HTTPS (external GitHub network only)",
-      "seconds": 2.0,
-      "conclusion": "success"
-    },
-    {
-      "name": "Package iPhone web app",
       "seconds": 1.0,
       "conclusion": "success"
     },
     {
+      "name": "Package iPhone web app",
+      "seconds": 3.0,
+      "conclusion": "success"
+    },
+    {
       "name": "Run actions/upload-artifact@v4",
-      "seconds": 2.0,
+      "seconds": 1.0,
       "conclusion": "success"
     },
     {
@@ -86,7 +86,7 @@
     },
     {
       "name": "Publish development preview only (stable production remains frozen)",
-      "seconds": 21.0,
+      "seconds": 15.0,
       "conclusion": "success"
     },
     {
