@@ -177,7 +177,9 @@ Deno.serve(async(req:Request)=>{
   if(publicRoute&&route==="/v1/auth/forgot-password"){
    const email=txt(body.email).toLowerCase();
    if(!validEmail(email))return reply({detail:"Некорректная почта"},400);
-   const {error}=await guest.auth.resetPasswordForEmail(email,{redirectTo:passwordSetupUrl});
+   const {error}=await guest.auth.resetPasswordForEmail(email,{
+     redirectTo:passwordSetupUrl+"?mode=forgot&token_hash="
+   });
    if(error)console.error("resetPasswordForEmail:",error.message);
    return reply({status:"ok",detail:"Если почта зарегистрирована, письмо отправлено"});
   }
@@ -519,7 +521,7 @@ Deno.serve(async(req:Request)=>{
        // Existing account: email FIRST, membership finalization SECOND.
        // Previously the database claimed delivery before reset email was sent.
        const {error:resetError}=await guest.auth.resetPasswordForEmail(
-         String(decision.email),{redirectTo:passwordSetupUrl});
+         String(decision.email),{redirectTo:passwordSetupUrl+"?mode=first&token_hash="});
        if(resetError)deliveryError=resetError;
      }
      if(deliveryError){
