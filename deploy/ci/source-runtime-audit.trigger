@@ -16,3 +16,6 @@ audit=v221-walk-standalone-problem-and-about-menu-routing
 reason=read-only inspect generated Flutter source for new problem report UX
 
 audit=v221-walk-start-and-repository-details
+
+audit=v224-pid-pkv-history-measurement-roundtrip
+reason=read-only compare generated save form local SQLite, remote sync and history detail mapping
