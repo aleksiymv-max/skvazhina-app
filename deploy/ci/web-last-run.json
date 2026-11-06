@@ -1,17 +1,17 @@
 {
-  "run_id": 42205967024,
-  "head_sha": "10eec6c5dc23e49770f0a17e7b01497bd946e009",
+  "run_id": 42216580528,
+  "head_sha": "90812954f7f2789de6a95454191d9d156c4711d2",
   "conclusion": "success",
-  "run_url": "https://github.com/aleksiymv-max/skvazhina-app/actions/runs/42205967024",
-  "started_at": "2026-11-06T10:52:29Z",
-  "updated_at": "2026-11-06T10:55:12Z",
+  "run_url": "https://github.com/aleksiymv-max/skvazhina-app/actions/runs/42216580528",
+  "started_at": "2026-11-06T12:17:51Z",
+  "updated_at": "2026-11-06T12:21:04Z",
   "artifact_available": true,
   "queue_wait_seconds": 0,
-  "total_elapsed_seconds": 163.0,
+  "total_elapsed_seconds": 193.0,
   "step_durations": [
     {
       "name": "Set up job",
-      "seconds": 1.0,
+      "seconds": 2.0,
       "conclusion": "success"
     },
     {
@@ -41,22 +41,22 @@
     },
     {
       "name": "Apply current Promysel updates",
-      "seconds": 5.0,
+      "seconds": 7.0,
       "conclusion": "success"
     },
     {
       "name": "Run subosito/flutter-action@v2",
-      "seconds": 23.0,
+      "seconds": 30.0,
       "conclusion": "success"
     },
     {
       "name": "Create web platform and configure iPhone PWA",
-      "seconds": 32.0,
+      "seconds": 36.0,
       "conclusion": "success"
     },
     {
       "name": "Analyze and build web release",
-      "seconds": 67.0,
+      "seconds": 77.0,
       "conclusion": "success"
     },
     {
@@ -71,7 +71,7 @@
     },
     {
       "name": "Package iPhone web app",
-      "seconds": 1.0,
+      "seconds": 2.0,
       "conclusion": "success"
     },
     {
@@ -86,12 +86,12 @@
     },
     {
       "name": "Publish development preview only (stable production remains frozen)",
-      "seconds": 19.0,
+      "seconds": 24.0,
       "conclusion": "success"
     },
     {
       "name": "Post Run subosito/flutter-action@v2",
-      "seconds": 1.0,
+      "seconds": 0,
       "conclusion": "success"
     },
     {
