@@ -29,7 +29,7 @@ checks={
   "status clears on new and successful sync":"_syncPhase='session';lastSyncHttpStatus=null;" in sync and
     "_lastSyncProblem=null;lastSyncHttpStatus=null;" in sync,
   "UI offers safe numeric diagnostic":"sync.lastSyncHttpStatus" in about and
-    "Версия v2.19" in about,
+    "Версия v2.20" in about,
   "no structural changes or data deletion":"await _db.markSyncError" in sync and
     "await _db.applyRemoteMeasurement" in sync and
     "await AppStateStore.instance.clearDirty(fid)" in sync,
