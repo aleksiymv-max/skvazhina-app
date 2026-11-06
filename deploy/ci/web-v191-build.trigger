@@ -260,3 +260,9 @@ release=v2.22-lte-handover-health-sync-recovery
 incident=2026-11-06 mobile Safari LTE HEALTH_TIMEOUT SYNC_CHECK_FAILED and domain 409
 fix=14s bounded health check, independently check actual auth sync when health fails, concrete failure types, preserve outboxes, one debounce on web transport handover, guarded CAS retry only schedule/training
 safety=no data reset, no extra automatic POST retry of measurements or structural state, TEST first TUQO staging on success
+
+release=v2.23-conflict-safe-first-login-field-structure-recovery
+incident=member HTTP409 on domain push and zero areas, server retained 4 areas/4 pads and 7 deletion markers
+client_fix=hydrate only missing field structure from server even when unrelated dirty records block snapshot; never overwrite existing local areas or deletion markers; retain pending queues and cursor safety
+mail=existing user request31 recovery email retriggered, auth acknowledged at 2026-11-06T12:14:03Z
+scope=test build first; working TUQO remains unchanged until validated
