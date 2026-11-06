@@ -1,13 +1,13 @@
 {
-  "run_id": 42199576188,
-  "head_sha": "9dce6ea2599cf6a8f538c7b6ae2d94bade502558",
+  "run_id": 42199772958,
+  "head_sha": "ddfc501b97b4b2a232c7d60b14f37377cf78797c",
   "conclusion": "failure",
-  "run_url": "https://github.com/aleksiymv-max/skvazhina-app/actions/runs/42199576188",
-  "started_at": "2026-11-06T10:02:33Z",
-  "updated_at": "2026-11-06T10:02:50Z",
+  "run_url": "https://github.com/aleksiymv-max/skvazhina-app/actions/runs/42199772958",
+  "started_at": "2026-11-06T10:04:04Z",
+  "updated_at": "2026-11-06T10:04:17Z",
   "artifact_available": false,
   "queue_wait_seconds": 0,
-  "total_elapsed_seconds": 17.0,
+  "total_elapsed_seconds": 13.0,
   "step_durations": [
     {
       "name": "Set up job",
@@ -26,7 +26,7 @@
     },
     {
       "name": "Supabase compatibility endpoint preflight",
-      "seconds": 2.0,
+      "seconds": 1.0,
       "conclusion": "success"
     },
     {
@@ -36,12 +36,12 @@
     },
     {
       "name": "Verify preinstalled icon renderer",
-      "seconds": 2.0,
+      "seconds": 0,
       "conclusion": "success"
     },
     {
       "name": "Apply current Promysel updates",
-      "seconds": 4.0,
+      "seconds": 5.0,
       "conclusion": "failure"
     },
     {
@@ -91,7 +91,7 @@
     },
     {
       "name": "Post Run actions/checkout@v4",
-      "seconds": 1.0,
+      "seconds": 0,
       "conclusion": "success"
     },
     {
