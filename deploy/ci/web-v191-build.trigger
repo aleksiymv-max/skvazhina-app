@@ -238,3 +238,9 @@ reason=regenerated Dart template from parent version and verified exact bounded 
 
 release=v2.20-dev-cloudflare-internal-error-retry
 reason=Flutter analyzer/tests and artifact passed; Cloudflare Pages returned transient internal function publish error
+
+release=v2.21-standalone-pad-problem-applications-and-menu-navigation
+feature=Walk tab quick report; mandatory area/pad/description; optional well; author and original submission time; main Problems list and role-limited resolution
+sync=independent field-scoped RLS table, offline persistent outbox with stable IDs, no measurement pollution
+navigation=About is Menu child route and bottom Menu always returns to Menu root
+build=Web DEV first, TUQO release stage only after passed tests
