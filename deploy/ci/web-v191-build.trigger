@@ -266,3 +266,8 @@ incident=member HTTP409 on domain push and zero areas, server retained 4 areas/4
 client_fix=hydrate only missing field structure from server even when unrelated dirty records block snapshot; never overwrite existing local areas or deletion markers; retain pending queues and cursor safety
 mail=existing user request31 recovery email retriggered, auth acknowledged at 2026-11-06T12:14:03Z
 scope=test build first; working TUQO remains unchanged until validated
+
+release=v2.23-structure-bootstrap-password-recovery-hash-correction
+reason=secure signup link from email may put recovery type in URL hash; ensure first-time setup and recovery both work
+verification=runtime landing test for hash recovery and preserved old invite protection
+scope=Web DEV then stage TUQO after passed CI
