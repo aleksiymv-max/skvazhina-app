@@ -19,13 +19,17 @@ jobs:
           import json,time,urllib.request,urllib.error,socket
           endpoints=[
             ("yandex-gateway", "https://d5dcuqhl81fmr7cmipov.4kscn31j.apigw.yandexcloud.net/probe"),
+            ("yandex-revisions-noquery", "https://d5dcuqhl81fmr7cmipov.4kscn31j.apigw.yandexcloud.net/v1/sync/domain/revisions"),
+            ("yandex-revisions-field", "https://d5dcuqhl81fmr7cmipov.4kscn31j.apigw.yandexcloud.net/v1/sync/domain/revisions?fieldId=diagnostic-test"),
+            ("yandex-revisions-field-utm", "https://d5dcuqhl81fmr7cmipov.4kscn31j.apigw.yandexcloud.net/v1/sync/domain/revisions?fieldId=diagnostic-test&utm_source=chatgpt.com"),
+            ("yandex-probe-utm", "https://d5dcuqhl81fmr7cmipov.4kscn31j.apigw.yandexcloud.net/probe?fieldId=diagnostic-test&utm_source=chatgpt.com"),
             ("supabase-direct", "https://xptmcufhuvtcunqzlsme.supabase.co/functions/v1/promysel-compat/health"),
           ]
           for label,url in endpoints:
             t=time.monotonic()
             try:
               req=urllib.request.Request(url,method="GET",headers={"User-Agent":"Promysel-Yandex-Gateway-public-health-probe/1.0"})
-              with urllib.request.urlopen(req,timeout=20) as res:
+              with urllib.request.urlopen(req,timeout=15) as res:
                 b=res.read(2048)
                 print(json.dumps({"label":label,"http":res.status,"elapsed_ms":int((time.monotonic()-t)*1000),"content_type":res.headers.get("content-type"),"body_prefix":b.decode("utf-8","replace")[:1200]},ensure_ascii=False))
             except urllib.error.HTTPError as error:
