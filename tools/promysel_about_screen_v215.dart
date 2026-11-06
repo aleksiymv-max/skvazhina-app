@@ -29,7 +29,7 @@ class PromyselAboutScreen extends StatelessWidget {
               const Text('Цифровая система производственного учёта',
                 textAlign: TextAlign.center),
               const SizedBox(height: 10),
-              const Chip(label: Text('Версия v2.17')),
+              const Chip(label: Text('Версия v2.18')),
             ]),
           ),
         ),
@@ -138,8 +138,10 @@ class _ReleasePage extends StatelessWidget {
   @override Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(title: const Text('Версия и история обновлений')),
     body: ListView(padding: const EdgeInsets.all(16), children: const [
-      _Section('Текущая версия: v2.17 · 06.11.2026',
-        'Добавлены расширенные коды диагностики обмена, проверка этапов импорта SQLite и восстановления данных, а также ручной повтор без ожидания автоматической паузы.'),
+      _Section('Текущая версия: v2.18 · 06.11.2026',
+        'Устранено повторное хранение фотографий в общих локальных снимках, добавлены точные этапы сохранения.'),
+      _Section('v2.17',
+        'Исправлен повтор безопасного запроса чтения после HTTP 401.'),
       _Section('v2.16',
         'Расширена диагностика стадий синхронизации и ручная повторная попытка.'),
       _Section('v2.15',
