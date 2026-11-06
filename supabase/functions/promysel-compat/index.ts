@@ -267,9 +267,20 @@ Deno.serve(async(req:Request)=>{
     const {data,error}=await admin.from("sync_events").select("sequence,payload")
       .eq("field_id",fid).eq("event_type","app_state").order("sequence",{ascending:false}).limit(4);
     if(error)throw error;
-    if(!data?.length)return {snapshot:null,seq:0,changed:false};
+    if(!data?.length){
+      const {data:domainOnly,error:onlyError}=await admin.from("promysel_sync_domain_state")
+        .select("domain").eq("field_id",fid).limit(1);
+      if(onlyError)throw onlyError;
+      if(!domainOnly?.length)return {snapshot:null,seq:0,changed:false};
+    }
     let acc:J={};
     for(const row of [...data].reverse())if(good(row.payload))acc=mergeState(acc,row.payload as J);
+    // All four domain rows are independently authoritative, even when an
+    // older phone uploads a stale broad app_state snapshot.
+    const {data:docs,error:domainError}=await admin.from("promysel_sync_domain_state")
+      .select("domain,payload").eq("field_id",fid).limit(4);
+    if(domainError)throw domainError;
+    for(const doc of docs??[])if(good(doc.payload))acc=mergeState(acc,doc.payload as J);
     // Only the last four app_state events are replayed for performance. These
     // durable markers must never fall out of that window or a stale device
     // could revive an area, pad or well removed by a supervisor.
@@ -311,9 +322,9 @@ Deno.serve(async(req:Request)=>{
     }
     acc.avatars=mergedAvatars;
     acc.avatarVersions=avatarVersions;
-    const last=data[0].payload as J;
+    const last=(data?.[0]?.payload??{}) as J;
     const names=["areas","pads","structureDeleted","tasks","annulus","training","trainingDeletedIds","workSchedules","notifications","walkConfig","avatars","avatarVersions","problemApplications"];
-    return {snapshot:acc,seq:Number(data[0].sequence),
+    return {snapshot:acc,seq:Number(data?.[0]?.sequence??0),
       changed:names.some(k=>JSON.stringify(acc[k])!==JSON.stringify(last?.[k]))};
   }
   const administrator=elevated;
@@ -800,6 +811,152 @@ Deno.serve(async(req:Request)=>{
        detail:"Фотография изменена на другом устройстве. Обновите профиль."},409);
     return reply({status:result?.status??"ok",revision:result?.revision??0});
   }
+
+  // v2.11 Independent domain revisions: no direct Data API table grants.
+  if(route==="/v1/sync/domain/revisions"&&req.method==="GET"){
+    const field=fieldTag(new URL(req.url).searchParams.get("fieldId"));
+    if(!canField(field))return reply({detail:"Нет доступа к месторождению"},403);
+    const {data,error}=await admin.from("promysel_sync_domain_state")
+      .select("domain,revision").eq("field_id",field).limit(4);
+    if(error)throw error;
+    const revisions:J={tasks:0,schedules:0,training:0,structure:0};
+    for(const x of data??[])revisions[String(x.domain)]=Number(x.revision);
+    return reply({revisions});
+  }
+  if(route==="/v1/sync/domain/push"&&req.method==="POST"){
+    const field=fieldTag(body.fieldId),domain=txt(body.domain),
+      op=txt(body.key),device=txt(body.deviceId);
+    const m=canField(field);
+    if(!m)return reply({detail:"Нет допуска к месторождению"},403);
+    if(!["tasks","schedules","training","structure"].includes(domain)||
+      op.length<8||op.length>300||device.length<1||device.length>200||
+      !good(body.payload)||!Number.isSafeInteger(Number(body.expectedRevision))||
+      Number(body.expectedRevision)<0)
+      return reply({detail:"Некорректные данные операции"},400);
+    const src=body.payload as J,role=String(m.role),chief=role==="shopChief"||elevated,
+      engineer=role==="engineer",master=engineer&&m.subrole==="master";
+    const specialist=engineer&&["geologist","technologist",
+      "leadingGeologist","leadingTechnologist"].includes(String(m.subrole));
+    const current=(await effectiveState(field)).snapshot??{fieldId:field} as J;
+    const dst:J={fieldId:field};
+    const same=(a:unknown,b:unknown)=>JSON.stringify(a)===JSON.stringify(b);
+    const valid=(id:unknown)=>typeof id==="string"&&id.length>0&&id.length<=180;
+    if(domain==="tasks"){
+      if(!Array.isArray(src.tasks)||src.tasks.length>1000)
+        return reply({detail:"Список заданий превышает ограничения"},400);
+      const old=new Map<string,J>((Array.isArray(current.tasks)?current.tasks:[])
+        .filter(good).map((v:J)=>[String(v.id),v]));
+      const changed:J[]=[];
+      for(const raw of src.tasks){
+        if(!good(raw))continue;
+        const row=raw as J,id=txt(row.id),prev=old.get(id);
+        if(!valid(id)||String(row.fieldId??field)!==field)continue;
+        if(!prev){
+          if(!(chief||engineer)||String(row.createdById)!==user.id||
+             !["personal","area","pad"].includes(String(row.targetType)))continue;
+          changed.push({...row,fieldId:field,createdById:user.id,status:"active",
+            completedAt:null,confirmedAt:null});continue;
+        }
+        if(same(row,prev))continue;
+        const before=String(prev.status),after=String(row.status);
+        const completer=prev.targetType==="personal"?String(prev.targetId)===user.id:
+          ["area","pad"].includes(String(prev.targetType))&&(role==="operator"||engineer||chief);
+        const reviewer=chief||String(prev.createdById)===user.id||
+          (master&&prev.targetType==="personal");
+        if(before==="confirmed"&&after!=="confirmed")continue;
+        if(before==="active"&&after==="awaitingConfirmation"&&completer){
+          changed.push({...prev,status:"awaitingConfirmation",
+            completedById:user.id,completedBy:m.display_name,
+            completedAt:new Date().toISOString(),
+            completionComment:txt(row.completionComment).slice(0,2000)});continue;
+        }
+        if(before==="awaitingConfirmation"&&after==="confirmed"&&reviewer){
+          changed.push({...prev,status:"confirmed",confirmedById:user.id,
+            confirmedBy:m.display_name,confirmedAt:new Date().toISOString()});continue;
+        }
+        if(before==="awaitingConfirmation"&&after==="active"&&reviewer&&row.rejectedAt){
+          changed.push({...prev,status:"active",rejectedAt:new Date().toISOString(),
+            rejectedBy:m.display_name,rejectionComment:txt(row.rejectionComment).slice(0,2000),
+            completedAt:null,completedBy:null,completedById:null});continue;
+        }
+        if((chief||String(prev.createdById)===user.id)&&before===after){
+          const edited={...prev,title:txt(row.title).slice(0,180)||prev.title,
+            description:txt(row.description).slice(0,5000)};
+          if(!same(edited,prev))changed.push(edited);
+        }
+      }
+      if(!changed.length)return reply({status:"noop",domain});
+      dst.tasks=changed;
+    }else if(domain==="schedules"){
+      const schedules=good(src.workSchedules)?src.workSchedules as J:{};
+      const own=schedules[user.id];
+      if(!good(own))return reply({status:"noop",domain});
+      if(JSON.stringify(own).length>65000)return reply({detail:"Слишком большой график"},413);
+      const earlier=(good(current.workSchedules)?(current.workSchedules as J)[user.id]:null) as J|null;
+      if(earlier&&Date.parse(String(earlier.updated??""))>
+           Date.parse(String((own as J).updated??"")))
+        return reply({detail:"График изменён на другом устройстве",domain,status:"conflict"},409);
+      if(same(own,earlier))return reply({status:"noop",domain});
+      dst.workSchedules={[user.id]:own};
+    }else if(domain==="training"){
+      const items=Array.isArray(src.training)?src.training:[];
+      if(items.length>2000)return reply({detail:"Слишком много записей обучения"},413);
+      const prev=new Map<string,J>((Array.isArray(current.training)?current.training:[])
+        .filter(good).map((x:J)=>[String(x.id),x]));
+      const changed:J[]=[];
+      for(const raw of items){
+        if(!good(raw))continue;const x=raw as J,id=txt(x.id),owner=txt(x.userId);
+        if(!valid(id)||!owner||(owner!==user.id&&!chief))continue;
+        if(prev.has(id)&&String(prev.get(id)?.userId)!==owner)continue;
+        const oldDate=Date.parse(String(prev.get(id)?.updatedAt??""));
+        const newDate=Date.parse(String(x.updatedAt??""));
+        if(Number.isFinite(oldDate)&&(!Number.isFinite(newDate)||newDate<oldDate))continue;
+        if(!same(prev.get(id),x))changed.push(x);
+      }
+      const deleted=(Array.isArray(src.trainingDeletedIds)?src.trainingDeletedIds:[])
+        .map(String).filter((id:string)=>valid(id)&&
+          (chief||String(prev.get(id)?.userId)===user.id)).slice(0,2000);
+      if(!changed.length&&!deleted.length)return reply({status:"noop",domain});
+      dst.training=changed;dst.trainingDeletedIds=deleted;
+    }else if(domain==="structure"){
+      if(!(chief||specialist))return reply({detail:"Нет прав изменять структуру"},403);
+      for(const section of ["areas","pads"]){
+        const list=Array.isArray(src[section])?src[section]:[];
+        if(list.length>2000)return reply({detail:"Слишком много объектов структуры"},413);
+        const previous=new Map<string,J>((Array.isArray(current[section])?current[section]:[])
+          .filter(good).map((v:J)=>[String(v.id),v]));
+        dst[section]=list.filter(good).filter((v:J)=>valid(v.id)&&
+          (!v.fieldId||v.fieldId===field)&&
+          (!previous.has(String(v.id))||
+            (Date.parse(String(v.updatedAt??""))||0)>=
+            (Date.parse(String(previous.get(String(v.id))?.updatedAt??""))||0)));
+      }
+      if(good(src.walkConfig))dst.walkConfig=src.walkConfig;
+      const oldDeleted=deletedStructure(current.structureDeleted);
+      const newDeleted=deletedStructure(src.structureDeleted);
+      if(!chief&&(["areas","pads","wells"] as const).some(
+        k=>newDeleted[k].some(id=>!oldDeleted[k].includes(id))))
+        return reply({detail:"Удалять структуру может только начальник цеха"},403);
+      dst.structureDeleted=newDeleted;
+    }
+    const {data:result,error:mutationError}=await admin.rpc("promysel_commit_sync_domain",{
+      p_field_id:field,p_domain:domain,p_mutation_key:op,p_device_id:device,
+      p_actor:user.id,p_expected_revision:Number(body.expectedRevision),p_payload:dst
+    });
+    if(mutationError)throw mutationError;
+    if(result?.status==="conflict")
+      return reply({status:"conflict",domain,revision:result.revision,
+        detail:"Раздел изменён на другом устройстве; нужна повторная загрузка"},409);
+    if(domain==="tasks"&&(result?.status==="accepted"||result?.status==="duplicate")){
+      for(const row of dst.tasks as J[]){
+        const {error:scopeError}=await admin.from("promysel_task_scopes")
+          .upsert({task_id:String(row.id),field_id:field,scope_source:"domain-v211"},
+            {onConflict:"task_id",ignoreDuplicates:true});
+        if(scopeError)throw scopeError;
+      }
+    }
+    return reply({status:result?.status??"accepted",domain,revision:result?.revision??0});
+  }
   if(route==="/v1/sync/push"&&req.method==="POST"||
      route==="/v1/sync/pull"&&req.method==="GET"){
    const url=new URL(req.url);
@@ -825,7 +982,7 @@ Deno.serve(async(req:Request)=>{
     // PostgREST 57014 statement timeouts and sync/pull HTTP 500.
     const {data:recent,error:seqError}=await admin.from("sync_events")
       .select("sequence").eq("field_id",fieldId)
-      .in("event_type",["app_state","avatar_change"])
+      .in("event_type",["app_state","avatar_change","domain_change"])
       .order("sequence",{ascending:false}).limit(1);
     if(seqError)throw seqError;
     const latestRelevantSeq=Number(recent?.[0]?.sequence??0);
