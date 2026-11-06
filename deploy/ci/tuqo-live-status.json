@@ -1,14 +1,14 @@
 {
-  "checked_at": "2026-11-06T06:09:25.727104+00:00",
+  "checked_at": "2026-11-06T10:38:55.841512+00:00",
   "url": "https://promysel-app.tuqo.ru/",
   "index_http_status": "200",
   "release_http_status": "200",
-  "version_verified": true,
-  "expected_run_id": 42168302630,
-  "expected_version": "v2.14",
+  "version_verified": false,
+  "expected_run_id": 42200384031,
+  "expected_version": "v2.21",
   "observed_release": {
-    "version": "v2.14",
-    "source_sha": "28e405160cc69890dd71cad5b5ad419afe648a61",
-    "build_run_id": 42168302630
+    "version": "v2.19",
+    "source_sha": "f12af2fafea0b8371d1f9688099fc07d0874a501",
+    "build_run_id": 42189553842
   }
 }
