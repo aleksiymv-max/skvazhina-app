@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'promysel_about_screen_v215.dart';
 
 /// Secondary sections remain on their original routes and deep links.
 class PromyselMenuScreen extends StatelessWidget {
@@ -13,6 +14,19 @@ class PromyselMenuScreen extends StatelessWidget {
     'Месторождение, кустовые площадки и скважины','/wells'),
    _entry(context,Icons.history_outlined,'История',
     'История обходов, параметры и журналы','/history'),
+   Card(
+     margin:const EdgeInsets.only(bottom:10),
+     child:ListTile(
+       contentPadding:const EdgeInsets.symmetric(horizontal:16,vertical:5),
+       leading:const Icon(Icons.info_outline,size:26),
+       title:const Text('О приложении',
+         style:TextStyle(fontWeight:FontWeight.w700)),
+       subtitle:const Text('О системе, руководство, версии, связь с сервером'),
+       trailing:const Icon(Icons.chevron_right),
+       onTap:()=>Navigator.of(context).push(MaterialPageRoute<void>(
+         builder:(_)=>const PromyselAboutScreen())),
+     ),
+   ),
   ]),
  );
  Widget _entry(BuildContext context,IconData icon,String title,
