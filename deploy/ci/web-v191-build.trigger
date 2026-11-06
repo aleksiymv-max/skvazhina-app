@@ -192,3 +192,7 @@ reason=avoid reporting HTTP or local decoding failures as no network; keep pendi
 
 release=v2.15-web-reachability-and-about-final
 reason=Web cannot trust navigator.onLine=false; attempt bounded Supabase sync and report actual transport/HTTP error separately
+
+release=v2.16-deep-sync-failure-diagnostics
+reason=verified server HTTP 200 responses but local deserialization/storage never completed; add precise client stages, manual retry bypass, per-section trace, no sensitive payload leakage
+safety=no local state reset; no database migrations; no automatic production publish
