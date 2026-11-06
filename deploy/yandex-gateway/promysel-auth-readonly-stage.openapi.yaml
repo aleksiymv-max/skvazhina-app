@@ -1,0 +1,68 @@
+openapi: "3.0.0"
+info:
+  title: Promysel protected read-only API diagnostic
+  version: "0.1.0"
+  description: >-
+    STAGING ONLY. Adds one authenticated GET proxy for field domain revisions.
+    It forwards only an optional Authorization header and fieldId query.
+    Never enables writes, upload, admin actions, or service-role tokens.
+paths:
+  /probe:
+    get:
+      operationId: probeSupabaseHealth
+      responses:
+        "200":
+          description: Upstream health check succeeded
+        "502":
+          description: Upstream unavailable
+        "504":
+          description: Gateway timeout
+      x-yc-apigateway-integration:
+        type: http
+        url: https://xptmcufhuvtcunqzlsme.supabase.co/functions/v1/promysel-compat/health
+        method: GET
+        timeouts:
+          connect: 5
+          read: 12
+  /v1/sync/domain/revisions:
+    x-yc-apigateway-cors:
+      origin: https://dev.promysel-web.pages.dev
+      methods: GET
+      allowedHeaders: Authorization,Accept,Content-Type
+      maxAge: 600
+    get:
+      operationId: readPromyselDomainRevisions
+      summary: Read scoped domain revisions using the caller's existing Supabase JWT
+      parameters:
+        - name: fieldId
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: Authorization
+          in: header
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Authenticated request succeeded; response contains revisions
+        "401":
+          description: Missing or invalid session
+        "403":
+          description: User lacks permissions for the requested field
+        "502":
+          description: Gateway could not reach backend
+      x-yc-apigateway-integration:
+        type: http
+        url: https://xptmcufhuvtcunqzlsme.supabase.co/functions/v1/promysel-compat/v1/sync/domain/revisions
+        method: GET
+        headers:
+          Authorization: "{Authorization}"
+          Accept: application/json
+        query:
+          fieldId: "{fieldId}"
+        omitEmptyHeaders: true
+        timeouts:
+          connect: 5
+          read: 12
