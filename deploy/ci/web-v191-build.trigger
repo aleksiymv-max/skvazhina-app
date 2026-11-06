@@ -292,3 +292,8 @@ release=v2.24-history-annulus-anchor-independent-of-newline
 reason=use stable method identifier instead of formatted preceding newline
 
 release=v2.24-history-routing-robust-session-and-archive-anchors
+
+release=v2.24-network-diagnostics-20261106
+scope=one-shot Web DEV build, separate TUQO and Supabase probes, manual VPN comparison, no database mutation
+source_commit=4cc2526a3ec0007d8f7987cb777783885d2ede0a
+production=not automatically deployed
