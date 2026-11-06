@@ -180,3 +180,6 @@ release=v2.15-about-and-startup-sync
 reason=About section (four subsections), server and sync diagnostics, no duplicate full pull while local changes pending
 preservation=do not erase local data, retain stable UUIDs and pending queues
 scope=Web DEV and Android source parity only; TUQO promotion after successful build
+
+release=v2.15-about-sync-menu-patch-order-corrected
+reason=apply new About tile after v1.84 menu avatar patch to preserve legacy build compatibility
