@@ -14,3 +14,5 @@ audit=auth-session-v217-actual-generated-source-20261106
 
 audit=v221-walk-standalone-problem-and-about-menu-routing
 reason=read-only inspect generated Flutter source for new problem report UX
+
+audit=v221-walk-start-and-repository-details
