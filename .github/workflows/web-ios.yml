@@ -221,6 +221,8 @@ jobs:
           python3 "$GITHUB_WORKSPACE/tools/test_promysel_sync_diagnostics_v216.py"
           python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_lte_recovery_v222.py"
           python3 "$GITHUB_WORKSPACE/tools/test_promysel_lte_recovery_v222.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_structure_bootstrap_v223.py"
+          python3 "$GITHUB_WORKSPACE/tools/test_promysel_structure_bootstrap_v223.py"
           python3 "$GITHUB_WORKSPACE/tools/inspect_promysel_home_layout.py"
           cp "$GITHUB_WORKSPACE/tools/work_schedule_test.dart" test/work_schedule_test.dart
           mkdir -p test
