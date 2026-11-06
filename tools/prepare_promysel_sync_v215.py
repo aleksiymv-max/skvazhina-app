@@ -17,5 +17,35 @@ s=s.replace(old,new,1)
 assert "if(!_stateDirty)await _pull();" in s
 assert "await _push();" in s
 assert "await _pushState();" in s
+
+# A server response with HTTP 403/500 or a local parse error is NOT proof of
+# missing internet. Older versions caught everything and showed "Нет связи",
+# even after the server answered. Preserve an actionable diagnostic through
+# the final pending-count refresh.
+old="int _syncFailures=0;DateTime? _retryAfter;"
+assert s.count(old)==1, "Sync failure-state anchor changed"
+s=s.replace(old,old+"String? _lastSyncProblem;",1)
+old="      status=!_serverAvailable"
+assert s.count(old)==1, "Sync status refresh anchor changed"
+s=s.replace(old,"      if(_lastSyncProblem!=null)status=_lastSyncProblem!;\n      else status=!_serverAvailable",1)
+old="catch(_){_serverAvailable=false;status='Синхронизация недоступна · данные сохранены офлайн';"
+assert s.count(old)==1, "Sync catch anchor changed"
+new="""catch(error){
+      final transport=error is TimeoutException||error is http.ClientException;
+      final httpReply=error.toString().contains('HTTP ');
+      if(transport)_serverAvailable=false;
+      else if(httpReply)_serverAvailable=true;
+      _lastSyncProblem=transport
+        ?'Нет ответа при обмене · локальные записи сохранены'
+        :httpReply
+          ?'Сервер ответил с ошибкой обмена · локальные записи сохранены'
+          :'Не удалось обработать данные обмена · локальные записи сохранены';
+      status=_lastSyncProblem!;"""
+s=s.replace(old,new,1)
+old="_serverAvailable=true;lastSyncAt=DateTime.now();status='Синхронизировано';_syncFailures=0;_retryAfter=null;"
+assert s.count(old)==1, "Successful sync anchor changed"
+s=s.replace(old,"_serverAvailable=true;lastSyncAt=DateTime.now();_lastSyncProblem=null;status='Синхронизировано';_syncFailures=0;_retryAfter=null;",1)
+assert "if(_lastSyncProblem!=null)status=_lastSyncProblem!;" in s
+assert "if(transport)_serverAvailable=false;" in s
 sync.write_text(s,encoding="utf-8")
 print("PASS v2.15: avoid extra server pull while local domains remain unacknowledged")
