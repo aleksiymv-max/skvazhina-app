@@ -114,7 +114,7 @@ patches=[
 ]
 # Restrict edits to the measurement construction, not prior form/widgets.
 start=s.index('await repository.save(Measurement(')
-end=s.index('));\nif(!mounted)return;',start)+2
+end=s.index('capturedUnits:capturedUnits));',start)+len('capturedUnits:capturedUnits));')
 capture=s[start:end]
 for old,new in patches:
  capture=one(capture,old,new,'well save field '+old)
