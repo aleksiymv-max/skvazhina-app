@@ -25,6 +25,9 @@ checks={
     "clearPersistedSession" not in about and "clearDirty" not in about,
  "no regular background health polling": "Timer.periodic" not in about,
  "sync avoids redundant second read": "if(_stateDirty){await _pushState();if(!_stateDirty)await _pull();}" in sync,
+ "sync differentiates transport": "error is TimeoutException||error is http.ClientException" in sync,
+ "local/permission errors not labelled offline": "else if(httpReply)_serverAvailable=true;" in sync and
+    "if(_lastSyncProblem!=null)status=_lastSyncProblem!;" in sync,
  "server request keys and local retries intact": "await _push();" in sync and
     "await _pushState();" in sync and "await _db.markSyncError" in sync,
 }
