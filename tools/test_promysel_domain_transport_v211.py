@@ -7,6 +7,7 @@ checks={
  'separate structure listener':'WalkParameterConfig.instance.addListener(_structureChanged)' in s,
  'four isolated queues':"['tasks','schedules','training','structure','misc']" in s,
  'persistent dirty domains':'_domainDirtyKey(fid)' in s,
+ 'partial failure does not stop other domains':'firstDomainFailure??=error;' in s and "for(final domain in ['tasks','schedules','training','structure','misc'])" in s,
  'transaction version':"'expectedRevision':prefs.getInt(_domainVersionKey(fid,domain))??0" in s,
  'single-attempt writes':"_uri(isLegacy?'/v1/sync/push':'/v1/sync/domain/push')" in s,
  'pending mutation key':'promysel_domain_pending_v211_' in s,
