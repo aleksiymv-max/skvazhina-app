@@ -159,3 +159,5 @@ final_v210_sync_diagnostics: accept recovery only after decoding and state appli
 release: v2.11-domain-queues-smtp-retry
 build: Flutter analyze+tests DEV only
 production: manual promotion disabled pending multi-device validation
+
+release: v2.11-domain-transport-workflow-linebreak-fix
