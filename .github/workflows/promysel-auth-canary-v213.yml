@@ -1,0 +1,42 @@
+name: One-shot test Promysel v2.13 Auth and avatar canary
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'deploy/ci/supabase-v213-canary-check.trigger'
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify deployed canary public, protected and HTTP behavior
+        shell: bash
+        run: |
+          set -euo pipefail
+          API='https://xptmcufhuvtcunqzlsme.supabase.co/functions/v1/promysel-compat-canary-v213'
+          code=$(curl -sS --max-time 20 -o /tmp/promysel-v213-health.json -w '%{http_code}' "$API/health")
+          test "$code" = 200
+          python3 - <<'PY'
+          import json
+          o=json.load(open('/tmp/promysel-v213-health.json'))
+          assert o.get('status')=='ok' and o.get('service')=='promysel-compat'
+          print('PASS canary health and function routing')
+          PY
+          code=$(curl -sS --max-time 20 -o /tmp/promysel-v213-fields.json -w '%{http_code}' "$API/v1/registration/fields")
+          test "$code" = 200
+          python3 - <<'PY'
+          import json
+          o=json.load(open('/tmp/promysel-v213-fields.json'))
+          assert isinstance(o.get('items'),list)
+          print('PASS canary public field list')
+          PY
+          code=$(curl -sS --max-time 20 -o /tmp/promysel-v213-protected.json -w '%{http_code}' "$API/v1/users")
+          test "$code" = 401
+          code=$(curl -sS --max-time 20 -o /tmp/promysel-v213-unauth-sync.json -w '%{http_code}' "$API/v1/sync/pull?fieldId=notreal&cursor=0")
+          test "$code" = 401
+          code=$(curl -sS --max-time 20 -H 'Authorization: Bearer obviously.invalid.token' -o /tmp/promysel-v213-invalid.json -w '%{http_code}' "$API/v1/users")
+          test "$code" = 401
+          echo 'PASS: canary rejects missing and forged sessions without calling real employee accounts'
