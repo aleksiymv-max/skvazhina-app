@@ -127,6 +127,17 @@ function mergeState(a:J,b:J):J{
  return filterDeletedStructure(o);
 }
 
+// Stable UTF-16 FNV+DJ sum matches the Flutter _snapshotDigest().
+function avatarTransportDigest(value:string):string{
+  let a=2166136261,b=5381;
+  for(let i=0;i<value.length;i++){
+    const code=value.charCodeAt(i);
+    a=Math.imul(a^code,16777619)>>>0;
+    b=(Math.imul(b,33)+code)>>>0;
+  }
+  return value.length+":"+a.toString(16)+":"+b.toString(16);
+}
+
 Deno.serve(async(req:Request)=>{
  if(req.method==="OPTIONS")return new Response(null,{status:204,headers:HEAD});
  const route=new URL(req.url).pathname.replace(/^.*?\/promysel-compat/,"");
@@ -1095,6 +1106,29 @@ Deno.serve(async(req:Request)=>{
         // to see every colleague's personal task or completed history.
         // Apply the SAME rules server-side: browser devtools cannot bypass it.
         const snapshot={...repaired.snapshot};
+        // v2.13: Most app_state payload bytes are inline profile photos.
+        // Only send photos absent/changed on THIS device; cached photos stay
+        // in AppStateStore.reconcileWithCurrent. Deletion tombstones are sent
+        // whenever their hash differs. No photos are removed from the DB.
+        const cacheParam=url.searchParams.get("avatarCache")??"";
+        let cachedAvatars:J={};
+        if(cacheParam.length>0&&cacheParam.length<=4096){
+          try{
+            const decoded=JSON.parse(cacheParam);
+            if(good(decoded))cachedAvatars=decoded as J;
+          }catch(_){/* Unknown/old clients receive all profile photos. */}
+        }
+        if(good(snapshot.avatars)){
+          const changedAvatars:J={};
+          for(const [id,rawValue] of Object.entries(snapshot.avatars as J)){
+            if(typeof rawValue!=="string")continue;
+            // A claimed hash is just a network optimization, never evidence of
+            // access and never used to authorize a read or update.
+            if(cachedAvatars[id]!==avatarTransportDigest(rawValue))
+              changedAvatars[id]=rawValue;
+          }
+          snapshot.avatars=changedAvatars;
+        }
         const allTasks=Array.isArray(snapshot.tasks)?snapshot.tasks as J[]:[];
         const viewerId=user.id;
         const chief=String(member.role)==="shopChief";
