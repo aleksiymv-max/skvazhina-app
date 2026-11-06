@@ -26,6 +26,8 @@ checks={
  "no regular background health polling": "Timer.periodic" not in about,
  "sync avoids redundant second read": "if(_stateDirty){await _pushState();if(!_stateDirty)await _pull();}" in sync,
  "sync differentiates transport": "error is TimeoutException||error is http.ClientException" in sync,
+ "PWA online hint is not a hard gate":"_online=kIsWeb||results.any(" in sync and
+    "if(kIsWeb)_online=true;" in sync,
  "local/permission errors not labelled offline": "else if(httpReply)_serverAvailable=true;" in sync and
     "if(_lastSyncProblem!=null)status=_lastSyncProblem!;" in sync,
  "server request keys and local retries intact": "await _push();" in sync and
