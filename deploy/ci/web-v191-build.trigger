@@ -163,3 +163,7 @@ production: manual promotion disabled pending multi-device validation
 release: v2.11-domain-transport-workflow-linebreak-fix
 
 release: v2.11-domain-queues-independent-retry-and-push-outbox
+
+release=v2.13-efficiency-staging
+scope=verified auth canary, cached avatar delta, batched measurement ACK, task photo metadata cache
+production=unchanged until integration evidence
