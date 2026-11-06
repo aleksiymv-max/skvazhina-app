@@ -98,10 +98,12 @@
           'updatedAt':payload['updatedAt'],'payload':payload
         }]
       };
+      // Bound a single domain request on weak links. The operation key is
+      // durable: an uncertain timeout must remain pending, never acknowledged.
       final res=await _client.post(
         _uri(isLegacy?'/v1/sync/push':'/v1/sync/domain/push'),
         headers:_authHeaders,body:jsonEncode(body))
-        .timeout(const Duration(seconds:32));
+        .timeout(const Duration(seconds:18));
       if(res.statusCode==409){
         status='Конфликт изменений в разделе '+domain+
           ' · локальная версия сохранена, требуется согласование изменений';
@@ -127,15 +129,26 @@
         _syncAgain=true;
       }
       }catch(error){
-        // A failure in tasks must not block schedules, training or structure.
+        // Keep this domain and its stable operation key in the local queue.
+        // A permission/conflict response is NOT proof that the server is down.
         firstDomainFailure??=error;
+        if(error is TimeoutException||error is http.ClientException){
+          // A transport failure would stall all later domains one by one.
+          // Defer their upload until the next reconnect/manual sync.
+          break;
+        }
+        // HTTP authorization/conflict failures are domain-scoped: continue
+        // with other domains, without losing the rejected local changes.
         continue;
       }
     }
     if(firstDomainFailure!=null){
-      status='Часть разделов ожидает синхронизации; сохранено на устройстве';
+      _stateDirty=true;
+      status='Часть изменений ждёт отправки · сервер может быть доступен';
       notifyListeners();
-      throw StateError('Не удалось синхронизировать один из разделов: '+firstDomainFailure.toString());
+      // Do not throw a generic exception into syncNow(), which otherwise
+      // labels an authorization or conflict failure as "Нет связи".
+      return;
     }
     if(_dirtyDomains.isNotEmpty){
       _stateDirty=true;return;
