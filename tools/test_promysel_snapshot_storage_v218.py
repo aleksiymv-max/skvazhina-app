@@ -40,7 +40,7 @@ checks={
  "no snapshot deletion in patch":
     "deleteDatabase(" not in state and "localStorage.clear(" not in state and
     "deleteAll(" not in state,
- "release includes storage fix":"Версия v2.18" in about
+ "release includes storage fix":"Версия v2.19" in about
 }
 for key,ok in checks.items():print(("PASS " if ok else "FAIL ")+key)
 assert all(checks.values()),"v2.18 storage regression failed"
