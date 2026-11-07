@@ -330,3 +330,7 @@ scope=one-shot verified Web build then stage candidate; live TUQO separately ver
 
 release=v2.27-sync-video-source-audit-20261107
 scope=one-shot generated Flutter source inspection, no database mutations
+
+release=v2.27-cross-device-status-problems-and-video-token-refresh
+scope=read-only diagnosis + Flutter build, database migration staged separately
+safety=no deletions; per-field durable outboxes, canonical server values
