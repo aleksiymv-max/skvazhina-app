@@ -1,13 +1,13 @@
 {
-  "run_id": 42396872788,
-  "head_sha": "0ad2d084b9861e24e00b4ebdf2badb410f48c5f4",
+  "run_id": 42397128177,
+  "head_sha": "f1b655d0e59d0039e99f3d477655fa33b7ee073a",
   "conclusion": "failure",
-  "run_url": "https://github.com/aleksiymv-max/skvazhina-app/actions/runs/42396872788",
-  "started_at": "2026-11-07T17:33:09Z",
-  "updated_at": "2026-11-07T17:33:21Z",
+  "run_url": "https://github.com/aleksiymv-max/skvazhina-app/actions/runs/42397128177",
+  "started_at": "2026-11-07T17:36:11Z",
+  "updated_at": "2026-11-07T17:36:24Z",
   "artifact_available": false,
   "queue_wait_seconds": 0,
-  "total_elapsed_seconds": 12.0,
+  "total_elapsed_seconds": 13.0,
   "step_durations": [
     {
       "name": "Set up job",
@@ -41,7 +41,7 @@
     },
     {
       "name": "Apply current Promysel updates",
-      "seconds": 5.0,
+      "seconds": 4.0,
       "conclusion": "failure"
     },
     {
@@ -91,7 +91,7 @@
     },
     {
       "name": "Post Run actions/checkout@v4",
-      "seconds": 0,
+      "seconds": 1.0,
       "conclusion": "success"
     },
     {
