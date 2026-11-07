@@ -322,3 +322,8 @@ scope=one-shot Web DEV full Flutter build; production deploy only after CI green
 
 release=v2.26-task-chat-source-inspection-20261107
 scope=one-shot diagnostics, read-only source, no production deployment
+
+release=v2.26-operator-tasks-chat-photos-keyboard
+fixes=operator recipient roster and self selection; chat image aspect ratio; 18-second foreground chat list; keyboard bubble autoscroll
+safety=client-only, no Supabase SQL changes, preserve queues and production data
+scope=one-shot verified Web build then stage candidate; live TUQO separately verified
