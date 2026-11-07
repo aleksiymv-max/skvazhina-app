@@ -107,11 +107,7 @@ stamp='''      if(ProblemApplicationStore.instance.forReport(report.id)!=null)
 '''
 method=one(method,needle,stamp+needle,'standalone submitted timestamp')
 # Include after existing resolve action. Use the exact final tail of the existing method.
-needle='''       ],
-    ])));
- }'''
-follow='''       ],
-       if(SessionService.instance.currentUser.canFileProblemApplication)...[
+follow='''      if(SessionService.instance.currentUser.canFileProblemApplication)...[
         const SizedBox(height:8),
         SizedBox(width:double.infinity,child:OutlinedButton.icon(
           onPressed:report.pending||
@@ -126,9 +122,10 @@ follow='''       ],
           icon:const Icon(Icons.assignment_turned_in_outlined),
           label:const Text('Подать заявку'))),
        ],
-    ])));
- }'''
-method=one(method,needle,follow,'standalone dispatcher button below Resolve')
+'''
+tail=method.rfind('    ])));')
+if tail<0:raise RuntimeError('standalone problem card end missing')
+method=method[:tail]+follow+method[tail:]
 s=s[:start]+method
 p.write_text(s)
 print('PASS v2.30: dispatcher ITR role, durable per-field mark, status before Resolve, action after Resolve on legacy and standalone')
