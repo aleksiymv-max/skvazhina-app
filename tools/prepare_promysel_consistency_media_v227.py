@@ -110,6 +110,23 @@ s=one(s,
  """unawaited(FieldProblemReportStore.instance.refresh());
   unawaited(FieldConsistencyService.instance.refresh(force:true));""",
  'home refresh while visible')
+s=one(s,
+ '    ListenableBuilder(listenable:SyncService.instance,builder:(context,_) {',
+ """    if(FieldConsistencyService.instance.pendingCount>0||
+       FieldConsistencyService.instance.lastError!=null)
+      Padding(padding:const EdgeInsets.only(bottom:12),
+        child:Card(child:Padding(padding:const EdgeInsets.all(12),
+          child:Row(children:[
+            const Icon(Icons.sync_problem_outlined,size:20),
+            const SizedBox(width:10),
+            Expanded(child:Text(
+              FieldConsistencyService.instance.lastError??
+                'Изменения состояния фонда или решений проблем ещё не подтверждены сервером. '
+                'Ожидающих: ${FieldConsistencyService.instance.pendingCount}',
+              style:const TextStyle(fontSize:12))),
+          ])))),
+    ListenableBuilder(listenable:SyncService.instance,builder:(context,_) {""",
+ 'home shows unresolved cross-device status')
 home.write_text(s)
 
 media=Path('lib/features/chat/chat_media_v198.dart')
