@@ -359,3 +359,6 @@ safety=no schema or production data changes, preserve offline queues
 release=v2.29-inline-transparent-delta-textfields
 scope=remove underfield labels; previous and delta as pointer transparent input suffix with matching font size
 safety=client-only; no database schema/writes/queue changes
+
+release=v2.29-inline-delta-widget-tap-verification
+purpose=Web build with UI tap-through suffix regression
