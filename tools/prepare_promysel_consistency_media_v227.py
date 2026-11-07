@@ -111,7 +111,7 @@ s=one(s,
   unawaited(FieldConsistencyService.instance.refresh(force:true));""",
  'home refresh while visible')
 s=one(s,
- '    ListenableBuilder(listenable:SyncService.instance,builder:(context,_) {',
+ 'ListenableBuilder(listenable:SyncService.instance,builder:(context,_) {',
  """    if(FieldConsistencyService.instance.pendingCount>0||
        FieldConsistencyService.instance.lastError!=null)
       Padding(padding:const EdgeInsets.only(bottom:12),
