@@ -371,3 +371,7 @@ scope=source diagnostics, no production changes
 
 release=v2.30-dispatcher-roles-layout-source-diagnostics-final
 scope=only inspect generated Home exact problem action
+
+release=v2.30-quieter-delta-dispatcher-problem-ledger
+scope=compile Flutter Web with button below resolve, timestamp above, RLS-backed durable dispatcher ledger
+safety=existing manufacturing data/queues unchanged
