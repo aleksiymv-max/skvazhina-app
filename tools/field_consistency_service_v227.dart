@@ -82,13 +82,17 @@ class FieldConsistencyService extends ChangeNotifier {
     if(!_bootstrapped){
       // Backfill prior device-local decisions with their ORIGINAL edit times.
       // Server guards prevent older offline edits from replacing fresher ones.
-      final valid=demoPads.where((p)=>p.fieldId==_field)
-        .expand((p)=>p.wells).map((w)=>w.id).toSet();
+      final wellsById={for(final w in demoPads.where((p)=>p.fieldId==_field)
+        .expand((p)=>p.wells)) w.id:w};
+      final valid=wellsById.keys.toSet();
       for(final row in await AppDatabase.instance.wellStatusSyncRows()){
         final id=row['well_id']?.toString()??'';
         if(!valid.contains(id)||_pendingStates.containsKey(id))continue;
         final state=row['status']?.toString()??'';
         if(!['working','stopped','workover'].contains(state))continue;
+        // Generated baseline statuses are not field decisions. Only seed
+        // historical deviations that an employee actually changed locally.
+        if(wellsById[id]?.status.name==state)continue;
         _pendingStates[id]={'field_id':_field,'well_id':id,'status':state,
           'client_updated_at':row['updated_at']?.toString()??
             DateTime.now().toUtc().toIso8601String(),
@@ -106,6 +110,7 @@ class FieldConsistencyService extends ChangeNotifier {
       // marking a zero-pad bootstrap complete so historical edits are not lost.
       _bootstrapped=valid.isNotEmpty;
       await _persist(); // Durability before any upload.
+      if(!_bootstrapped)_loaded=false; // Retry after first field bootstrap.
     }
   }
   String? _eventKey(Map<String,Object?> row){
