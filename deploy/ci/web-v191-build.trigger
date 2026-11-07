@@ -348,3 +348,6 @@ scope=one-shot verified Flutter Web full build, existing production data preserv
 
 release=v2.27-fix-dashboard-warning-anchor-final
 scope=one-shot CI retry, source generated home indentation
+
+release=v2.28-walk-photo-source-diagnostic
+purpose=inspect generated measurement and inline photo Flutter widgets before modifications
