@@ -1,13 +1,13 @@
 {
-  "run_id": 42400311480,
-  "head_sha": "2a55fa408f48400c622f94ee7471c26999e11a82",
+  "run_id": 42400406545,
+  "head_sha": "39b2300b020199ceff36e564a9f797b4981c24ed",
   "conclusion": "failure",
-  "run_url": "https://github.com/aleksiymv-max/skvazhina-app/actions/runs/42400311480",
-  "started_at": "2026-11-07T18:14:51Z",
-  "updated_at": "2026-11-07T18:15:10Z",
+  "run_url": "https://github.com/aleksiymv-max/skvazhina-app/actions/runs/42400406545",
+  "started_at": "2026-11-07T18:15:51Z",
+  "updated_at": "2026-11-07T18:16:06Z",
   "artifact_available": false,
   "queue_wait_seconds": 0,
-  "total_elapsed_seconds": 19.0,
+  "total_elapsed_seconds": 15.0,
   "step_durations": [
     {
       "name": "Set up job",
@@ -16,7 +16,7 @@
     },
     {
       "name": "Run actions/checkout@v4",
-      "seconds": 1.0,
+      "seconds": 2.0,
       "conclusion": "success"
     },
     {
@@ -36,12 +36,12 @@
     },
     {
       "name": "Verify preinstalled icon renderer",
-      "seconds": 4.0,
+      "seconds": 0,
       "conclusion": "success"
     },
     {
       "name": "Apply current Promysel updates",
-      "seconds": 5.0,
+      "seconds": 6.0,
       "conclusion": "failure"
     },
     {
