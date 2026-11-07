@@ -327,3 +327,6 @@ release=v2.26-operator-tasks-chat-photos-keyboard
 fixes=operator recipient roster and self selection; chat image aspect ratio; 18-second foreground chat list; keyboard bubble autoscroll
 safety=client-only, no Supabase SQL changes, preserve queues and production data
 scope=one-shot verified Web build then stage candidate; live TUQO separately verified
+
+release=v2.27-sync-video-source-audit-20261107
+scope=one-shot generated Flutter source inspection, no database mutations
