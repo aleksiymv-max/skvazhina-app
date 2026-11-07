@@ -33,11 +33,12 @@ methods="""  // Read-only legacy backfill. Never clear an existing device's loca
     final db=await database;
     final old=await db.query('well_states',columns:['status','updated_at'],
       where:'well_id=?',whereArgs:[wellId],limit:1);
-    // Never roll back an unconfirmed local edit with an older server row.
-    final incoming=DateTime.tryParse(updatedAt)?.toUtc();
-    final local=DateTime.tryParse(old.firstOrNull?['updated_at']?.toString()??'')?.toUtc();
-    if(incoming==null||(local!=null&&local.isAfter(incoming)))return;
-    if(old.isNotEmpty&&old.first['status']==status.name&&local==incoming)return;
+    // The server is authoritative; pending local edits are checked in the
+    // FieldConsistencyService before calling this method. Older local SQLite
+    // timestamps must never suppress a newer published server decision.
+    if(DateTime.tryParse(updatedAt)==null)return;
+    if(old.isNotEmpty&&old.first['status']==status.name&&
+       old.first['updated_at']==updatedAt)return;
     await db.insert('well_states',{'well_id':wellId,'status':status.name,
       'updated_at':updatedAt},conflictAlgorithm:ConflictAlgorithm.replace);
   }
