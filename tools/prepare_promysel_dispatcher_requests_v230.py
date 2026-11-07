@@ -46,9 +46,9 @@ block=one(block,
 block=one(block,'builder: (ctx, setModal) {',
  'builder: (ctx, setModal) { modalUpdater=setModal;',
  'rebuild modal after ledger change')
-last=block.rfind('\\n }')
+last=block.rfind('\n }')
 if last<0:raise RuntimeError('Cannot close modal listener after sheet')
-block=block[:last]+'''\\n  }finally{ProblemApplicationStore.instance.removeListener(onDispatchChanged);}'''+block[last:]
+block=block[:last]+'''\n  }finally{ProblemApplicationStore.instance.removeListener(onDispatchChanged);}'''+block[last:]
 
 block=one(block,
  '''                  final dispatcher=SessionService.instance.currentUser.role==UserRole.dispatcher||SessionService.instance.currentUser.itrSubrole==ItrSubrole.dispatcher;
