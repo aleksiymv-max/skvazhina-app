@@ -387,3 +387,6 @@ scope=retry full Flutter Web build after correcting card tail anchor
 
 release=v2.30-legacy-appstate-compatibility-fix
 scope=regression and Flutter build for local state compatibility with new server ledger
+
+release=v2.31-chat-generated-inspection
+scope=read-only generated source inspection before chat reaction implementation
