@@ -175,8 +175,8 @@ room=room[:start]+replacement+room[stop:]
 start=room.index(' Widget _bubble(')
 stop=room.index(' Future<void> _roomSettings(',start)
 bubble=room[start:stop]
-bubble=once(bubble,"          Padding(padding:const EdgeInsets.only(top:3),child:Align(",
-  "          _reactionChips(m),\n          Padding(padding:const EdgeInsets.only(top:3),child:Align(",
+bubble=once(bubble,"Padding(padding:const EdgeInsets.only(top:3),child:Align(",
+  "_reactionChips(m),\n          Padding(padding:const EdgeInsets.only(top:3),child:Align(",
   'regular bubble reaction chips')
 # Video notes bypass ordinary bubble; long press and counts must work there too.
 bubble=once(bubble,'             ChatVideoMedia(',
