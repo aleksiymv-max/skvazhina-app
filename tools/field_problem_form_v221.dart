@@ -3,6 +3,8 @@ import '../../core/models/production_area.dart';
 import '../../core/models/pad.dart';
 import '../../core/models/well.dart';
 import '../../core/services/session_service.dart';
+import '../../core/services/sync_service.dart';
+import '../../core/services/app_state_store.dart';
 import '../../core/services/field_problem_report_store.dart';
 
 /// An issue can concern a whole pad. Saving it must not create a walkthrough.
@@ -15,12 +17,56 @@ class _FieldProblemFormScreenState extends State<FieldProblemFormScreen> {
  final _description=TextEditingController();
  String? _areaId,_padId,_wellId;
  bool _saving=false;
- @override void dispose(){_description.dispose();super.dispose();}
+ @override void initState(){
+  super.initState();
+  // Populate open selectors when delayed sync or session switch updates cache.
+  structureRevision.addListener(_refreshStructure);
+  SyncService.instance.addListener(_refreshStructure);
+  SessionService.instance.addListener(_refreshStructure);
+ }
+ void _refreshStructure(){
+  if(!mounted)return;
+  final field=SessionService.instance.currentFieldId;
+  final area=_areasFor(field).where((a)=>a.id==_areaId).firstOrNull;
+  final pad=_padsFor(field,area).where((p)=>p.id==_padId).firstOrNull;
+  setState((){
+   if(area==null){_areaId=null;_padId=null;_wellId=null;}
+   else if(pad==null){_padId=null;_wellId=null;}
+   else if(_wellId!=null&&!pad.wells.any((w)=>w.id==_wellId)){_wellId=null;}
+  });
+ }
+ // Only cached objects within the selected field are selectable.
+ // Some older local snapshots contain pads before their area list: their
+ // real areaId/areaName allow a form-only fallback without creating records.
+ List<ProductionArea> _areasFor(String? fid){
+  if(fid==null||fid.isEmpty)return <ProductionArea>[];
+  final areas=demoAreas.where((a)=>a.fieldId==fid).toList();
+  final known=areas.map((a)=>a.id).toSet();
+  for(final p in demoPads.where((p)=>p.fieldId==fid)){
+   if(p.areaId.isEmpty||p.areaName.trim().isEmpty||!known.add(p.areaId))continue;
+   areas.add(ProductionArea(id:p.areaId,name:p.areaName,
+    padIds:demoPads.where((x)=>x.fieldId==fid&&x.areaId==p.areaId)
+      .map((x)=>x.id).toList(),fieldId:fid));
+  }
+  return areas;
+ }
+ List<Pad> _padsFor(String? fid,ProductionArea? area){
+  if(fid==null||area==null)return <Pad>[];
+  return demoPads.where((p)=>p.fieldId==fid&&
+    (p.areaId==area.id||area.padIds.contains(p.id))).toList();
+ }
+ @override void dispose(){
+  SessionService.instance.removeListener(_refreshStructure);
+  SyncService.instance.removeListener(_refreshStructure);
+  structureRevision.removeListener(_refreshStructure);
+  _description.dispose();
+  super.dispose();
+ }
  Future<void> _submit() async {
   if(_saving||!(_form.currentState?.validate()??false))return;
   final field=SessionService.instance.currentFieldId;
-  final area=demoAreas.where((a)=>a.id==_areaId&&a.fieldId==field).firstOrNull;
-  final pad=area?.pads.where((p)=>p.id==_padId&&p.fieldId==field).firstOrNull;
+  final area=_areasFor(field).where((a)=>a.id==_areaId).firstOrNull;
+  final pad=_padsFor(field,area).where((p)=>p.id==_padId).firstOrNull;
   final well=pad?.wells.where((w)=>w.id==_wellId).firstOrNull;
   if(field==null||area==null||pad==null){
    ScaffoldMessenger.of(context).showSnackBar(
@@ -46,9 +92,9 @@ class _FieldProblemFormScreenState extends State<FieldProblemFormScreen> {
  }
  @override Widget build(BuildContext context) {
   final fid=SessionService.instance.currentFieldId;
-  final areas=demoAreas.where((a)=>a.fieldId==fid).toList();
+  final areas=_areasFor(fid);
   final area=areas.where((a)=>a.id==_areaId).firstOrNull;
-  final pads=area?.pads.where((p)=>p.fieldId==fid).toList()??<Pad>[];
+  final pads=_padsFor(fid,area);
   final pad=pads.where((p)=>p.id==_padId).firstOrNull;
   final wells=pad?.wells??<Well>[];
   return Scaffold(
@@ -61,6 +107,18 @@ class _FieldProblemFormScreenState extends State<FieldProblemFormScreen> {
      const Text('Заявка создаётся отдельно от обхода скважины. '
       'Можно указать проблему, относящуюся ко всему кусту.'),
      const SizedBox(height:22),
+     if(areas.isEmpty)...[
+      const DecoratedBox(
+       decoration:BoxDecoration(color:Color(0xFFFFF4E5),
+        borderRadius:BorderRadius.all(Radius.circular(10))),
+       child:Padding(padding:EdgeInsets.all(12),
+        child:Text('Участки месторождения ещё не загружены на '
+         'это устройство. Подключитесь к сети и дождитесь '
+         'синхронизации. Уже сохранённые участки доступны '
+         'без интернета; не очищайте данные браузера.',
+         style:TextStyle(color:Color(0xFF6B4300))))),
+      const SizedBox(height:12),
+     ],
      DropdownButtonFormField<String>(
       key:const ValueKey('problem-area'),initialValue:_areaId,
       isExpanded:true,
@@ -68,7 +126,7 @@ class _FieldProblemFormScreenState extends State<FieldProblemFormScreen> {
        border:OutlineInputBorder()),
       items:areas.map((a)=>DropdownMenuItem<String>(
        value:a.id,child:Text(a.name,overflow:TextOverflow.ellipsis))).toList(),
-      onChanged:_saving?null:(v)=>setState((){_areaId=v;_padId=null;_wellId=null;}),
+      onChanged:_saving||areas.isEmpty?null:(v)=>setState((){_areaId=v;_padId=null;_wellId=null;}),
       validator:(v)=>v==null?'Выберите участок':null,
      ),
      const SizedBox(height:16),
@@ -79,7 +137,7 @@ class _FieldProblemFormScreenState extends State<FieldProblemFormScreen> {
        border:OutlineInputBorder()),
       items:pads.map((p)=>DropdownMenuItem<String>(
        value:p.id,child:Text(p.name,overflow:TextOverflow.ellipsis))).toList(),
-      onChanged:_saving||area==null?null:(v)=>setState((){_padId=v;_wellId=null;}),
+      onChanged:_saving||pads.isEmpty?null:(v)=>setState((){_padId=v;_wellId=null;}),
       validator:(v)=>v==null?'Выберите куст':null,
      ),
      const SizedBox(height:16),
