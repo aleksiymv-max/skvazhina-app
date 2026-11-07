@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <!--
+    If you are serving your web app in a path other than the root, change the
+    href value below to reflect the base path you are serving from.
+
+    The path provided below has to start and end with a slash "/" in order for
+    it to work correctly.
+
+    For more details:
+    * https://developer.mozilla.org/en-US/docs/Web/HTML/Element/base
+
+    This is a placeholder for base href that will be replaced by the value of
+    the `--base-href` argument provided to `flutter build`.
+  -->
+  <base href="/">
+
+  <meta charset="UTF-8">
+  <meta content="IE=Edge" http-equiv="X-UA-Compatible">
+  <meta name="description" content="A new Flutter project.">
+
+  <!-- iOS meta tags & icons -->
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="apple-mobile-web-app-title" content="promysel">
+  <link rel="apple-touch-icon" href="icons/Icon-192.png">
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" href="favicon.png"/>
+
+  <title>Промысел</title>
+  <link rel="manifest" href="manifest.json">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Промысел">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+<script>
+window.promyselBadgeCount = 0;
+window.promyselUpdateAppBadge = function(count) {
+  const n = Math.max(0, Math.floor(Number(count) || 0));
+  window.promyselBadgeCount = n;
+  if (n > 0 && typeof navigator.setAppBadge === 'function') {
+    try { const p = navigator.setAppBadge(n); if (p && p.catch) p.catch(() => {}); } catch (_) {}
+  } else if (n === 0 && typeof navigator.clearAppBadge === 'function') {
+    try { const p = navigator.clearAppBadge(); if (p && p.catch) p.catch(() => {}); } catch (_) {}
+  }
+};
+window.promyselRequestBadgePermission = function() {
+  if (typeof Notification === 'undefined' ||
+      typeof Notification.requestPermission !== 'function') return;
+  if (Notification.permission !== 'default') {
+    window.promyselUpdateAppBadge(window.promyselBadgeCount);
+    return;
+  }
+  try {
+    const p = Notification.requestPermission();
+    if (p && p.then) p.then(() => window.promyselUpdateAppBadge(window.promyselBadgeCount)).catch(() => {});
+  } catch (_) {}
+};
+</script>
+<script>
+(function(){
+  'use strict';
+  const api='https://xptmcufhuvtcunqzlsme.supabase.co/functions/v1/promysel-device-push';
+  const subKey='promysel-push-user-v1';
+  const base64ToBytes=(value)=>{
+    const pad='='.repeat((4-value.length%4)%4);
+    const b=atob((value+pad).replace(/-/g,'+').replace(/_/g,'/'));
+    return Uint8Array.from(b,c=>c.charCodeAt(0));
+  };
+  function available(){
+    return 'serviceWorker' in navigator && 'PushManager' in window
+      && 'Notification' in window && window.isSecureContext;
+  }
+  let busy=false;
+  async function subscribe(token,fieldId){
+    if(busy||!available()||Notification.permission!=='granted'||!token||!fieldId)return;
+    busy=true;
+    try{
+      const registration=await navigator.serviceWorker.ready;
+      const response=await fetch(api+'/public-key',{cache:'no-store'});
+      if(!response.ok)throw Error('Нет ключа уведомлений');
+      const {publicKey}=await response.json();
+      let subscription=await registration.pushManager.getSubscription();
+      if(!subscription){
+        subscription=await registration.pushManager.subscribe({
+          userVisibleOnly:true,applicationServerKey:base64ToBytes(publicKey)
+        });
+      }
+      const saved=await fetch(api+'/subscribe',{
+        method:'POST',
+        headers:{'content-type':'application/json','authorization':'Bearer '+token},
+        body:JSON.stringify({fieldId,subscription:subscription.toJSON()})
+      });
+      if(!saved.ok)throw Error('Не удалось зарегистрировать уведомления');
+      localStorage.setItem(subKey,fieldId);
+      // Deliver queued tasks that arrived while device push was disabled.
+      fetch(api+'/deliver',{method:'POST',
+        headers:{'content-type':'application/json','authorization':'Bearer '+token},
+        body:JSON.stringify({fieldId})
+      }).catch(()=>{});
+    }catch(e){console.warn('Промысел: web push registration failed',e);}
+    finally{busy=false;}
+  }
+  window.promyselRequestBadgePermission=function(token,fieldId){
+    if(!available()){
+      alert('Уведомления доступны после установки веб-приложения на экран «Домой» в iOS 16.4+.');
+      return;
+    }
+    // The OS permission request must start directly inside the user's tap.
+    if(Notification.permission==='default'){
+      const result=Notification.requestPermission();
+      Promise.resolve(result).then(permission=>{
+        if(permission==='granted')subscribe(token,fieldId);
+      }).catch(()=>{});
+    }else if(Notification.permission==='granted'){
+      subscribe(token,fieldId);
+    }else{
+      alert('Разрешите уведомления для «Промысел» в настройках телефона.');
+    }
+  };
+  window.promyselEnsurePushSubscription=function(token,fieldId){
+    if(available()&&Notification.permission==='granted')subscribe(token,fieldId);
+  };
+  window.promyselRemovePushSubscription=function(token,fieldId){
+    if(!available())return;
+    navigator.serviceWorker.ready.then(async(registration)=>{
+      const subscription=await registration.pushManager.getSubscription();
+      if(!subscription)return;
+      if(token&&fieldId){
+        await fetch(api+'/unsubscribe',{method:'POST',
+          headers:{'content-type':'application/json','authorization':'Bearer '+token},
+          body:JSON.stringify({fieldId,endpoint:subscription.endpoint})
+        }).catch(()=>{});
+      }
+      await subscription.unsubscribe();
+      localStorage.removeItem(subKey);
+    }).catch(()=>{});
+  };
+  window.addEventListener('load',()=>{
+    navigator.serviceWorker.register('/promysel-push-sw.js',{scope:'/'})
+      .catch(e=>console.warn('Промысел: push worker not registered',e));
+  });
+})();
+</script>
+<meta name="theme-color" content="#0B4F91">
+<link rel="preload" href="/main.dart.js" as="script">
+<style>
+#promysel-startup{box-sizing:border-box;position:fixed;inset:0;z-index:999999;
+ display:flex;align-items:center;justify-content:center;background:#edf5fb;
+ color:#173650;font:500 15px/1.5 system-ui,-apple-system,sans-serif;padding:26px}
+#promysel-startup .startup-content{text-align:center;max-width:390px}
+#promysel-startup .logo{font-weight:800;letter-spacing:.03em;font-size:29px}
+#promysel-startup .spinner{margin:24px auto;border:3px solid #c3d8e9;
+ border-top-color:#0b4f91;border-radius:100%;width:34px;height:34px;
+ animation:promyselSpin .85s linear infinite}
+@keyframes promyselSpin{to{transform:rotate(360deg)}}
+#promysel-startup .muted{font-size:13px;color:#537086;margin-top:8px}
+#promysel-startup .controls{display:none;margin-top:18px}
+#promysel-startup button,#promysel-startup a{display:inline-block;box-sizing:border-box;
+ margin:5px;padding:10px 16px;border-radius:10px;border:1px solid #0b4f91;
+ background:#0b4f91;color:#fff;text-decoration:none;font:600 14px system-ui}
+#promysel-startup a{background:#fff;color:#0b4f91}
+</style>
+</head>
+<body>
+<div id="promysel-startup" role="status" aria-live="polite">
+  <div class="startup-content">
+    <div class="logo">Промысел</div>
+    <div class="spinner" aria-hidden="true"></div>
+    <div id="promysel-status">Загружаем приложение…</div>
+    <div class="muted">Первая загрузка через мобильный интернет может занять немного времени.</div>
+    <div id="promysel-controls" class="controls">
+      <button type="button" onclick="location.reload()">Повторить загрузку</button>
+      <a href="/diagnostics.html">Проверить подключение</a>
+    </div>
+  </div>
+</div>
+<script>
+(function(){
+  const startup=document.getElementById('promysel-startup');
+  const status=document.getElementById('promysel-status');
+  const controls=document.getElementById('promysel-controls');
+  let done=false;
+  const ready=()=>{
+    if(done)return;done=true;startup.remove();
+    if(observer)observer.disconnect();
+  };
+  let observer;
+  // Both document and window are used by Flutter engine versions.
+  document.addEventListener('flutter-first-frame',ready,{once:true});
+  window.addEventListener('flutter-first-frame',ready,{once:true});
+  // A web engine can mount its view before dispatching first-frame.
+  observer=new MutationObserver(()=>{
+    if(document.querySelector('flutter-view,flt-glass-pane')){
+      window.setTimeout(()=>{
+        if(document.querySelector('flutter-view,flt-glass-pane'))ready();
+      },700);
+    }
+  });
+  observer.observe(document.documentElement,{childList:true,subtree:true});
+  window.setTimeout(()=>{
+    if(!done)status.textContent='Подключаем графический движок и загружаем данные…';
+  },9000);
+  window.setTimeout(()=>{
+    if(done)return;
+    status.textContent='Загрузка занимает слишком много времени. Проверьте связь и доступность файлов приложения.';
+    controls.style.display='block';
+  },27000);
+  window.addEventListener('error',e=>{
+    if(done)return;
+    const src=String(e.target&&e.target.src||'');
+    if(src.includes('flutter_bootstrap.js')||src.includes('main.dart.js')){
+      status.textContent='Не удалось загрузить файлы приложения из этой сети.';
+      controls.style.display='block';
+    }
+  },true);
+})();
+</script>
+
+  <!--
+    You can customize the "flutter_bootstrap.js" script.
+    This is useful to provide a custom configuration to the Flutter loader
+    or to give the user feedback during the initialization process.
+
+    For more details:
+    * https://docs.flutter.dev/platform-integration/web/initialization
+  -->
+  <script src="flutter_bootstrap.js" async></script>
+</body>
+</html>

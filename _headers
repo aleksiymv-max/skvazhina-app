@@ -1,0 +1,18 @@
+/*
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  X-Frame-Options: DENY
+/index.html
+  Cache-Control: no-cache
+/main.dart.js
+  Cache-Control: no-cache
+/flutter_bootstrap.js
+  Cache-Control: no-cache
+/promysel-push-sw.js
+  Cache-Control: no-cache
+/diagnostics.html
+  Cache-Control: no-store
+/setup.html
+  Cache-Control: no-cache
+/finish-registration.html
+  Cache-Control: no-store

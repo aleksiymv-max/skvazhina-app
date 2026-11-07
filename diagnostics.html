@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Проверка соединения — Промысел</title>
+<style>
+:root{color-scheme:light;font:15px/1.5 system-ui,-apple-system,Segoe UI,sans-serif;color:#183349}
+*{box-sizing:border-box}
+body{max-width:690px;padding:20px;margin:0 auto;background:#f4f8fb}
+h1{font-size:24px;margin:8px 0}h2{font-size:17px;margin:22px 0 8px}
+p,.hint{color:#49677b}
+.panel,.item{background:#fff;border:1px solid #dce8f2;border-radius:11px;padding:13px;margin:9px 0}
+.controls{display:flex;flex-wrap:wrap;gap:9px;margin:12px 0}
+label{display:grid;gap:5px;font-weight:600;min-width:170px;flex:1}
+select,button{font:inherit;border-radius:8px;padding:10px}
+select{border:1px solid #a6c0d5;background:#fff;color:#183349}
+button{border:0;background:#095b9f;color:#fff;cursor:pointer}
+button:disabled{opacity:.55;cursor:default}
+#copy{background:#416072}
+.ok{border-left:5px solid #248156}
+.warn{border-left:5px solid #b68224}
+.fail{border-left:5px solid #b14c49}
+.item strong{display:block}
+.item small{display:block;color:#49677b}
+pre{white-space:pre-wrap;overflow-wrap:anywhere}
+</style>
+</head>
+<body>
+<h1>Промысел · диагностика сети</h1>
+<p>Проверка не требует входа, не читает замеры и не передаёт пароли или токены. Проверьте сначала без VPN, затем с VPN на той же сети. Тип сети и VPN укажите вручную: браузер не может достоверно определить VPN.</p>
+<div class="panel">
+<div class="controls">
+<label>Тип сети
+<select id="network"><option value="mobile">Мобильный интернет</option><option value="wifi">Wi-Fi</option><option value="unknown">Другое / неизвестно</option></select>
+</label>
+<label>VPN
+<select id="vpn"><option value="off">Выключен</option><option value="on">Включён</option><option value="unknown">Неизвестно</option></select>
+</label>
+</div>
+<div class="controls">
+<button id="run" type="button">Проверить соединение</button>
+<button id="copy" type="button" disabled>Скопировать отчёт</button>
+</div>
+<p id="summary" role="status">Нажмите «Проверить соединение».</p>
+</div>
+<div id="results" aria-live="polite"></div>
+<h2>Как понимать результат</h2>
+<p class="hint">Если сайт открылся, но Supabase недоступен, проблема находится на участке между устройством и API (DNS, TLS, маршрут, блокировка или политика браузера). HTTP 401/403 от Auth/REST показывает, что сервер достигнут, но не подтверждает авторизацию. Ошибка CORS и сетевой обрыв могут выглядеть одинаково; проверка «без CORS» помогает их разделить, но не заменяет сетевой журнал.</p>
+<p class="hint">При полном отсутствии доступа к этой странице проверьте тот же адрес в другом браузере/сети. Проверка не определяет IP, DNS-сервер, SNI или состояние VPN автоматически. Realtime, авторизованная синхронизация и отправка замеров требуют отдельной проверки внутри приложения.</p>
+<script>
+(function(){
+  'use strict';
+  const api='https://xptmcufhuvtcunqzlsme.supabase.co';
+  const checks=[
+    {label:'Рабочий сайт (HTML)',url:'/index.html',method:'HEAD',kind:'site'},
+    {label:'Flutter JavaScript',url:'/main.dart.js',method:'HEAD',kind:'site'},
+    {label:'Локальная SQLite WASM',url:'/sqlite3.wasm',method:'HEAD',kind:'site'},
+    {label:'Сведения о публикации',url:'/promysel-release.json',method:'GET',kind:'release'},
+    {label:'Supabase Edge /health',url:api+'/functions/v1/promysel-compat/health',method:'GET',kind:'health'},
+    {label:'Supabase Auth',url:api+'/auth/v1/health',method:'GET',kind:'service'},
+    {label:'Supabase REST API',url:api+'/rest/v1/',method:'GET',kind:'service'},
+    {label:'Supabase Storage',url:api+'/storage/v1/',method:'GET',kind:'service'}
+  ];
+  const results=document.getElementById('results');
+  const runButton=document.getElementById('run');
+  const copyButton=document.getElementById('copy');
+  const summary=document.getElementById('summary');
+  let report='';
+  function result(label,state,details,ms){
+    return {label,state,details,ms:Math.round(ms)};
+  }
+  async function request(check,mode,timeout){
+    const ctrl=new AbortController();
+    const timer=setTimeout(()=>ctrl.abort(),timeout);
+    const start=performance.now();
+    try{
+      const response=await fetch(check.url,{
+        method:check.method,mode,credentials:'omit',
+        cache:'no-store',redirect:'follow',signal:ctrl.signal,
+        referrerPolicy:'no-referrer'
+      });
+      let release='';
+      if(check.kind==='release' && response.ok && mode==='cors'){
+        try{
+          const meta=await response.json();
+          if(typeof meta.version==='string' && /^v[0-9.]{1,20}$/.test(meta.version)){
+            release=' · версия '+meta.version;
+          }
+        }catch(_){release=' · метаданные не прочитаны';}
+      }
+      return {response,ms:performance.now()-start,release};
+    }catch(error){
+      return {error:error && error.name==='AbortError'?'timeout':'network_or_cors',ms:performance.now()-start};
+    }finally{
+      clearTimeout(timer);
+    }
+  }
+  async function probe(check){
+    const first=await request(check,'cors',12000);
+    if(first.response){
+      const status=first.response.status;
+      const ok=status>=200&&status<300;
+      const reachable=status>=100&&status<500;
+      if(check.kind==='health' && ok){
+        try{
+          const payload=await first.response.clone().json();
+          if(payload.status!=='ok')return result(check.label,'warn','HTTP '+status+' · неожиданный ответ health',first.ms);
+        }catch(_){
+          // Body already consumed in request()? Only release is parsed there.
+          return result(check.label,'warn','HTTP '+status+' · ответ health не удалось прочитать',first.ms);
+        }
+      }
+      return result(check.label,ok?'ok':reachable?'warn':'fail',
+        'HTTP '+status+first.release+(ok?' · доступен':reachable?' · сервер отвечает, но операция не разрешена/маршрут иной':' · ошибка сервера'),first.ms);
+    }
+    if(first.error==='timeout')return result(check.label,'fail','Тайм-аут 12 с',first.ms);
+    if(new URL(check.url,location.href).origin===location.origin){
+      return result(check.label,'fail','Ошибка DNS / TLS / сети / загрузки',first.ms);
+    }
+    // Opaque success is NOT proof the API is usable: it only indicates that
+    // some cross-origin response was reachable without reading its status.
+    const opaque=await request(check,'no-cors',7000);
+    if(opaque.response)return result(check.label,'warn',
+      'Ответ без CORS доступен; требуется проверка CORS / HTTP-политики',first.ms+opaque.ms);
+    return result(check.label,'fail',
+      'Нет доступного ответа: DNS / TLS / маршрут / блокировка / сеть',first.ms+opaque.ms);
+  }
+  function show(r){
+    const element=document.createElement('div');
+    element.className='item '+(r.state==='ok'?'ok':r.state==='warn'?'warn':'fail');
+    const name=document.createElement('strong');
+    name.textContent=(r.state==='ok'?'✓ ':r.state==='warn'?'! ':'✕ ')+r.label;
+    const line=document.createElement('small');
+    line.textContent=r.details+' · '+r.ms+' мс';
+    element.append(name,line);
+    results.appendChild(element);
+  }
+  runButton.addEventListener('click',async()=>{
+    runButton.disabled=true;copyButton.disabled=true;
+    results.replaceChildren();
+    summary.textContent='Проверяем адреса. Пожалуйста, не переключайте VPN до завершения.';
+    const rows=[];
+    try{
+      // Two probes at a time to avoid saturating weak mobile connections.
+      for(let i=0;i<checks.length;i+=2){
+        const pair=await Promise.all(checks.slice(i,i+2).map(probe));
+        rows.push(...pair);pair.forEach(show);
+      }
+      const ok=rows.filter(x=>x.state==='ok').length;
+      const warn=rows.filter(x=>x.state==='warn').length;
+      const fail=rows.filter(x=>x.state==='fail').length;
+      summary.textContent='Проверено: '+rows.length+' · успешно '+ok+' · предупреждений '+warn+' · ошибок '+fail;
+      report=[
+        'Промысел · диагностика соединения',
+        'Дата UTC: '+new Date().toISOString(),
+        'Сеть (указана вручную): '+document.getElementById('network').value,
+        'VPN (указан вручную): '+document.getElementById('vpn').value,
+        'Страница: '+location.origin,
+        'navigator.onLine (подсказка): '+String(navigator.onLine),
+        ...rows.map(x=>x.label+' | '+x.state+' | '+x.details+' | '+x.ms+' ms'),
+        'Нет проверки авторизованной синхронизации и Realtime',
+        'Нет персональных данных, IP-адресов, паролей или токенов'
+      ].join('\n');
+      copyButton.disabled=false;
+    }catch(_){
+      summary.textContent='Проверка завершилась с локальной ошибкой интерфейса.';
+    }finally{runButton.disabled=false;}
+  });
+  copyButton.addEventListener('click',async()=>{
+    if(!report)return;
+    try{await navigator.clipboard.writeText(report);summary.textContent='Отчёт скопирован.';}
+    catch(_){
+      const el=document.createElement('textarea');
+      el.value=report;document.body.appendChild(el);el.select();document.execCommand('copy');el.remove();
+      summary.textContent='Отчёт подготовлен для копирования.';
+    }
+  });
+})();
+</script>
+</body>
+</html>

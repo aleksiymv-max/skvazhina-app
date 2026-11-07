@@ -1,0 +1,401 @@
+<!doctype html>
+<html lang="ru"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0b2441"><meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Промысел Cloud">
+<link rel="manifest" href="./manifest.webmanifest">
+<title>Промысел — облачное приложение</title>
+<style>
+:root{--navy:#0b2441;--deep:#071b30;--blue:#165b98;--gold:#f1ad35;--bg:#f3f6fb;--ink:#172b43;--muted:#65778c;--line:#dce5ef;--green:#167d65;--red:#a62e41}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);font:15px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;color:var(--ink)}h1,h2,h3,p{margin-top:0}a{color:var(--blue)}button,input,select,textarea{font:inherit}button{cursor:pointer}
+header{background:linear-gradient(120deg,#071b30,#144b7a);color:#fff;padding:20px 18px 22px;padding-top:calc(22px + env(safe-area-inset-top))}
+.head{max-width:1000px;margin:auto;display:flex;justify-content:space-between;align-items:center;gap:14px}
+.brand{display:flex;gap:12px;align-items:center}.brandmark{display:grid;place-items:center;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);height:43px;width:43px;border-radius:13px;font-size:25px}.brand strong{font-size:22px;letter-spacing:.2px}.brand small{display:block;color:#b8ccdf;font-size:11px}.head button{border:1px solid rgba(255,255,255,.4);background:transparent;color:#fff;padding:8px 12px;border-radius:9px}
+main{max-width:1000px;margin:0 auto;padding:20px 14px 90px}.card{background:#fff;border:1px solid var(--line);box-shadow:0 5px 25px #15395c0a;border-radius:16px;padding:20px;margin-bottom:15px}
+h1{font-size:26px;margin-bottom:7px}h2{font-size:19px;margin-bottom:12px}h3{font-size:16px;margin-bottom:8px}.sub{font-size:13px;color:var(--muted);line-height:1.55}.row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.between{justify-content:space-between}.stack{display:grid;gap:13px}.cols{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.cols3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+label{display:block;font-size:12px;font-weight:650;color:#54697f;margin-bottom:5px}input,select,textarea{display:block;width:100%;padding:11px 12px;border:1px solid #cdd9e5;border-radius:10px;background:#fff;color:var(--ink);outline-offset:2px}textarea{min-height:85px;resize:vertical}
+.btn{border:0;border-radius:10px;padding:11px 15px;font-weight:700;color:#fff;background:var(--blue)}.btn:disabled{opacity:.5;cursor:not-allowed}.btn.gold{background:var(--gold);color:#212e3a}.btn.ghost{background:#eaf1f8;color:var(--blue)}.btn.danger{background:#b03e4c}.btn.sm{font-size:12px;padding:7px 10px}.muted{color:var(--muted)}.pill{border-radius:100px;padding:4px 9px;font-size:11px;background:#e8f5ee;color:#177452;font-weight:700}.pill.wait{background:#fff0ce;color:#95621d}.metric{background:#fff;border:1px solid var(--line);padding:17px;border-radius:14px}.metric b{font-size:27px;display:block;color:var(--navy)}.metric span{font-size:12px;color:var(--muted)}
+nav{max-width:1000px;margin:-5px auto 0;display:flex;gap:6px;flex-wrap:wrap;padding-top:14px}nav button{border:1px solid #ffffff3b;border-radius:10px;background:#ffffff15;color:#e8f2fc;padding:9px 11px;font-size:13px}nav button.active{background:var(--gold);color:#14283e;border-color:var(--gold);font-weight:700}
+.item{border:1px solid var(--line);padding:13px 14px;border-radius:12px;margin:8px 0;background:#fff}.item strong{display:block}.item .sub{margin-top:4px}.section-head{display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:12px}
+.notice{border-radius:13px;border:1px solid #d7e6f5;background:#eaf3fd;padding:13px 15px;font-size:13px;margin-bottom:15px}.notice.warn{background:#fff5dd;border-color:#f4dfaa}.notice.error{background:#fff0f0;border-color:#f4cbcb;color:#7c2937}
+.small{font-size:12px}.empty{color:var(--muted);padding:22px 8px;text-align:center}.tbl{width:100%;border-collapse:collapse}.tbl td,.tbl th{padding:10px 8px;border-bottom:1px solid var(--line);text-align:left;font-size:13px}.tbl th{color:var(--muted);font-weight:650}
+.footer{text-align:center;padding:25px 15px;color:#6d8194;font-size:12px}.loading{margin:90px auto;text-align:center;color:#536f8b}#toast{position:fixed;top:calc(18px + env(safe-area-inset-top));left:50%;transform:translateX(-50%);max-width:90vw;background:#122d46;color:#fff;padding:12px 18px;border-radius:12px;box-shadow:0 10px 30px #0003;display:none;z-index:100;min-width:220px}
+@media(max-width:620px){h1{font-size:23px}.cols3{grid-template-columns:repeat(2,minmax(0,1fr))}.cols{grid-template-columns:1fr}header{padding-left:14px;padding-right:14px}.brand strong{font-size:20px}.card{padding:16px}.tbl{display:block;overflow-x:auto}nav{display:flex;flex-wrap:nowrap;overflow-x:auto;padding-bottom:4px}nav button{white-space:nowrap}.btn{padding:11px}}
+</style></head><body>
+<header><div class="head"><div class="brand"><div class="brandmark">⛽</div><div><strong>Промысел</strong><small>ОБЛАЧНОЕ ПРИЛОЖЕНИЕ · SUPABASE</small></div></div><div id="topAction"></div></div><nav id="tabs" hidden></nav></header>
+<main id="app"><div class="loading">Подключение к облачной базе…</div></main><div id="toast"></div><script>
+"use strict";
+const BASE="https://xptmcufhuvtcunqzlsme.supabase.co", KEY="sb_publishable_lYXKa6cAOtCGaPBn8f55tw_A6wJ-yh0", APP=document.getElementById("app"), TABS=document.getElementById("tabs");
+const LS="promysel-cloud-preview-session-v1";
+let session=null,user=null,member=null,field=null,view="dashboard",data={areas:[],pads:[],wells:[],walks:[],records:[],people:[]},busy=false;
+const esc=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const id=()=>("web-"+(globalThis.crypto&&crypto.randomUUID?crypto.randomUUID():Math.random().toString(36).slice(2)+Date.now()));
+const date=v=>{try{return new Date(v).toLocaleString("ru-RU",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"})}catch(_){return v}};
+const note=(txt,error=false)=>{const n=document.getElementById("toast");n.textContent=txt;n.style.background=error?"#7c2638":"#122d46";n.style.display="block";setTimeout(()=>{n.style.display="none"},4200)};
+const val=x=>document.getElementById(x)?.value?.trim()||"";
+const num=x=>{const v=val(x).replace(",",".");return v===""?null:Number(v)};
+const myRole=()=>member?.role||"";
+const subRole=()=>member?.subrole||"";
+const canWalk=()=>["operator","engineer","shopChief"].includes(myRole());
+const canStructure=()=>myRole()==="shopChief"||(myRole()==="engineer"&&["geologist","technologist","leadingGeologist","leadingTechnologist"].includes(subRole()));
+const canCorrect=canStructure;
+const canManage=()=>["shopChief","engineer"].includes(myRole());
+const canDelete=()=>myRole()==="shopChief"||(myRole()==="engineer"&&["leadingGeologist","leadingTechnologist"].includes(subRole()));
+const canExport=canManage;
+const canMarkProblems=()=>["dispatcher","engineer","shopChief"].includes(myRole());
+const roleLabel=()=>({operator:"Оператор ДНГ",dispatcher:"Диспетчер",engineer:"ИТР",shopChief:"Начальник цеха",admin:"Администратор"})[myRole()]||myRole();
+async function request(url,method="GET",payload,authenticated=true,repeat=true){
+  const headers={"apikey":KEY,"Content-Type":"application/json"};
+  if(authenticated&&session?.access_token)headers.Authorization="Bearer "+session.access_token;
+  const response=await fetch(url,{method,headers,body:payload===undefined?undefined:JSON.stringify(payload),cache:"no-store"});
+  if(response.status===401&&authenticated&&repeat&&session?.refresh_token&&await refreshToken())return request(url,method,payload,authenticated,false);
+  const str=await response.text();let body={};try{body=str?JSON.parse(str):{}}catch(_){body={message:str.slice(0,160)}}
+  if(!response.ok)throw Error(body.msg||body.message||body.error_description||body.detail||body.error||("HTTP "+response.status));
+  return body;
+}
+const auth=(path,method="GET",body,secured=false)=>request(BASE+"/auth/v1/"+path,method,body,secured);
+const rest=(path,method="GET",body)=>request(BASE+"/rest/v1/"+path,method,body,true);
+const adminCall=(route,method="GET",body)=>request(BASE+"/functions/v1/promysel-admin/"+route,method,body,true);
+let pendingCache=[];
+const isSystemAdmin=()=>user?.app_metadata?.system_admin===true;
+const canManagePeople=()=>myRole()==="shopChief"||(myRole()==="engineer"&&["master","leadingGeologist","leadingTechnologist"].includes(subRole()));
+async function refreshToken(){
+  try{
+    const next=await request(BASE+"/auth/v1/token?grant_type=refresh_token","POST",{refresh_token:session.refresh_token},false,false);
+    session=next;localStorage.setItem(LS,JSON.stringify(session));return !!next.access_token;
+  }catch(_){return false}
+}
+async function getCurrentUser(){
+  if(!session?.access_token)return null;
+  try{const u=await auth("user","GET",undefined,true);user=u;return u}catch(_){clearSession();return null}
+}
+function clearSession(){localStorage.removeItem(LS);session=null;user=null;member=null;field=null;}
+function authScreen(mode="login"){
+ if(mode==="signup"){
+   TABS.hidden=true;document.getElementById("topAction").innerHTML="";
+   APP.innerHTML='<div class="card" style="max-width:520px;margin:28px auto">'+
+    '<h1>Регистрация сотрудника</h1><p>Заявка сначала поступает на согласование. Только после одобрения начальником цеха или системным администратором отправляется письмо для установки пароля.</p>'+
+    '<a class="btn" href="/" style="display:block;text-align:center;text-decoration:none">Открыть основное приложение и подать заявку</a>'+
+    '<p class="sub" style="margin-top:15px">Новое месторождение и первого начальника цеха утверждает системный администратор.</p></div>';
+   return;
+ }
+ TABS.hidden=true;document.getElementById("topAction").innerHTML="";
+ APP.innerHTML='<div style="max-width:470px;margin:28px auto"><div class="card">'+
+ '<span class="pill">Защищённый вход</span><h1 style="margin-top:10px">'+(mode==="login"?"Вход в Промысел":"Регистрация")+'</h1>'+
+ '<p class="sub">Новая база Supabase. Создавайте учётные записи и месторождения с нуля.</p>'+
+ '<form id="authForm" class="stack">'+(mode==="signup"?'<div><label>Фамилия, имя и отчество</label><input id="aname" required autocomplete="name"></div>':"")+
+ '<div><label>Электронная почта</label><input id="aemail" type="email" required autocomplete="username"></div>'+
+ '<div><label>Пароль (не менее 8 символов)</label><input id="apass" type="password" minlength="8" required autocomplete="'+(mode==="login"?"current-password":"new-password")+'"></div>'+
+ '<button class="btn" type="submit">'+(mode==="login"?"Войти":"Создать учётную запись")+'</button></form>'+
+ '<p class="sub" style="margin-top:16px">'+(mode==="login"?'Нет аккаунта? <a href="#" id="switchForm">Зарегистрироваться</a>':'Уже есть аккаунт? <a href="#" id="switchForm">Войти</a>')+'</p></div>'+
+ '<div class="notice warn">База новая и пустая. Для первого запуска зарегистрируйте системного администратора и активируйте его одноразовым кодом.</div></div>';
+ document.getElementById("switchForm").onclick=e=>{e.preventDefault();authScreen(mode==="login"?"signup":"login")};
+ document.getElementById("authForm").onsubmit=async e=>{
+  e.preventDefault();if(busy)return;busy=true;
+  try{
+   const email=val("aemail"),password=val("apass");
+   const r=await auth("token?grant_type=password","POST",{email,password});
+   if(!r.access_token){note("Подтверди электронную почту по ссылке из письма, затем войди.");authScreen("login");return}
+   session=r;localStorage.setItem(LS,JSON.stringify(r));await enter();
+  }catch(err){note("Не удалось войти: "+err.message,true)}finally{busy=false}
+ };
+}
+function initialPasswordScreen(){
+ TABS.hidden=true;
+ document.getElementById("topAction").innerHTML='<button onclick="logout()">Выйти</button>';
+ APP.innerHTML='<div style="max-width:490px;margin:26px auto"><div class="card">'+
+ '<span class="pill wait">Первый вход</span><h1 style="margin-top:10px">Обязательная смена пароля</h1>'+
+ '<p class="sub">Временный пароль администратора необходимо заменить. До этого просмотр и согласование сотрудников недоступны.</p>'+
+ '<form id="firstPasswordForm" class="stack">'+
+ '<div><label>Текущий временный пароль</label><input id="oldAdminPassword" type="password" required autocomplete="current-password"></div>'+
+ '<div><label>Новый пароль (минимум 12 символов)</label><input id="newAdminPassword" type="password" required minlength="12" maxlength="128" autocomplete="new-password"></div>'+
+ '<div><label>Повторите новый пароль</label><input id="repeatAdminPassword" type="password" required minlength="12" maxlength="128" autocomplete="new-password"></div>'+
+ '<button type="submit" class="btn">Сменить пароль и продолжить</button></form></div></div>';
+ document.getElementById("firstPasswordForm").onsubmit=async e=>{
+   e.preventDefault();
+   if(busy)return;
+   const currentPassword=val("oldAdminPassword"),newPassword=val("newAdminPassword");
+   if(newPassword!==val("repeatAdminPassword")){note("Пароли не совпадают",true);return}
+   if(currentPassword===newPassword||newPassword.length<12){note("Новый пароль должен быть другим и содержать минимум 12 символов",true);return}
+   busy=true;
+   try{
+     const done=await adminCall("first-password","POST",{currentPassword,newPassword});
+     if(done.status!=="password_changed")throw Error("Не подтверждена смена пароля");
+     clearSession();
+     authScreen("login");
+     note("Пароль изменён. Войдите с новым паролем.");
+   }catch(err){note("Не удалось сменить пароль: "+err.message,true)}
+   finally{busy=false}
+ };
+}
+async function enter(){
+ if(!await getCurrentUser()){authScreen();return}
+ if(user?.app_metadata?.must_change_password===true){initialPasswordScreen();return}
+ try{
+  const rows=await rest("field_memberships?select=field_id,role,subrole,display_name,approved,blocked&user_id=eq."+encodeURIComponent(user.id));
+  member=(rows||[]).find(m=>m.approved&&!m.blocked)||null;
+  if(!member){if(isSystemAdmin()){field={id:"",name:"Администрирование"};view="approvals";await fetchApprovals()}else await pendingScreen();return}
+  const f=await rest("oil_fields?select=id,name&id=eq."+encodeURIComponent(member.field_id));
+  field=f[0]||{id:member.field_id,name:member.field_id};
+  await reload();
+ }catch(err){APP.innerHTML='<div class="notice error">Ошибка доступа к Supabase: '+esc(err.message)+'</div><button class="btn" onclick="logout()">Выйти</button>';note(err.message,true)}
+}
+async function pendingScreen(){
+ TABS.hidden=true;
+ document.getElementById("topAction").innerHTML='<button onclick="logout()">Выйти</button>';
+ let requests=[];try{requests=await rest("registration_requests?select=id,state,requested_role,proposed_field_name,field_id,created_at&requested_by=eq."+encodeURIComponent(user.id)+"&order=created_at.desc")}catch(_){}
+ let directory=[];try{directory=(await adminCall("directory")).items||[]}catch(_){}
+ APP.innerHTML='<div class="card"><span class="pill wait">Ожидание допуска</span><h1 style="margin-top:10px">Заявка на подключение к месторождению</h1><p class="sub">Прежде чем работать с производственными данными, сотрудник должен получить согласование. Без допуска RLS не позволяет просматривать другие месторождения.</p>'+
+ (requests.length?requests.map(r=>'<div class="item"><b>Заявка №'+esc(r.id)+'</b><div class="sub">'+esc(r.proposed_field_name||r.field_id||"")+' · '+esc(r.requested_role)+' · '+esc(r.state)+'</div></div>').join(""):'<div class="notice">У тебя ещё нет заявки.</div>')+
+ '<h3 style="margin-top:22px">Подать заявку</h3><form id="requestForm" class="stack">'+
+ '<div><label>ФИО сотрудника</label><input id="reqName" required value="'+esc(user.user_metadata?.full_name||"")+'"></div>'+
+ '<div><label>Тип подключения</label><select id="reqType"><option value="existing">Присоединиться к существующему месторождению</option><option value="new">Заявка начальника на новое месторождение</option></select></div>'+
+ '<div><label>Код месторождения (или новое название)</label><input id="reqField" list="fieldDirectory" required placeholder="Укажи код или название"><datalist id="fieldDirectory">'+directory.map(f=>'<option value="'+esc(f.id)+'" label="'+esc(f.name)+'"></option>').join("")+'</datalist></div>'+
+ '<div><label>Должность</label><select id="reqRole"><option value="operator">Оператор ДНГ</option><option value="engineer">ИТР</option><option value="dispatcher">Диспетчер</option><option value="shopChief">Начальник цеха</option></select></div>'+
+ '<div><label>Специализация ИТР</label><select id="reqSub"><option value="">Не выбрана</option><option value="master">Мастер</option><option value="geologist">Геолог</option><option value="leadingGeologist">Ведущий геолог</option><option value="technologist">Технолог</option><option value="leadingTechnologist">Ведущий технолог</option></select></div>'+
+ '<button class="btn">Отправить на согласование</button></form><div class="sub" style="margin-top:12px">Создание нового месторождения требует одобрения администратора. Самостоятельно назначить себе права невозможно.</div></div>';
+ 
+ // Setup code is accepted only once, and is verified server-side after email confirmation.
+ APP.innerHTML+='<div class="card"><h2>Первый системный администратор</h2>'+
+ '<p class="sub">Это действие выполняется только один раз при первом запуске приложения. Зарегистрируйтесь, подтвердите адрес электронной почты, затем введите одноразовый код настройки.</p>'+
+ '<form id="bootstrapForm" class="stack"><div><label>Код активации администратора</label><input id="bootstrapCode" type="password" minlength="20" maxlength="200" autocomplete="off" required></div>'+
+ '<button type="submit" class="btn gold">Активировать администратора</button></form></div>';
+ document.getElementById("bootstrapForm").onsubmit=async e=>{
+   e.preventDefault();if(busy)return;busy=true;
+   try{
+     const res=await adminCall("claim-bootstrap","POST",{code:val("bootstrapCode")});
+     if(res.status!=="ok")throw Error("Не получено подтверждение активации");
+     note("Администратор активирован. Требуется сменить пароль.");
+     await enter();
+   }catch(err){note("Не удалось активировать: "+err.message,true)}
+   finally{busy=false}
+ };
+ document.getElementById("reqType").onchange=e=>{document.getElementById("reqRole").value=e.target.value==="new"?"shopChief":"operator"};
+ document.getElementById("requestForm").onsubmit=async e=>{
+ e.preventDefault();try{
+  const isNew=val("reqType")==="new";
+  const role=isNew?"shopChief":val("reqRole"),sub=role==="engineer"?val("reqSub"):null;
+  await rest("registration_requests","POST",{requested_by:user.id,field_id:isNew?null:val("reqField"),
+   proposed_field_name:isNew?val("reqField"):null,requested_role:role,requested_subrole:sub||null,
+   full_name:val("reqName"),email:user.email,state:"pending"});
+  note("Заявка отправлена");await pendingScreen();
+ }catch(err){note(err.message,true)}
+ };
+}
+async function reload(){
+ const f="field_id=eq."+encodeURIComponent(field.id);
+ const [areas,pads,wells,walks,records,people]=await Promise.all([
+ rest("production_areas?select=*&"+f+"&order=name"),
+ rest("pads?select=*&"+f+"&order=name"),
+ rest("wells?select=*&"+f+"&order=well_number"),
+ rest("walk_measurements?select=*&"+f+"&order=measured_at.desc&limit=400"),
+ rest("field_records?select=*&"+f+"&order=updated_at.desc&limit=400"),
+ rest("field_memberships?select=user_id,display_name,role,subrole,approved,blocked&"+f)
+ ]);
+ data={areas,pads,wells,walks,records,people};render();
+}
+function logout(){clearSession();authScreen();}
+function tab(t){view=t;if(t==="approvals"){fetchApprovals();return}render();}
+async function fetchApprovals(){
+ try{const suffix=member?"?fieldId="+encodeURIComponent(field.id):"";
+ const results=await adminCall("pending"+suffix);pendingCache=results.items||[];render();}
+ catch(err){note("Не удалось загрузить заявки: "+err.message,true);render()}
+}
+async function decideRequest(reqId,action){
+ if(!confirm(action==="approve"?"Согласовать заявку сотрудника?":"Отклонить заявку?"))return;
+ try{await adminCall(action,"POST",{requestId:reqId});note(action==="approve"?"Заявка одобрена":"Заявка отклонена");
+ if(member)await reload();await fetchApprovals();
+ }catch(err){note("Ошибка согласования: "+err.message,true)}
+}
+function approvalsPage(){
+ let x='<div class="card"><h2>Заявки на согласование</h2><p class="sub">Решение доступно начальнику месторождения или системному администратору. Изменения протоколируются.</p>';
+ if(!pendingCache.length)x+='<div class="empty">Нет заявок, ожидающих решения.</div>';
+ for(const r of pendingCache){x+='<div class="item"><strong>'+esc(r.full_name)+'</strong><div class="sub">'+esc(r.email)+' · '+esc(r.requested_role)+(r.requested_subrole?" / "+esc(r.requested_subrole):"")+'</div>'+
+ '<div class="sub">'+esc(r.proposed_field_name||r.field_id||"")+' · '+date(r.created_at)+'</div>'+
+ '<div class="row" style="margin-top:10px"><button class="btn sm" onclick="decideRequest('+Number(r.id)+',\'approve\')">Одобрить</button>'+
+ '<button class="btn danger sm" onclick="decideRequest('+Number(r.id)+',\'reject\')">Отклонить</button></div></div>'}
+ return x+'</div>';
+}
+async function changeWorker(userId){
+ const role=prompt("Новая роль: operator, dispatcher или engineer","operator");if(role===null)return;
+ if(!["operator","dispatcher","engineer"].includes(role)){note("Неизвестная роль",true);return}
+ let subrole=null;
+ if(role==="engineer"){subrole=prompt("Специализация: master, geologist, leadingGeologist, technologist, leadingTechnologist","master");if(subrole===null)return}
+ if(!confirm("Подтвердить изменение должности?"))return;
+ try{await adminCall("change-role","POST",{fieldId:field.id,userId,role,subrole});note("Должность изменена");await reload()}
+ catch(err){note(err.message,true)}
+}
+async function toggleBlock(userId,blocked){
+ if(!confirm(blocked?"Заблокировать доступ сотрудника? Его история сохранится.":"Разблокировать сотрудника?"))return;
+ try{await adminCall("block-worker","POST",{fieldId:field.id,userId,blocked});note("Статус сотрудника изменён");await reload()}
+ catch(err){note(err.message,true)}
+}
+function selectedWell(){return data.wells.find(x=>x.id===val("selectedWell"))}
+function displayWell(w){return esc(w?.well_number||w?.id||"—")}
+function choices(items,fmt){return items.map(i=>'<option value="'+esc(i.id)+'">'+esc(fmt(i))+'</option>').join("")}
+function nav(){
+ document.getElementById("topAction").innerHTML='<button onclick="logout()">Выйти</button>';
+ TABS.hidden=false;
+ const links=isSystemAdmin()&&!member?[["approvals","Заявки"]]:[["dashboard","Главная"],["wells","Скважины"],["walk","Обход"],["history","История"],["problems","Проблемы"],["tasks","Задания"],["people","Персонал"]];
+ if(myRole()==="shopChief")links.push(["approvals","Заявки"]);
+ TABS.innerHTML=links.map(k=>'<button class="'+(view===k[0]?"active":"")+'" onclick="tab(\''+k[0]+'\')">'+k[1]+'</button>').join("");
+}
+function render(){
+ if(!member&&!isSystemAdmin()){authScreen();return}
+ nav();
+ let content="";
+ if(view==="dashboard")content=dashboard();
+ if(view==="wells")content=wellsPage();
+ if(view==="walk")content=walkPage();
+ if(view==="history")content=historyPage();
+ if(view==="problems")content=recordsPage("problem");
+ if(view==="tasks")content=recordsPage("task");
+ if(view==="people")content=peoplePage();
+ if(view==="approvals")content=approvalsPage();
+ APP.innerHTML='<div class="section-head"><div><h1>'+({dashboard:"Обзор месторождения",wells:"Участки и скважины",walk:"Обход скважин",history:"История замеров",problems:"Проблемы",tasks:"Задания",people:"Персонал",approvals:"Заявки на согласование"})[view]+'</h1><p class="sub">'+esc(field.name)+' · '+esc(roleLabel())+(subRole()?" · "+esc(subRole()):"")+'</p></div><span class="pill">Supabase</span></div>'+
+ '<div class="notice">Данные сохраняются в новую базу Supabase. Прежняя база Beget не используется.</div>'+content+
+ '<div class="footer">Промысел Cloud · предварительная проверка · '+esc(field.id)+'</div>';
+}
+function dashboard(){
+ const problems=data.records.filter(x=>x.kind==="problem"&&x.payload?.status!=="resolved");
+ const tasks=data.records.filter(x=>x.kind==="task"&&x.payload?.status!=="done");
+ return '<div class="cols3"><div class="metric"><b>'+data.areas.length+'</b><span>Участков</span></div><div class="metric"><b>'+data.pads.length+'</b><span>Кустов</span></div><div class="metric"><b>'+data.wells.length+'</b><span>Скважин</span></div><div class="metric"><b>'+data.walks.length+'</b><span>Замеров</span></div><div class="metric"><b>'+problems.length+'</b><span>Проблем</span></div><div class="metric"><b>'+tasks.length+'</b><span>Заданий</span></div></div>'+
+ '<div class="card" style="margin-top:15px"><h2>Последние обходы</h2>'+
+ (data.walks.length?data.walks.slice(0,6).map(m=>'<div class="item"><strong>Скважина '+displayWell(data.wells.find(w=>w.id===m.well_id))+'</strong><div class="sub">'+date(m.measured_at)+' · Ртр: '+esc(m.payload?.rtr??"—")+' · Рз: '+esc(m.payload?.rz??"—")+'</div></div>').join(""):'<div class="empty">В новой базе пока нет записей обходов.</div>')+
+ '</div>';
+}
+function wellsPage(){
+ let x='<div class="card"><h2>Структура месторождения</h2>';
+ if(!data.areas.length)x+='<div class="empty">Участки ещё не добавлены.</div>';
+ for(const a of data.areas){
+  const pads=data.pads.filter(p=>p.area_id===a.id);
+  x+='<div class="item"><strong>'+esc(a.name)+'</strong><div class="sub">'+pads.length+' кустовых площадок</div>';
+  for(const p of pads){
+   const wells=data.wells.filter(w=>w.pad_id===p.id);
+   x+='<div class="item" style="background:#f8fbff"><b>КП '+esc(p.name)+'</b><div class="sub">'+esc(p.kind)+'</div>';
+   x+=wells.map(w=>'<div class="sub" style="padding:7px;border-bottom:1px solid #e2e8f0">Скв. '+esc(w.well_number)+' · '+esc(w.well_type)+' · '+esc(w.status||"")+'</div>').join("");
+   x+='</div>';
+  }
+  x+='</div>';
+ }
+ x+='</div>';
+ if(canStructure()){
+  x+='<div class="card"><h2>Добавить участок</h2><form onsubmit="saveArea(event)" class="row"><input id="areaName" placeholder="Название участка" required style="flex:2;min-width:160px"><button class="btn">Создать</button></form></div>';
+  x+='<div class="card"><h2>Добавить куст</h2><form onsubmit="savePad(event)" class="stack"><div><label>Участок</label><select id="padArea" required>'+choices(data.areas,a=>a.name)+'</select></div><div><label>Название КП</label><input id="padName" required placeholder="КП 3А02"></div><div><label>Тип</label><select id="padKind"><option value="oil">Нефтяной</option><option value="gasCondensate">Газоконденсатный</option></select></div><button class="btn">Добавить куст</button></form></div>';
+  x+='<div class="card"><h2>Добавить скважину</h2><form onsubmit="saveWell(event)" class="stack"><div><label>Кустовая площадка</label><select id="wellPad" required>'+choices(data.pads,p=>p.name)+'</select></div><div><label>Номер скважины</label><input id="wellNumber" required placeholder="3А021"></div><div><label>Тип скважины</label><select id="wellType"><option value="oil">Нефтяная</option><option value="gasCondensate">Газоконденсатная</option></select></div><button class="btn">Добавить скважину</button></form></div>';
+ }
+ return x;
+}
+async function saveArea(e){e.preventDefault();try{await rest("production_areas","POST",{id:id(),field_id:field.id,name:val("areaName")});note("Участок создан");await reload()}catch(err){note(err.message,true)}}
+async function savePad(e){e.preventDefault();try{await rest("pads","POST",{id:id(),field_id:field.id,area_id:val("padArea"),name:val("padName"),kind:val("padKind")});note("Куст создан");await reload()}catch(err){note(err.message,true)}}
+async function saveWell(e){e.preventDefault();try{await rest("wells","POST",{id:id(),field_id:field.id,pad_id:val("wellPad"),well_number:val("wellNumber"),well_type:val("wellType")});note("Скважина добавлена");await reload()}catch(err){note(err.message,true)}}
+function walkPage(){
+ if(!canWalk())return '<div class="notice warn">Роль диспетчера не позволяет вносить показания скважин.</div>';
+ return '<div class="card"><h2>Новый замер</h2>'+
+ (data.wells.length?'<form onsubmit="saveWalk(event)" class="stack"><div><label>Скважина</label><select id="selectedWell" required>'+choices(data.wells,w=>"Скв. "+w.well_number+" — "+(data.pads.find(p=>p.id===w.pad_id)?.name||""))+'</select></div>'+
+ '<div class="cols"><div><label>Ртр</label><input id="rtr" inputmode="decimal" placeholder="МПа или кгс/см²"></div><div><label>Рз</label><input id="rz" inputmode="decimal" placeholder="Давление"></div><div><label>Рлин</label><input id="rline" inputmode="decimal"></div><div><label>Т устья, °C</label><input id="temp" inputmode="decimal"></div></div>'+
+ '<div><label>Штуцер / дроссель</label><input id="choke" placeholder="Значение и единица"></div><div><label>Замечания</label><textarea id="walkNote"></textarea></div><button class="btn">Сохранить замер в Supabase</button></form>':
+ '<div class="empty">Сначала необходимо создать скважину.</div>')+'</div>';
+}
+async function saveWalk(e){
+ e.preventDefault();try{
+  const w=selectedWell();if(!w)throw Error("Скважина не выбрана");
+  const payload={rtr:num("rtr"),rz:num("rz"),rline:num("rline"),t_before:num("temp"),
+    choke:val("choke"),note:val("walkNote"),well_number:w.well_number,well_type:w.well_type,
+    captured_parameters:["rtr","rz","rline","t_before","choke"],captured_at:new Date().toISOString()};
+  for(const k of ["rtr","rz","rline","t_before"])if(payload[k]!==null&&!Number.isFinite(payload[k]))throw Error("Проверьте числовые значения");
+  await rest("walk_measurements","POST",{id:id(),field_id:field.id,pad_id:w.pad_id,well_id:w.id,
+    measured_at:new Date().toISOString(),payload,actor_id:user.id});
+  note("Замер сохранён");await reload();view="history";render();
+ }catch(err){note(err.message,true)}
+}
+function historyPage(){
+ let x='<div class="card"><div class="section-head"><h2>Журнал обходов</h2>'+(canExport()?'<button class="btn ghost sm" onclick="exportHistory()">CSV</button>':"")+'</div>';
+ if(!data.walks.length)x+='<div class="empty">Замеры пока не внесены.</div>';
+ for(const m of data.walks){
+  const well=data.wells.find(w=>w.id===m.well_id),p=m.payload||{};
+  x+='<div class="item"><div class="between row"><b>Скв. '+displayWell(well)+'</b><span class="sub">'+date(m.measured_at)+'</span></div>'+
+  '<div class="sub">Ртр: '+esc(p.rtr??"—")+' · Рз: '+esc(p.rz??"—")+' · Рлин: '+esc(p.rline??"—")+'</div>'+
+  (p.note?'<div class="sub">'+esc(p.note)+'</div>':"")+
+  (canCorrect()?'<button class="btn ghost sm" style="margin-top:9px" onclick="correctWalk(\''+esc(m.id)+'\')">Корректировать</button>':"")+'</div>';
+ }
+ return x+'</div>';
+}
+async function correctWalk(mId){
+ if(!canCorrect())return;
+ const m=data.walks.find(m=>m.id===mId);if(!m)return;
+ const raw=prompt("Новое Ртр:",String(m.payload?.rtr??""));if(raw===null)return;
+ const rtr=Number(raw.replace(",","."));if(!Number.isFinite(rtr)){note("Неверное давление",true);return}
+ const reason=prompt("Причина корректировки (обязательно):","");if(reason===null)return;
+ if(!reason.trim()){note("Укажи причину корректировки",true);return}
+ try{
+  await rest("walk_measurements?id=eq."+encodeURIComponent(m.id),"PATCH",
+   {payload:{...m.payload,rtr},correction_reason:reason.trim()});
+  note("Корректировка сохранена в журнале аудита");await reload();
+ }catch(err){note(err.message,true)}
+}
+function recordsPage(kind){
+ const plural=kind==="task"?"задания":"проблемы";
+ const rows=data.records.filter(r=>r.kind===kind);
+ const allowed=kind==="task"?canManage():canWalk();
+ let x='<div class="card"><h2>Журнал: '+plural+'</h2>';
+ if(!rows.length)x+='<div class="empty">Записей пока нет.</div>';
+ for(const r of rows){
+  const v=r.payload||{};
+  x+='<div class="item"><div class="between row"><strong>'+esc(v.title||"Без названия")+'</strong><span class="pill '+(v.status==="resolved"||v.status==="done"?"":"wait")+'">'+esc(v.status||"active")+'</span></div>'+
+  '<p class="sub">'+esc(v.description||"")+'</p><div class="sub">'+date(r.updated_at)+'</div>'+
+  (kind==="task"&&canWalk()&&v.status!=="done"?'<button class="btn ghost sm" style="margin-top:8px" onclick="completeTask(\''+esc(r.id)+'\')">Задание выполнено</button>':"")+
+  (kind==="problem"&&myRole()==="dispatcher"&&!v.applicationFiled&&v.status!=="resolved"?
+   '<button class="btn ghost sm" style="margin-top:8px" onclick="fileApplication(\''+esc(r.id)+'\')">Подать заявку</button>':"")+
+  (kind==="problem"&&v.applicationFiled?'<div class="sub" style="margin-top:6px">Заявка подана</div>':"")+
+  (kind==="problem"&&canMarkProblems()&&v.status!=="resolved"?
+   '<button class="btn ghost sm" style="margin-top:8px;margin-left:5px" onclick="closeRecord(\''+esc(r.id)+'\')">Проблема решена</button>':"")+
+  '</div>';
+ }
+ x+='</div>';
+ if(allowed)x+='<div class="card"><h2>Создать '+(kind==="task"?"задание":"проблему")+'</h2><form class="stack" onsubmit="saveRecord(event,\''+kind+'\')"><div><label>Заголовок</label><input id="recTitle" required></div><div><label>Описание</label><textarea id="recDesc" required></textarea></div><div><label>Скважина (необязательно)</label><select id="recWell"><option value="">Без скважины</option>'+choices(data.wells,w=>w.well_number)+'</select></div><button class="btn">Сохранить</button></form></div>';
+ return x;
+}
+async function completeTask(taskId){
+ if(!confirm("Отметить задание выполненным?"))return;
+ try{await adminCall("task-complete","POST",{recordId:taskId});note("Задание выполнено");await reload()}
+ catch(err){note(err.message,true)}
+}
+async function fileApplication(problemId){
+ if(!confirm("Подать заявку по этой проблеме?"))return;
+ try{await adminCall("problem-application","POST",{recordId:problemId});note("Заявка подана");await reload()}
+ catch(err){note(err.message,true)}
+}
+async function saveRecord(e,kind){e.preventDefault();try{
+  await rest("field_records","POST",{id:id(),field_id:field.id,kind,well_id:val("recWell")||null,
+    created_by:user.id,payload:{title:val("recTitle"),description:val("recDesc"),status:"active",createdAt:new Date().toISOString()}});
+  note("Запись создана");await reload();
+ }catch(err){note(err.message,true)}
+}
+async function closeRecord(recId){
+ const r=data.records.find(r=>r.id===recId);if(!r)return;
+ if(!confirm("Подтвердить изменение статуса?"))return;
+ try{await rest("field_records?id=eq."+encodeURIComponent(recId),"PATCH",
+  {payload:{...r.payload,status:r.kind==="task"?"done":"resolved",resolvedAt:new Date().toISOString(),resolvedBy:user.id}});
+  note("Статус изменён");await reload();
+ }catch(err){note(err.message,true)}
+}
+function peoplePage(){
+ let x='<div class="card"><h2>Сотрудники месторождения</h2>';
+ if(!data.people.length)x+='<div class="empty">Сотрудники не найдены.</div>';
+ for(const p of data.people)x+='<div class="item"><b>'+esc(p.display_name||p.user_id)+'</b><div class="sub">'+esc(p.role)+(p.subrole?" · "+esc(p.subrole):"")+' · '+(p.blocked?"заблокирован":p.approved?"допущен":"ожидает")+'</div>'+
+ (canManagePeople()&&p.user_id!==user.id&&p.role!=="shopChief"&&p.role!=="admin"?
+ '<div class="row" style="margin-top:10px"><button class="btn ghost sm" onclick="changeWorker(\''+esc(p.user_id)+'\')">Изменить роль</button>'+
+ '<button class="btn '+(p.blocked?"ghost":"danger")+' sm" onclick="toggleBlock(\''+esc(p.user_id)+'\','+(!p.blocked)+')">'+(p.blocked?"Разблокировать":"Заблокировать")+'</button></div>':"")+'</div>';
+ return x+'</div><div class="notice">Изменение ролей и блокировка проходят через защищённую серверную процедуру и аудит.</div>';
+}
+function exportHistory(){
+ if(!canExport())return;
+ const rows=[["Дата","Скважина","Ртр","Рз","Рлин","Температура","Примечание"]];
+ for(const m of data.walks){const w=data.wells.find(x=>x.id===m.well_id),p=m.payload||{};rows.push([date(m.measured_at),w?.well_number||"",p.rtr??"",p.rz??"",p.rline??"",p.t_before??"",p.note??""])}
+ const csv="\ufeff"+rows.map(r=>r.map(v=>'"'+String(v).replaceAll('"','""')+'"').join(";")).join("\r\n");
+ const href=URL.createObjectURL(new Blob([csv],{type:"text/csv;charset=utf-8"}));
+ const a=document.createElement("a");a.href=href;a.download="promysel-history.csv";document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(href),1000);
+}
+(async()=>{try{session=JSON.parse(localStorage.getItem(LS)||"null");if(session?.access_token)await enter();else authScreen()}catch(err){clearSession();authScreen();note(err.message,true)}})();
+</script></body></html>
