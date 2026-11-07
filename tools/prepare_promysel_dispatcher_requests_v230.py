@@ -33,19 +33,22 @@ block=one(block,
   await ProblemApplicationStore.instance.indexMeasurements(problems);
   unawaited(ProblemApplicationStore.instance.refresh(force:true));''',
  'load event keys and remote marks')
-block=one(block,'       return StatefulBuilder(',
- '''       return AnimatedBuilder(animation:ProblemApplicationStore.instance,
-         builder:(context,_)=>StatefulBuilder(''',
- 'live updates to open sheet')
-# Close outer AnimatedBuilder only; the final StatefulBuilder closes at end.
-close='''       );
-     },
-   );
- }'''
-block=one(block,close,'''       ));
-     },
-   );
- }''','bottom sheet closing wrapper')
+block=one(block,
+ '  await showModalBottomSheet(',
+ '''  StateSetter? modalUpdater;
+  void onDispatchChanged(){
+   if(mounted&&modalUpdater!=null)modalUpdater!((){});
+  }
+  ProblemApplicationStore.instance.addListener(onDispatchChanged);
+  try{
+  await showModalBottomSheet(''',
+ 'subscribe to dispatch ledger while modal is visible')
+block=one(block,'builder: (ctx, setModal) {',
+ 'builder: (ctx, setModal) { modalUpdater=setModal;',
+ 'rebuild modal after ledger change')
+last=block.rfind('\\n }')
+if last<0:raise RuntimeError('Cannot close modal listener after sheet')
+block=block[:last]+'''\\n  }finally{ProblemApplicationStore.instance.removeListener(onDispatchChanged);}'''+block[last:]
 
 block=one(block,
  '''                  final dispatcher=SessionService.instance.currentUser.role==UserRole.dispatcher||SessionService.instance.currentUser.itrSubrole==ItrSubrole.dispatcher;
