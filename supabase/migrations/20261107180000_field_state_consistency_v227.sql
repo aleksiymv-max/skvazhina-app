@@ -16,19 +16,19 @@ CREATE POLICY promysel_field_well_state_insert ON public.promysel_field_well_sta
  FOR INSERT TO authenticated WITH CHECK(
  updated_by=(select auth.uid()) AND app_private.is_member(field_id)
  AND EXISTS(SELECT 1 FROM public.field_memberships m
-  WHERE m.field_id=field_id AND m.user_id=auth.uid()
+  WHERE m.field_id=promysel_field_well_states.field_id AND m.user_id=auth.uid()
   AND m.approved AND NOT m.blocked AND m.role IN ('operator','engineer','shopChief'))
  );
 CREATE POLICY promysel_field_well_state_update ON public.promysel_field_well_states
  FOR UPDATE TO authenticated USING(
  app_private.is_member(field_id)
  AND EXISTS(SELECT 1 FROM public.field_memberships m
-  WHERE m.field_id=field_id AND m.user_id=auth.uid()
+  WHERE m.field_id=promysel_field_well_states.field_id AND m.user_id=auth.uid()
   AND m.approved AND NOT m.blocked AND m.role IN ('operator','engineer','shopChief'))
  ) WITH CHECK(
  app_private.is_member(field_id)
  AND EXISTS(SELECT 1 FROM public.field_memberships m
-  WHERE m.field_id=field_id AND m.user_id=auth.uid()
+  WHERE m.field_id=promysel_field_well_states.field_id AND m.user_id=auth.uid()
   AND m.approved AND NOT m.blocked AND m.role IN ('operator','engineer','shopChief'))
  );
 -- Incoming offline writes keep their original edit time. A delayed stale write
