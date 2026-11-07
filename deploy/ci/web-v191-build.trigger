@@ -314,3 +314,8 @@ reason=remove unsupported cache-control request header from Supabase Edge OPTION
 
 retry=v2.25-Dart-generated-report-newline-fixed
 reason=report now joins with String.fromCharCode(10), no escaped newline in generated Dart literal
+
+release=v2.26-operator-problem-form-offline-cache
+reason=Korsun Alexander is approved and field has 4 areas/4 pads; delayed local structure loads or legacy cached pads leave area and pad selectors disabled; reactivity and cached area reconstruction
+safety=do not change memberships, server records, unsent measurements, domain queues or Supabase configuration
+scope=one-shot Web DEV full Flutter build; production deploy only after CI green
