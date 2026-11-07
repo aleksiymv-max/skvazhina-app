@@ -355,3 +355,7 @@ purpose=inspect generated measurement and inline photo Flutter widgets before mo
 release=v2.28-prior-well-measurement-live-delta-and-ratio-chat-photos
 scope=one-shot Flutter Web full analyze test build, shared Android recipe
 safety=no schema or production data changes, preserve offline queues
+
+release=v2.29-inline-transparent-delta-textfields
+scope=remove underfield labels; previous and delta as pointer transparent input suffix with matching font size
+safety=client-only; no database schema/writes/queue changes
