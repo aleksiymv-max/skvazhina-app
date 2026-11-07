@@ -21,7 +21,7 @@ checks={
  'timestamp above Resolve in standalone':detail.index("Заявка подана: ")<detail.index("label:const Text('Решено')"),
  'dispatcher button below Resolve in standalone':detail.index("label:const Text('Подать заявку')")>detail.index("label:const Text('Решено')"),
  'legacy local data array no longer in UI':"ProblemApplicationStore.instance.data[" not in home,
- 'open modal updates on network completion':"AnimatedBuilder(animation:ProblemApplicationStore.instance" in part,
+ 'open modal updates on network completion':"ProblemApplicationStore.instance.addListener(onDispatchChanged)" in part and "ProblemApplicationStore.instance.removeListener(onDispatchChanged)" in part,
  'font reduced':"const size=11.5" in well,
  'unit and number remain full size':"const unitSize=17.0" in well and "style:const TextStyle(fontSize:17)" in well,
  'input still hit test transparent':'IgnorePointer(ignoring:true' in well,
