@@ -375,3 +375,6 @@ scope=only inspect generated Home exact problem action
 release=v2.30-quieter-delta-dispatcher-problem-ledger
 scope=compile Flutter Web with button below resolve, timestamp above, RLS-backed durable dispatcher ledger
 safety=existing manufacturing data/queues unchanged
+
+release=v2.30-template-path-retry
+scope=retry source assembly with absolute script-relative path
