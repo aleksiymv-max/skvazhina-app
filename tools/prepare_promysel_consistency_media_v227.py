@@ -117,7 +117,7 @@ s=one(s,
       Padding(padding:const EdgeInsets.only(bottom:12),
         child:Card(child:Padding(padding:const EdgeInsets.all(12),
           child:Row(children:[
-            const Icon(Icons.sync_problem_outlined,size:20),
+            const Icon(Icons.sync_problem,size:20),
             const SizedBox(width:10),
             Expanded(child:Text(
               FieldConsistencyService.instance.lastError??
