@@ -229,6 +229,8 @@ jobs:
           cp "$GITHUB_WORKSPACE/tools/field_consistency_service_v227.dart" lib/core/services/field_consistency_service.dart
           python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_consistency_media_v227.py"
           python3 "$GITHUB_WORKSPACE/tools/test_promysel_consistency_media_v227.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_walk_compare_photos_v228.py"
+          python3 "$GITHUB_WORKSPACE/tools/test_promysel_walk_compare_photos_v228.py"
           python3 "$GITHUB_WORKSPACE/tools/inspect_promysel_home_layout.py"
           cp "$GITHUB_WORKSPACE/tools/work_schedule_test.dart" test/work_schedule_test.dart
           mkdir -p test
