@@ -20,7 +20,7 @@ u.write_text(x)
 # The legacy store keyed requests only by a device-local integer, so it lost
 # cross-device identity and could leak display status between fields.
 store=Path('lib/core/services/problem_application_store.dart')
-store.write_text(Path('tools/problem_application_store_v230.dart').read_text())
+store.write_text(Path(__file__).with_name('problem_application_store_v230.dart').read_text())
 
 p=Path('lib/features/home/home_screen.dart')
 s=p.read_text()
