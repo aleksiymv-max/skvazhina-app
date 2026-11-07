@@ -384,3 +384,6 @@ scope=retry verified source assembly and Flutter build
 
 release=v2.30-standalone-problem-action-anchor-fix
 scope=retry full Flutter Web build after correcting card tail anchor
+
+release=v2.30-legacy-appstate-compatibility-fix
+scope=regression and Flutter build for local state compatibility with new server ledger
