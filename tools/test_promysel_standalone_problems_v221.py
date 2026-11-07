@@ -20,6 +20,19 @@ checks={
       'MeasurementRepository' not in form,
  'required area/pad':"validator:(v)=>v==null?'Выберите участок'" in form and
       "validator:(v)=>v==null?'Выберите куст'" in form,
+ 'offline field-scoped fallback':"demoAreas.where((a)=>a.fieldId==fid)" in form and
+     "demoPads.where((p)=>p.fieldId==fid)" in form and
+     "padIds:demoPads.where(" in form,
+ 'pad lookup uses stable area id':"_padsFor(field,area)" in form and
+     "(p.areaId==area.id||area.padIds.contains(p.id))" in form,
+ 'open form reacts to loaded structure':"structureRevision.addListener(_refreshStructure)" in form and
+     "structureRevision.removeListener(_refreshStructure)" in form and
+     "SyncService.instance.addListener(_refreshStructure)" in form,
+ 'empty cache is explained not silently disabled':"if(areas.isEmpty)" in form and
+     "не очищайте данные браузера" in form,
+ 'no permission gate on operator location lookup':"canCreateStructure" not in form and
+     "canEditStructure" not in form and
+     "role!=UserRole.operator" not in form,
  'well optional':"Весь куст — без скважины" in form and
       "wellId:well?.id,wellNumber:well?.number" in form,
  'description required':"if(text.isEmpty)return 'Опишите проблему'" in form and
