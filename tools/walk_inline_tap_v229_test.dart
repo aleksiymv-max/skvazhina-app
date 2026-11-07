@@ -18,6 +18,7 @@ void main(){
    expect(controller.text,'18,3');
    await tester.enterText(find.byType(TextFormField),'18,4');
    expect(controller.text,'18,4');
+   await tester.pumpWidget(const SizedBox.shrink());
    focus.dispose();controller.dispose();
  });
 }
