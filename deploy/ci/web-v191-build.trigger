@@ -394,3 +394,6 @@ scope=read-only generated source inspection before chat reaction implementation
 release=v2.31-chat-reactions-fast-media
 scope=Web build source patch chat reactions, delta polling, thumbnail compression, lazy video playback
 backend=promysel-chat-canary-v231 plus chat reactions migration applied
+
+release=v2.31-chat-reactions-refresh-anchor-fix
+scope=retry full Flutter Web build, anchored room refresh after quick polls
