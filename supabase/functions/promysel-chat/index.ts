@@ -121,7 +121,38 @@ Deno.serve(async(req:Request)=>{
     if(saveError)throw saveError;
     return response({text:transcript});
   }
-  const m=path.match(/^\/rooms\/([0-9a-f-]{36})(?:\/(messages|upload|settings|members|leave))?(?:\/([0-9a-f-]{36}))?$/i);
+  const reactPath=path.match(/^\/rooms\/([0-9a-f-]{36})\/messages\/([0-9a-f-]{36})\/reaction$/i);
+  if(req.method==='POST'&&reactPath){
+   const scope=await roomAccess(reactPath[1]);
+   if(!scope)return response({detail:'Переписка недоступна'},403);
+   const roomId=reactPath[1],messageId=reactPath[2];
+   const visibleSince=str(scope.member.visible_since)||'1970-01-01T00:00:00Z';
+   const emoji=str(value.emoji);
+   if(!['👍','❤️','😂','😮','😢','👏'].includes(emoji))
+    return response({detail:'Выберите реакцию'},400);
+   const {data:message,error:msgErr}=await db.from('promysel_chat_messages')
+     .select('id').eq('id',messageId).eq('room_id',roomId)
+     .gte('created_at',visibleSince).is('deleted_at',null).maybeSingle();
+   if(msgErr)throw msgErr;
+   if(!message)return response({detail:'Сообщение не найдено'},404);
+   const {data:previous,error:previousErr}=await db.from('promysel_chat_reactions')
+     .select('emoji').eq('room_id',roomId).eq('message_id',messageId)
+     .eq('user_id',uid).maybeSingle();
+   if(previousErr)throw previousErr;
+   if(previous?.emoji===emoji){
+    const {error}=await db.from('promysel_chat_reactions').delete()
+      .eq('room_id',roomId).eq('message_id',messageId).eq('user_id',uid);
+    if(error)throw error;
+    return response({emoji:null,messageId,userId:uid});
+   }
+   const {error}=await db.from('promysel_chat_reactions').upsert({
+     room_id:roomId,message_id:messageId,user_id:uid,emoji,
+     updated_at:new Date().toISOString()
+   },{onConflict:'message_id,user_id'});
+   if(error)throw error;
+   return response({emoji,messageId,userId:uid});
+  }
+  const m=path.match(/^\/rooms\/([0-9a-f-]{36})(?:\/(messages|reactions|upload|settings|members|leave))?(?:\/([0-9a-f-]{36}))?$/i);
   if(!m)return response({detail:'Маршрут не найден'},404);
   const roomId=m[1],action=m[2]??'',msgId=m[3];
   const scope=await roomAccess(roomId);if(!scope)return response({detail:'Чат недоступен'},403);
@@ -135,6 +166,22 @@ Deno.serve(async(req:Request)=>{
    }).eq('room_id',roomId).eq('user_id',uid);
    if(error)throw error;
    return response({status:'hidden',historyPreserved:true,visibleSince:cutoff});
+  }
+  // Reaction refresh never re-signs existing photos or starts a media decoder.
+  if(req.method==='GET'&&action==='reactions'){
+   const ids=[...new Set(str(url.searchParams.get('ids')).split(',').filter(validUuid))].slice(0,80);
+   if(!ids.length)return response({items:[]});
+   const {data:visible,error:visibleErr}=await db.from('promysel_chat_messages')
+     .select('id').eq('room_id',roomId).gte('created_at',visibleSince)
+     .is('deleted_at',null).in('id',ids);
+   if(visibleErr)throw visibleErr;
+   const valid=(visible??[]).map(x=>x.id);
+   if(!valid.length)return response({items:[]});
+   const {data:rows,error}=await db.from('promysel_chat_reactions')
+     .select('message_id,user_id,emoji').eq('room_id',roomId)
+     .in('message_id',valid).limit(600);
+   if(error)throw error;
+   return response({items:rows??[]});
   }
   if(req.method==='GET'&&action==='messages'){
    // Polling 'after' only fetches additions and avoids re-signing every historical image.
