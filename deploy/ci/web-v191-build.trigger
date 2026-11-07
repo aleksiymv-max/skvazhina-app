@@ -400,3 +400,6 @@ scope=retry full Flutter Web build, anchored room refresh after quick polls
 
 release=v2.31-chat-bubble-anchor-correction
 scope=retry code generation with timestamp reaction chips
+
+release=v2.31-reaction-test-final-variable
+scope=Web full build with corrected regression assert
