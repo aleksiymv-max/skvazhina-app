@@ -94,13 +94,17 @@ class FieldConsistencyService extends ChangeNotifier {
             DateTime.now().toUtc().toIso8601String(),
           'updated_by':SessionService.instance.currentUser.id};
       }
-      for(final row in await AppDatabase.instance.resolvedProblemSyncRows(_field)){
-        final key=_eventKey(row);
-        if(key==null||_pendingClosures.containsKey(key))continue;
-        _pendingClosures[key]={'field_id':_field,'measurement_key':key,
-          'resolved_by':SessionService.instance.currentUser.id};
+      if(SessionService.instance.currentUser.canResolveProblems){
+        for(final row in await AppDatabase.instance.resolvedProblemSyncRows(_field)){
+          final key=_eventKey(row);
+          if(key==null||_pendingClosures.containsKey(key))continue;
+          _pendingClosures[key]={'field_id':_field,'measurement_key':key,
+            'resolved_by':SessionService.instance.currentUser.id};
+        }
       }
-      _bootstrapped=true;
+      // A first launch may precede loading the field structure; avoid
+      // marking a zero-pad bootstrap complete so historical edits are not lost.
+      _bootstrapped=valid.isNotEmpty;
       await _persist(); // Durability before any upload.
     }
   }
