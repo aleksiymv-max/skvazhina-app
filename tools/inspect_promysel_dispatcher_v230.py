@@ -9,7 +9,7 @@ def section(path,start,end=None,maxn=24000):
  if q<0:q=min(len(s),p+maxn)
  print('##',path,'from',repr(start),'bytes',q-p)
  print(s[p:q][:maxn])
-section('lib/features/home/home_screen.dart','  Future<void> _showProblems() async {','  Widget _standaloneProblemCard',22000)
+section('lib/features/home/home_screen.dart',' Future<void> _showProblems() async {','  Widget _standaloneProblemCard',22000)
 section('lib/features/home/home_screen.dart',' Widget _standaloneProblemCard','\n}',11000)
 section('lib/core/services/problem_application_store.dart','class ProblemApplicationStore',None,11000)
 section('lib/core/models/user.dart','enum UserRole',None,5800)
