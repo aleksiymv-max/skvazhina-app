@@ -1,4 +1,4 @@
-expected_run_id=42386076766
-expected_source_sha=65c28dffc671eebaabcc8e588705e46365214360
-expected_version=v2.27
-reason=verify-live-cross-device-well-problem-state-and-video-playback-fix
+expected_run_id=42391082529
+expected_source_sha=704262d9b0e51e451295c4cd9864876d22934099
+expected_version=v2.28
+reason=verify-live-walk-previous-measurements-and-inline-photo-aspect
