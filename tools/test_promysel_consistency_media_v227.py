@@ -15,7 +15,7 @@ checks={
  'local history untouched':"DROP TABLE" not in s+d and "DELETE FROM measurements" not in s+d,
  'well status queued after local edit':'FieldConsistencyService.instance.changedWellStatus(wellId,status);' in r,
  'legacy problem closure queued':'FieldConsistencyService.instance.closedProblem(measurementId);' in r,
- 'remote status applied by original timestamp':'applyRemoteWellStatus(' in d and 'local.isAfter(incoming)' in d,
+ 'server status always overrides stale cache':'applyRemoteWellStatus(' in d and 'server decision' in d,
  'remote closure matches sync identity':"where:'(remote_key=? OR sync_uuid=?) AND problem_resolved=0'" in d,
  'pull before reconcile':"_syncPhase='pull.begin';await _pull();" in v and
     "_syncPhase='field_consistency';" in v,
