@@ -1,17 +1,17 @@
 {
-  "run_id": 42395835200,
-  "head_sha": "bf020bd37c2ee5f6396460a5b03e9e2c41bca1c0",
+  "run_id": 42396316332,
+  "head_sha": "cb309af4a07689929c7d67a60e77f4098a1c2858",
   "conclusion": "success",
-  "run_url": "https://github.com/aleksiymv-max/skvazhina-app/actions/runs/42395835200",
-  "started_at": "2026-11-07T17:20:36Z",
-  "updated_at": "2026-11-07T17:23:29Z",
+  "run_url": "https://github.com/aleksiymv-max/skvazhina-app/actions/runs/42396316332",
+  "started_at": "2026-11-07T17:26:24Z",
+  "updated_at": "2026-11-07T17:29:12Z",
   "artifact_available": true,
   "queue_wait_seconds": 0,
-  "total_elapsed_seconds": 173.0,
+  "total_elapsed_seconds": 168.0,
   "step_durations": [
     {
       "name": "Set up job",
-      "seconds": 1.0,
+      "seconds": 2.0,
       "conclusion": "success"
     },
     {
@@ -41,22 +41,22 @@
     },
     {
       "name": "Apply current Promysel updates",
-      "seconds": 7.0,
+      "seconds": 6.0,
       "conclusion": "success"
     },
     {
       "name": "Run subosito/flutter-action@v2",
-      "seconds": 19.0,
+      "seconds": 26.0,
       "conclusion": "success"
     },
     {
       "name": "Create web platform and configure iPhone PWA",
-      "seconds": 37.0,
+      "seconds": 31.0,
       "conclusion": "success"
     },
     {
       "name": "Analyze and build web release",
-      "seconds": 79.0,
+      "seconds": 73.0,
       "conclusion": "success"
     },
     {
@@ -66,17 +66,17 @@
     },
     {
       "name": "Probe existing Tuqo site and backend DNS HTTPS (external GitHub network only)",
-      "seconds": 2.0,
+      "seconds": 3.0,
       "conclusion": "success"
     },
     {
       "name": "Package iPhone web app",
-      "seconds": 2.0,
+      "seconds": 1.0,
       "conclusion": "success"
     },
     {
       "name": "Run actions/upload-artifact@v4",
-      "seconds": 2.0,
+      "seconds": 3.0,
       "conclusion": "success"
     },
     {
@@ -86,7 +86,7 @@
     },
     {
       "name": "Publish development preview only (stable production remains frozen)",
-      "seconds": 15.0,
+      "seconds": 12.0,
       "conclusion": "success"
     },
     {
