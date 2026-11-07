@@ -381,3 +381,6 @@ scope=retry source assembly with absolute script-relative path
 
 release=v2.30-fix-modal-dispatcher-listener-20261107
 scope=retry verified source assembly and Flutter build
+
+release=v2.30-standalone-problem-action-anchor-fix
+scope=retry full Flutter Web build after correcting card tail anchor
