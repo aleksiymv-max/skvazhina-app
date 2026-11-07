@@ -133,8 +133,8 @@ room=once(room,'final full=!silent||messages.isEmpty||polls%15==0;',
 room=once(room,'if(!mounted||_roomId.isEmpty||busy||_fetching)return;',
   'if(!mounted||_roomId.isEmpty||_fetching)return;',
   'do not freeze receiving while uploading video')
-room=once(room,'    finally{_fetching=false;}',
-  '    finally{_fetching=false;if(mounted&&messages.isNotEmpty)unawaited(_pullReactions());}',
+room=once(room,'finally{_fetching=false;}',
+  'finally{_fetching=false;if(mounted&&messages.isNotEmpty)unawaited(_pullReactions());}',
   'refresh reaction metadata independently')
 # Existing long press only permitted delete/edit of one's own message.
 start=room.index(' Future<void> _messageAction(')
