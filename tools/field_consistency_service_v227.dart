@@ -100,6 +100,10 @@ class FieldConsistencyService extends ChangeNotifier {
       }
       if(SessionService.instance.currentUser.canResolveProblems){
         for(final row in await AppDatabase.instance.resolvedProblemSyncRows(_field)){
+          // Reconcile only a closure made by THIS actor: do not attribute
+          // another worker's historical action to the currently logged-in user.
+          if(row['problem_resolved_by']?.toString()!=
+              SessionService.instance.currentUser.name)continue;
           final key=_eventKey(row);
           if(key==null||_pendingClosures.containsKey(key))continue;
           _pendingClosures[key]={'field_id':_field,'measurement_key':key,
