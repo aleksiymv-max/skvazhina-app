@@ -1,4 +1,4 @@
-expected_run_id=42391082529
-expected_source_sha=704262d9b0e51e451295c4cd9864876d22934099
-expected_version=v2.28
-reason=verify-live-walk-previous-measurements-and-inline-photo-aspect
+expected_run_id=42394633459
+expected_source_sha=616cc01f87e5a379dff24497aa6cf53f8e2c3195
+expected_version=v2.29
+reason=verify-live-inline-previous-delta-tap-through-layout
