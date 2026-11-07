@@ -1,13 +1,13 @@
 {
-  "run_id": 42239323878,
-  "head_sha": "81a3a75c0dbf11a623556879e99b22902267a69c",
+  "run_id": 42347539546,
+  "head_sha": "55c745e660a7cd569a360a1d2b85b39f3c82b8de",
   "conclusion": "success",
-  "run_url": "https://github.com/aleksiymv-max/skvazhina-app/actions/runs/42239323878",
-  "started_at": "2026-11-06T15:02:31Z",
-  "updated_at": "2026-11-06T15:06:32Z",
+  "run_url": "https://github.com/aleksiymv-max/skvazhina-app/actions/runs/42347539546",
+  "started_at": "2026-11-07T06:33:25Z",
+  "updated_at": "2026-11-07T06:36:51Z",
   "artifact_available": true,
   "queue_wait_seconds": 0,
-  "total_elapsed_seconds": 241.0,
+  "total_elapsed_seconds": 206.0,
   "step_durations": [
     {
       "name": "Set up job",
@@ -26,7 +26,7 @@
     },
     {
       "name": "Supabase compatibility endpoint preflight",
-      "seconds": 2.0,
+      "seconds": 1.0,
       "conclusion": "success"
     },
     {
@@ -36,22 +36,22 @@
     },
     {
       "name": "Verify preinstalled icon renderer",
-      "seconds": 0,
+      "seconds": 1.0,
       "conclusion": "success"
     },
     {
       "name": "Apply current Promysel updates",
-      "seconds": 8.0,
+      "seconds": 7.0,
       "conclusion": "success"
     },
     {
       "name": "Run subosito/flutter-action@v2",
-      "seconds": 30.0,
+      "seconds": 25.0,
       "conclusion": "success"
     },
     {
       "name": "Create web platform and configure iPhone PWA",
-      "seconds": 47.0,
+      "seconds": 46.0,
       "conclusion": "success"
     },
     {
@@ -76,7 +76,7 @@
     },
     {
       "name": "Run actions/upload-artifact@v4",
-      "seconds": 3.0,
+      "seconds": 2.0,
       "conclusion": "success"
     },
     {
@@ -86,7 +86,7 @@
     },
     {
       "name": "Publish development preview only (stable production remains frozen)",
-      "seconds": 17.0,
+      "seconds": 16.0,
       "conclusion": "success"
     },
     {
@@ -96,7 +96,7 @@
     },
     {
       "name": "Post Run actions/checkout@v4",
-      "seconds": 0,
+      "seconds": 1.0,
       "conclusion": "success"
     },
     {
