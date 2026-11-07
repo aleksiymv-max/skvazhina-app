@@ -1,13 +1,13 @@
 {
-  "run_id": 42394014382,
-  "head_sha": "072e1ea3ae02abc8ff05e4ade34c358303f80dbc",
+  "run_id": 42394347440,
+  "head_sha": "b15e6a085647e0e3b1b2c82b913e4d1c35fda5ea",
   "conclusion": "success",
-  "run_url": "https://github.com/aleksiymv-max/skvazhina-app/actions/runs/42394014382",
-  "started_at": "2026-11-07T16:59:15Z",
-  "updated_at": "2026-11-07T17:02:30Z",
+  "run_url": "https://github.com/aleksiymv-max/skvazhina-app/actions/runs/42394347440",
+  "started_at": "2026-11-07T17:03:03Z",
+  "updated_at": "2026-11-07T17:05:38Z",
   "artifact_available": true,
   "queue_wait_seconds": 0,
-  "total_elapsed_seconds": 195.0,
+  "total_elapsed_seconds": 155.0,
   "step_durations": [
     {
       "name": "Set up job",
@@ -21,12 +21,12 @@
     },
     {
       "name": "Approval-first registration regression",
-      "seconds": 1.0,
+      "seconds": 0,
       "conclusion": "success"
     },
     {
       "name": "Supabase compatibility endpoint preflight",
-      "seconds": 1.0,
+      "seconds": 2.0,
       "conclusion": "success"
     },
     {
@@ -46,17 +46,17 @@
     },
     {
       "name": "Run subosito/flutter-action@v2",
-      "seconds": 26.0,
+      "seconds": 22.0,
       "conclusion": "success"
     },
     {
       "name": "Create web platform and configure iPhone PWA",
-      "seconds": 40.0,
+      "seconds": 31.0,
       "conclusion": "success"
     },
     {
       "name": "Analyze and build web release",
-      "seconds": 86.0,
+      "seconds": 65.0,
       "conclusion": "success"
     },
     {
@@ -81,17 +81,17 @@
     },
     {
       "name": "Confirm Cloudflare-ready root structure",
-      "seconds": 1.0,
+      "seconds": 0,
       "conclusion": "success"
     },
     {
       "name": "Publish development preview only (stable production remains frozen)",
-      "seconds": 17.0,
+      "seconds": 15.0,
       "conclusion": "success"
     },
     {
       "name": "Post Run subosito/flutter-action@v2",
-      "seconds": 1.0,
+      "seconds": 0,
       "conclusion": "success"
     },
     {
