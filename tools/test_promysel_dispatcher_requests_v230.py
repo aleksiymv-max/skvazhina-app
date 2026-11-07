@@ -5,7 +5,6 @@ home=Path('lib/features/home/home_screen.dart').read_text()
 role=Path('lib/core/models/user.dart').read_text()
 store=Path('lib/core/services/problem_application_store.dart').read_text()
 well=Path('lib/features/wells/well_screen.dart').read_text()
-migration=Path('supabase/migrations/20261107172400_problem_dispatch_ledger_v230.sql').read_text() if Path('supabase/migrations/20261107172400_problem_dispatch_ledger_v230.sql').exists() else Path('tools/prepare_promysel_dispatcher_requests_v230.py').read_text()
 part=home[home.index(' Future<void> _showProblems() async {'):home.index(' Widget _standaloneProblemCard(')]
 detail=home[home.index(' Widget _standaloneProblemCard('):]
 checks={
