@@ -35,6 +35,9 @@ class ProblemApplicationStore extends ChangeNotifier {
  final Map<String,ProblemDispatchRecord> _pending={};
  final Map<String,ProblemDispatchRecord> _confirmed={};
  final Map<int,String> _ids={};
+ // Compatibility for older AppStateStore snapshots. Cross-device identity
+ // and the visible dispatcher UI use the stable server ledger above instead.
+ final Map<int,(String,DateTime)> data={};
  String _scope='';
  bool _loaded=false,_busy=false;
  Future<void>? _loading;
@@ -141,6 +144,7 @@ class ProblemApplicationStore extends ChangeNotifier {
   final key=await _resolveId(measurementId);
   if(key==null)throw StateError('Замер пока не готов для синхронизации');
   await _create(key);
+  data.putIfAbsent(measurementId,()=>(name,DateTime.now()));
  }
  Future<void> fileReport(String id)async{
   await ensureLoaded();
