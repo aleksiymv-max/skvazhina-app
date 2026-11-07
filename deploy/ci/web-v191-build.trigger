@@ -345,3 +345,6 @@ supabase=db migration applied, RLS verified, no existing data altered
 release=v2.27-final-dashboard-queue-warning-and-video-fallback
 source=final-7-Nov-well-problem-state-sync-and-media-token-fix
 scope=one-shot verified Flutter Web full build, existing production data preserved
+
+release=v2.27-fix-dashboard-warning-anchor-final
+scope=one-shot CI retry, source generated home indentation
