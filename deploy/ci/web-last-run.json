@@ -1,13 +1,13 @@
 {
-  "run_id": 42381816011,
-  "head_sha": "f0c34271f85359d290d31b7d2b67465fd304b134",
+  "run_id": 42382480855,
+  "head_sha": "bfeee229d6efeaa60938f124686296425b6314c0",
   "conclusion": "success",
-  "run_url": "https://github.com/aleksiymv-max/skvazhina-app/actions/runs/42381816011",
-  "started_at": "2026-11-07T14:29:19Z",
-  "updated_at": "2026-11-07T14:32:47Z",
+  "run_url": "https://github.com/aleksiymv-max/skvazhina-app/actions/runs/42382480855",
+  "started_at": "2026-11-07T14:37:37Z",
+  "updated_at": "2026-11-07T14:40:52Z",
   "artifact_available": true,
   "queue_wait_seconds": 0,
-  "total_elapsed_seconds": 208.0,
+  "total_elapsed_seconds": 195.0,
   "step_durations": [
     {
       "name": "Set up job",
@@ -26,7 +26,7 @@
     },
     {
       "name": "Supabase compatibility endpoint preflight",
-      "seconds": 2.0,
+      "seconds": 1.0,
       "conclusion": "success"
     },
     {
@@ -41,22 +41,22 @@
     },
     {
       "name": "Apply current Promysel updates",
-      "seconds": 8.0,
+      "seconds": 7.0,
       "conclusion": "success"
     },
     {
       "name": "Run subosito/flutter-action@v2",
-      "seconds": 21.0,
+      "seconds": 16.0,
       "conclusion": "success"
     },
     {
       "name": "Create web platform and configure iPhone PWA",
-      "seconds": 44.0,
+      "seconds": 46.0,
       "conclusion": "success"
     },
     {
       "name": "Analyze and build web release",
-      "seconds": 91.0,
+      "seconds": 92.0,
       "conclusion": "success"
     },
     {
@@ -66,7 +66,7 @@
     },
     {
       "name": "Probe existing Tuqo site and backend DNS HTTPS (external GitHub network only)",
-      "seconds": 2.0,
+      "seconds": 1.0,
       "conclusion": "success"
     },
     {
@@ -76,7 +76,7 @@
     },
     {
       "name": "Run actions/upload-artifact@v4",
-      "seconds": 2.0,
+      "seconds": 1.0,
       "conclusion": "success"
     },
     {
@@ -86,7 +86,7 @@
     },
     {
       "name": "Publish development preview only (stable production remains frozen)",
-      "seconds": 25.0,
+      "seconds": 20.0,
       "conclusion": "success"
     },
     {
