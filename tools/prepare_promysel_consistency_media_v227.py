@@ -18,7 +18,7 @@ methods="""  // Read-only legacy backfill. Never clear an existing device's loca
     final pads=demoPads.where((p)=>p.fieldId==fieldId).map((p)=>p.id).toList();
     if(pads.isEmpty)return <Map<String,Object?>>[];
     return (await database).query('measurements',
-      columns:['sync_uuid','remote_key','problem_resolved_at'],
+      columns:['sync_uuid','remote_key','problem_resolved_at','problem_resolved_by'],
       where:"problem_resolved=1 AND problem_note IS NOT NULL AND TRIM(problem_note) <> '' AND pad_id IN ("+
         List.filled(pads.length,'?').join(',')+")",
       whereArgs:pads);
