@@ -1,17 +1,17 @@
 {
-  "run_id": 42347539546,
-  "head_sha": "55c745e660a7cd569a360a1d2b85b39f3c82b8de",
+  "run_id": 42381816011,
+  "head_sha": "f0c34271f85359d290d31b7d2b67465fd304b134",
   "conclusion": "success",
-  "run_url": "https://github.com/aleksiymv-max/skvazhina-app/actions/runs/42347539546",
-  "started_at": "2026-11-07T06:33:25Z",
-  "updated_at": "2026-11-07T06:36:51Z",
+  "run_url": "https://github.com/aleksiymv-max/skvazhina-app/actions/runs/42381816011",
+  "started_at": "2026-11-07T14:29:19Z",
+  "updated_at": "2026-11-07T14:32:47Z",
   "artifact_available": true,
   "queue_wait_seconds": 0,
-  "total_elapsed_seconds": 206.0,
+  "total_elapsed_seconds": 208.0,
   "step_durations": [
     {
       "name": "Set up job",
-      "seconds": 2.0,
+      "seconds": 1.0,
       "conclusion": "success"
     },
     {
@@ -26,7 +26,7 @@
     },
     {
       "name": "Supabase compatibility endpoint preflight",
-      "seconds": 1.0,
+      "seconds": 2.0,
       "conclusion": "success"
     },
     {
@@ -41,22 +41,22 @@
     },
     {
       "name": "Apply current Promysel updates",
-      "seconds": 7.0,
+      "seconds": 8.0,
       "conclusion": "success"
     },
     {
       "name": "Run subosito/flutter-action@v2",
-      "seconds": 25.0,
+      "seconds": 21.0,
       "conclusion": "success"
     },
     {
       "name": "Create web platform and configure iPhone PWA",
-      "seconds": 46.0,
+      "seconds": 44.0,
       "conclusion": "success"
     },
     {
       "name": "Analyze and build web release",
-      "seconds": 93.0,
+      "seconds": 91.0,
       "conclusion": "success"
     },
     {
@@ -66,12 +66,12 @@
     },
     {
       "name": "Probe existing Tuqo site and backend DNS HTTPS (external GitHub network only)",
-      "seconds": 3.0,
+      "seconds": 2.0,
       "conclusion": "success"
     },
     {
       "name": "Package iPhone web app",
-      "seconds": 2.0,
+      "seconds": 3.0,
       "conclusion": "success"
     },
     {
@@ -86,7 +86,7 @@
     },
     {
       "name": "Publish development preview only (stable production remains frozen)",
-      "seconds": 16.0,
+      "seconds": 25.0,
       "conclusion": "success"
     },
     {
@@ -96,7 +96,7 @@
     },
     {
       "name": "Post Run actions/checkout@v4",
-      "seconds": 1.0,
+      "seconds": 0,
       "conclusion": "success"
     },
     {
