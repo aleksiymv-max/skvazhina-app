@@ -365,3 +365,6 @@ purpose=Web build with UI tap-through suffix regression
 
 release=v2.29-final-responsive-inline-suffix-and-tap-test
 scope=final full Web build; decorative comparison scales down only when space constrained
+
+release=v2.30-source-inspection-dispatcher-problems
+scope=source diagnostics, no production changes
