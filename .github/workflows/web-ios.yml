@@ -240,6 +240,7 @@ jobs:
           python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_walk_delta_style_v230.py"
           python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_dispatcher_requests_v230.py"
           python3 "$GITHUB_WORKSPACE/tools/test_promysel_dispatcher_requests_v230.py"
+          python3 "$GITHUB_WORKSPACE/tools/inspect_chat_generated_v231.py"
           python3 "$GITHUB_WORKSPACE/tools/inspect_promysel_dispatcher_v230.py"
           python3 "$GITHUB_WORKSPACE/tools/inspect_promysel_sync_video_v227.py"
           python3 "$GITHUB_WORKSPACE/tools/inspect_promysel_walk_photo_v228.py"
