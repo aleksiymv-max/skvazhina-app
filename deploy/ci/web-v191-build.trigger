@@ -397,3 +397,6 @@ backend=promysel-chat-canary-v231 plus chat reactions migration applied
 
 release=v2.31-chat-reactions-refresh-anchor-fix
 scope=retry full Flutter Web build, anchored room refresh after quick polls
+
+release=v2.31-chat-bubble-anchor-correction
+scope=retry code generation with timestamp reaction chips
