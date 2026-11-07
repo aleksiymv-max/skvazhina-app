@@ -1,17 +1,17 @@
 {
-  "run_id": 42397128177,
-  "head_sha": "f1b655d0e59d0039e99f3d477655fa33b7ee073a",
+  "run_id": 42397243318,
+  "head_sha": "ae63627a7324efa1c497b2158c2b03f2e09a1f33",
   "conclusion": "failure",
-  "run_url": "https://github.com/aleksiymv-max/skvazhina-app/actions/runs/42397128177",
-  "started_at": "2026-11-07T17:36:11Z",
-  "updated_at": "2026-11-07T17:36:24Z",
+  "run_url": "https://github.com/aleksiymv-max/skvazhina-app/actions/runs/42397243318",
+  "started_at": "2026-11-07T17:37:40Z",
+  "updated_at": "2026-11-07T17:39:29Z",
   "artifact_available": false,
   "queue_wait_seconds": 0,
-  "total_elapsed_seconds": 13.0,
+  "total_elapsed_seconds": 109.0,
   "step_durations": [
     {
       "name": "Set up job",
-      "seconds": 1.0,
+      "seconds": 2.0,
       "conclusion": "success"
     },
     {
@@ -36,28 +36,28 @@
     },
     {
       "name": "Verify preinstalled icon renderer",
-      "seconds": 0,
+      "seconds": 1.0,
       "conclusion": "success"
     },
     {
       "name": "Apply current Promysel updates",
-      "seconds": 4.0,
-      "conclusion": "failure"
+      "seconds": 8.0,
+      "conclusion": "success"
     },
     {
       "name": "Run subosito/flutter-action@v2",
-      "seconds": 0,
-      "conclusion": "skipped"
+      "seconds": 27.0,
+      "conclusion": "success"
     },
     {
       "name": "Create web platform and configure iPhone PWA",
-      "seconds": 0,
-      "conclusion": "skipped"
+      "seconds": 47.0,
+      "conclusion": "success"
     },
     {
       "name": "Analyze and build web release",
-      "seconds": 0,
-      "conclusion": "skipped"
+      "seconds": 16.0,
+      "conclusion": "failure"
     },
     {
       "name": "Add first-run account setup and Cloudflare hosting metadata",
@@ -90,8 +90,13 @@
       "conclusion": "skipped"
     },
     {
+      "name": "Post Run subosito/flutter-action@v2",
+      "seconds": 0,
+      "conclusion": "success"
+    },
+    {
       "name": "Post Run actions/checkout@v4",
-      "seconds": 1.0,
+      "seconds": 0,
       "conclusion": "success"
     },
     {
