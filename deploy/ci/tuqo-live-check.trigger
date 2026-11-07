@@ -1,4 +1,4 @@
-expected_run_id=42382480855
-expected_source_sha=bfeee229d6efeaa60938f124686296425b6314c0
-expected_version=v2.25
-reason=verify-live-task-recipient-chat-media-keyboard-hotfix-20261107
+expected_run_id=42386076766
+expected_source_sha=65c28dffc671eebaabcc8e588705e46365214360
+expected_version=v2.27
+reason=verify-live-cross-device-well-problem-state-and-video-playback-fix
