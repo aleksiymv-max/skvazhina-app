@@ -390,3 +390,7 @@ scope=regression and Flutter build for local state compatibility with new server
 
 release=v2.31-chat-generated-inspection
 scope=read-only generated source inspection before chat reaction implementation
+
+release=v2.31-chat-reactions-fast-media
+scope=Web build source patch chat reactions, delta polling, thumbnail compression, lazy video playback
+backend=promysel-chat-canary-v231 plus chat reactions migration applied
