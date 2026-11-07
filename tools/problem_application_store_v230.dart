@@ -72,7 +72,7 @@ class ProblemApplicationStore extends ChangeNotifier {
    _pending.clear();_confirmed.clear();_ids.clear();notifyListeners();
   }
   if(_loaded)return;
-  if(_loading!=null)return _loading;
+  if(_loading!=null)return _loading!;
   final task=_restore(scope);_loading=task;
   try{await task;}finally{if(identical(_loading,task))_loading=null;}
  }
