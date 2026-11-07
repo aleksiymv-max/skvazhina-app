@@ -1,13 +1,13 @@
 {
-  "run_id": 42391082529,
-  "head_sha": "704262d9b0e51e451295c4cd9864876d22934099",
+  "run_id": 42394014382,
+  "head_sha": "072e1ea3ae02abc8ff05e4ade34c358303f80dbc",
   "conclusion": "success",
-  "run_url": "https://github.com/aleksiymv-max/skvazhina-app/actions/runs/42391082529",
-  "started_at": "2026-11-07T16:23:49Z",
-  "updated_at": "2026-11-07T16:27:00Z",
+  "run_url": "https://github.com/aleksiymv-max/skvazhina-app/actions/runs/42394014382",
+  "started_at": "2026-11-07T16:59:15Z",
+  "updated_at": "2026-11-07T17:02:30Z",
   "artifact_available": true,
   "queue_wait_seconds": 0,
-  "total_elapsed_seconds": 191.0,
+  "total_elapsed_seconds": 195.0,
   "step_durations": [
     {
       "name": "Set up job",
@@ -16,12 +16,12 @@
     },
     {
       "name": "Run actions/checkout@v4",
-      "seconds": 2.0,
+      "seconds": 1.0,
       "conclusion": "success"
     },
     {
       "name": "Approval-first registration regression",
-      "seconds": 0,
+      "seconds": 1.0,
       "conclusion": "success"
     },
     {
@@ -36,7 +36,7 @@
     },
     {
       "name": "Verify preinstalled icon renderer",
-      "seconds": 0,
+      "seconds": 1.0,
       "conclusion": "success"
     },
     {
@@ -46,17 +46,17 @@
     },
     {
       "name": "Run subosito/flutter-action@v2",
-      "seconds": 16.0,
+      "seconds": 26.0,
       "conclusion": "success"
     },
     {
       "name": "Create web platform and configure iPhone PWA",
-      "seconds": 46.0,
+      "seconds": 40.0,
       "conclusion": "success"
     },
     {
       "name": "Analyze and build web release",
-      "seconds": 92.0,
+      "seconds": 86.0,
       "conclusion": "success"
     },
     {
@@ -76,7 +76,7 @@
     },
     {
       "name": "Run actions/upload-artifact@v4",
-      "seconds": 1.0,
+      "seconds": 2.0,
       "conclusion": "success"
     },
     {
@@ -86,12 +86,12 @@
     },
     {
       "name": "Publish development preview only (stable production remains frozen)",
-      "seconds": 16.0,
+      "seconds": 17.0,
       "conclusion": "success"
     },
     {
       "name": "Post Run subosito/flutter-action@v2",
-      "seconds": 0,
+      "seconds": 1.0,
       "conclusion": "success"
     },
     {
