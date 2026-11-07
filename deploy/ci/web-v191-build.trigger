@@ -368,3 +368,6 @@ scope=final full Web build; decorative comparison scales down only when space co
 
 release=v2.30-source-inspection-dispatcher-problems
 scope=source diagnostics, no production changes
+
+release=v2.30-dispatcher-roles-layout-source-diagnostics-final
+scope=only inspect generated Home exact problem action
