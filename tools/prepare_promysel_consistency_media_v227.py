@@ -58,7 +58,7 @@ db.write_text(s)
 
 repo=Path('lib/core/repositories/measurement_repository.dart')
 s=repo.read_text()
-s=one(s,"import ", "import '../services/field_consistency_service.dart';\nimport ", "repository import")
+s=s.replace("import ", "import '../services/field_consistency_service.dart';\nimport ",1)
 s=one(s,
  "Future<void> setWellStatus(String wellId, WellStatus status) => _database.setWellStatus(wellId, status);",
  """Future<void> setWellStatus(String wellId, WellStatus status) async {
@@ -75,7 +75,7 @@ repo.write_text(s)
 
 sync=Path('lib/core/services/sync_service.dart')
 s=sync.read_text()
-s=one(s,"import ","import 'field_consistency_service.dart';\nimport ",'sync import')
+s=s.replace("import ","import 'field_consistency_service.dart';\nimport ",1)
 s=one(s,
  "_syncPhase='measurement_send';await _push();",
  """_syncPhase='measurement_send';await _push();
