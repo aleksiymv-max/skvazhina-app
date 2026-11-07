@@ -1,22 +1,22 @@
 {
-  "run_id": 42390437405,
-  "head_sha": "a9c323cb01d01fef890b744262a91580178d5003",
+  "run_id": 42391082529,
+  "head_sha": "704262d9b0e51e451295c4cd9864876d22934099",
   "conclusion": "success",
-  "run_url": "https://github.com/aleksiymv-max/skvazhina-app/actions/runs/42390437405",
-  "started_at": "2026-11-07T16:16:10Z",
-  "updated_at": "2026-11-07T16:19:24Z",
+  "run_url": "https://github.com/aleksiymv-max/skvazhina-app/actions/runs/42391082529",
+  "started_at": "2026-11-07T16:23:49Z",
+  "updated_at": "2026-11-07T16:27:00Z",
   "artifact_available": true,
   "queue_wait_seconds": 0,
-  "total_elapsed_seconds": 194.0,
+  "total_elapsed_seconds": 191.0,
   "step_durations": [
     {
       "name": "Set up job",
-      "seconds": 2.0,
+      "seconds": 1.0,
       "conclusion": "success"
     },
     {
       "name": "Run actions/checkout@v4",
-      "seconds": 1.0,
+      "seconds": 2.0,
       "conclusion": "success"
     },
     {
@@ -36,27 +36,27 @@
     },
     {
       "name": "Verify preinstalled icon renderer",
-      "seconds": 2.0,
+      "seconds": 0,
       "conclusion": "success"
     },
     {
       "name": "Apply current Promysel updates",
-      "seconds": 9.0,
+      "seconds": 7.0,
       "conclusion": "success"
     },
     {
       "name": "Run subosito/flutter-action@v2",
-      "seconds": 22.0,
+      "seconds": 16.0,
       "conclusion": "success"
     },
     {
       "name": "Create web platform and configure iPhone PWA",
-      "seconds": 41.0,
+      "seconds": 46.0,
       "conclusion": "success"
     },
     {
       "name": "Analyze and build web release",
-      "seconds": 87.0,
+      "seconds": 92.0,
       "conclusion": "success"
     },
     {
@@ -71,7 +71,7 @@
     },
     {
       "name": "Package iPhone web app",
-      "seconds": 3.0,
+      "seconds": 2.0,
       "conclusion": "success"
     },
     {
@@ -81,17 +81,17 @@
     },
     {
       "name": "Confirm Cloudflare-ready root structure",
-      "seconds": 0,
+      "seconds": 1.0,
       "conclusion": "success"
     },
     {
       "name": "Publish development preview only (stable production remains frozen)",
-      "seconds": 17.0,
+      "seconds": 16.0,
       "conclusion": "success"
     },
     {
       "name": "Post Run subosito/flutter-action@v2",
-      "seconds": 1.0,
+      "seconds": 0,
       "conclusion": "success"
     },
     {
