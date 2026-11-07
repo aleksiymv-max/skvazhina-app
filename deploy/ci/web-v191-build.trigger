@@ -319,3 +319,6 @@ release=v2.26-operator-problem-form-offline-cache
 reason=Korsun Alexander is approved and field has 4 areas/4 pads; delayed local structure loads or legacy cached pads leave area and pad selectors disabled; reactivity and cached area reconstruction
 safety=do not change memberships, server records, unsent measurements, domain queues or Supabase configuration
 scope=one-shot Web DEV full Flutter build; production deploy only after CI green
+
+release=v2.26-task-chat-source-inspection-20261107
+scope=one-shot diagnostics, read-only source, no production deployment
