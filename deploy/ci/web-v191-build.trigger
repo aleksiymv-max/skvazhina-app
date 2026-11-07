@@ -334,3 +334,6 @@ scope=one-shot generated Flutter source inspection, no database mutations
 release=v2.27-cross-device-status-problems-and-video-token-refresh
 scope=read-only diagnosis + Flutter build, database migration staged separately
 safety=no deletions; per-field durable outboxes, canonical server values
+
+release=v2.27-generated-import-anchor-fix
+scope=retry one-shot Flutter build after CI Python patch
