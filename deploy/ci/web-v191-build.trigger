@@ -337,3 +337,7 @@ safety=no deletions; per-field durable outboxes, canonical server values
 
 release=v2.27-generated-import-anchor-fix
 scope=retry one-shot Flutter build after CI Python patch
+
+release=v2.27-final-verified-migration-installed-20261107
+scope=Web full build for state and video fix after seed safety adjustments
+supabase=db migration applied, RLS verified, no existing data altered
