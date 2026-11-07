@@ -1,13 +1,13 @@
 {
-  "run_id": 42394633459,
-  "head_sha": "616cc01f87e5a379dff24497aa6cf53f8e2c3195",
+  "run_id": 42395835200,
+  "head_sha": "bf020bd37c2ee5f6396460a5b03e9e2c41bca1c0",
   "conclusion": "success",
-  "run_url": "https://github.com/aleksiymv-max/skvazhina-app/actions/runs/42394633459",
-  "started_at": "2026-11-07T17:06:22Z",
-  "updated_at": "2026-11-07T17:09:25Z",
+  "run_url": "https://github.com/aleksiymv-max/skvazhina-app/actions/runs/42395835200",
+  "started_at": "2026-11-07T17:20:36Z",
+  "updated_at": "2026-11-07T17:23:29Z",
   "artifact_available": true,
   "queue_wait_seconds": 0,
-  "total_elapsed_seconds": 183.0,
+  "total_elapsed_seconds": 173.0,
   "step_durations": [
     {
       "name": "Set up job",
@@ -46,7 +46,7 @@
     },
     {
       "name": "Run subosito/flutter-action@v2",
-      "seconds": 27.0,
+      "seconds": 19.0,
       "conclusion": "success"
     },
     {
@@ -56,7 +56,7 @@
     },
     {
       "name": "Analyze and build web release",
-      "seconds": 78.0,
+      "seconds": 79.0,
       "conclusion": "success"
     },
     {
@@ -66,7 +66,7 @@
     },
     {
       "name": "Probe existing Tuqo site and backend DNS HTTPS (external GitHub network only)",
-      "seconds": 3.0,
+      "seconds": 2.0,
       "conclusion": "success"
     },
     {
@@ -86,17 +86,17 @@
     },
     {
       "name": "Publish development preview only (stable production remains frozen)",
-      "seconds": 14.0,
+      "seconds": 15.0,
       "conclusion": "success"
     },
     {
       "name": "Post Run subosito/flutter-action@v2",
-      "seconds": 1.0,
+      "seconds": 0,
       "conclusion": "success"
     },
     {
       "name": "Post Run actions/checkout@v4",
-      "seconds": 0,
+      "seconds": 1.0,
       "conclusion": "success"
     },
     {
