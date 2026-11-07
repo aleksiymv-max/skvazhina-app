@@ -1,13 +1,13 @@
 {
-  "run_id": 42382480855,
-  "head_sha": "bfeee229d6efeaa60938f124686296425b6314c0",
+  "run_id": 42383910403,
+  "head_sha": "968cdef1a7600328460332352fb10802b510e832",
   "conclusion": "success",
-  "run_url": "https://github.com/aleksiymv-max/skvazhina-app/actions/runs/42382480855",
-  "started_at": "2026-11-07T14:37:37Z",
-  "updated_at": "2026-11-07T14:40:52Z",
+  "run_url": "https://github.com/aleksiymv-max/skvazhina-app/actions/runs/42383910403",
+  "started_at": "2026-11-07T14:56:07Z",
+  "updated_at": "2026-11-07T14:59:17Z",
   "artifact_available": true,
   "queue_wait_seconds": 0,
-  "total_elapsed_seconds": 195.0,
+  "total_elapsed_seconds": 190.0,
   "step_durations": [
     {
       "name": "Set up job",
@@ -36,7 +36,7 @@
     },
     {
       "name": "Verify preinstalled icon renderer",
-      "seconds": 1.0,
+      "seconds": 0,
       "conclusion": "success"
     },
     {
@@ -46,17 +46,17 @@
     },
     {
       "name": "Run subosito/flutter-action@v2",
-      "seconds": 16.0,
+      "seconds": 17.0,
       "conclusion": "success"
     },
     {
       "name": "Create web platform and configure iPhone PWA",
-      "seconds": 46.0,
+      "seconds": 45.0,
       "conclusion": "success"
     },
     {
       "name": "Analyze and build web release",
-      "seconds": 92.0,
+      "seconds": 93.0,
       "conclusion": "success"
     },
     {
@@ -66,17 +66,17 @@
     },
     {
       "name": "Probe existing Tuqo site and backend DNS HTTPS (external GitHub network only)",
-      "seconds": 1.0,
+      "seconds": 2.0,
       "conclusion": "success"
     },
     {
       "name": "Package iPhone web app",
-      "seconds": 3.0,
+      "seconds": 2.0,
       "conclusion": "success"
     },
     {
       "name": "Run actions/upload-artifact@v4",
-      "seconds": 1.0,
+      "seconds": 2.0,
       "conclusion": "success"
     },
     {
@@ -86,7 +86,7 @@
     },
     {
       "name": "Publish development preview only (stable production remains frozen)",
-      "seconds": 20.0,
+      "seconds": 14.0,
       "conclusion": "success"
     },
     {
