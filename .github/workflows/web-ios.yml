@@ -228,7 +228,8 @@ jobs:
           python3 "$GITHUB_WORKSPACE/tools/test_promysel_measurement_history_v224.py"
           python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_sync_vpn_probe_v225.py"
           python3 "$GITHUB_WORKSPACE/tools/test_promysel_sync_vpn_probe_v225.py"
-          python3 "$GITHUB_WORKSPACE/tools/inspect_promysel_task_chat_current_v226.py"
+          python3 "$GITHUB_WORKSPACE/tools/prepare_promysel_task_chat_usability_v226.py"
+          python3 "$GITHUB_WORKSPACE/tools/test_promysel_task_chat_usability_v226.py"
           python3 "$GITHUB_WORKSPACE/tools/inspect_promysel_home_layout.py"
           cp "$GITHUB_WORKSPACE/tools/work_schedule_test.dart" test/work_schedule_test.dart
           mkdir -p test
