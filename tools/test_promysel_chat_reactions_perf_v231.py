@@ -9,7 +9,7 @@ migration=Path(__file__).parent.parent.joinpath("supabase/migrations/20261107183
 a=chat[chat.index("class _PromyselChatRoomScreenState"):]
 
 tests={
- "chat users can react to any non-deleted message":"const mine=m['sender_id']==_chat.userId;" in a and "if(m['deleted_at']!=null||id.length!=36)return;" in a,
+ "chat users can react to any non-deleted message":"final mine=m['sender_id']==_chat.userId;" in a and "if(m['deleted_at']!=null||id.length!=36)return;" in a,
  "emoji choices six":all(x in a for x in ["'👍'","'❤️'","'😂'","'😮'","'😢'","'👏'"]),
  "server reaction route":'const reactPath=' in edge and "req.method==='POST'&&reactPath" in edge,
  "server room membership validated":'const scope=await roomAccess(reactPath[1]);' in edge,
