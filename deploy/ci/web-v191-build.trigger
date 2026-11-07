@@ -351,3 +351,7 @@ scope=one-shot CI retry, source generated home indentation
 
 release=v2.28-walk-photo-source-diagnostic
 purpose=inspect generated measurement and inline photo Flutter widgets before modifications
+
+release=v2.28-prior-well-measurement-live-delta-and-ratio-chat-photos
+scope=one-shot Flutter Web full analyze test build, shared Android recipe
+safety=no schema or production data changes, preserve offline queues
