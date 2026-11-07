@@ -362,3 +362,6 @@ safety=client-only; no database schema/writes/queue changes
 
 release=v2.29-inline-delta-widget-tap-verification
 purpose=Web build with UI tap-through suffix regression
+
+release=v2.29-final-responsive-inline-suffix-and-tap-test
+scope=final full Web build; decorative comparison scales down only when space constrained
