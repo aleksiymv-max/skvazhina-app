@@ -378,3 +378,6 @@ safety=existing manufacturing data/queues unchanged
 
 release=v2.30-template-path-retry
 scope=retry source assembly with absolute script-relative path
+
+release=v2.30-fix-modal-dispatcher-listener-20261107
+scope=retry verified source assembly and Flutter build
